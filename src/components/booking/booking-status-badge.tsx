@@ -8,6 +8,7 @@ const STATUS_MAP: Record<BookingStatus, { label: string; className: string }> = 
   disputed: { label: "Disputa", className: "bg-[#e53e3e]/20 text-[#e53e3e]" },
   cancelled: { label: "Annullata", className: "bg-gray-100 text-gray-500" },
   auto_cancelled: { label: "Annullata auto", className: "bg-gray-100 text-gray-500" },
+  work_done: { label: "In attesa conferma", className: "bg-[#f6ad55] text-[#92400e]" },
 };
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {

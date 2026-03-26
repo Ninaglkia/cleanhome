@@ -34,6 +34,7 @@ export interface Booking {
   address: string | null;
   notes: string | null;
   stripe_payment_intent_id: string | null;
+  work_done_at: string | null;
   created_at: string;
   // joined
   client?: { full_name: string; avatar_url: string | null };
