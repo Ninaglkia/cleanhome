@@ -5,7 +5,12 @@ export type NotificationType =
   | "booking_accepted"
   | "booking_declined"
   | "booking_auto_cancelled"
-  | "payout_sent";
+  | "payout_sent"
+  // Phase 4 additions:
+  | "new_message"
+  | "job_completed"
+  | "booking_confirmed"
+  | "dispute_opened";
 
 interface InsertNotificationParams {
   supabase: SupabaseClient;
