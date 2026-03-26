@@ -17,9 +17,10 @@ export function StarRating({ value, count, size = "sm" }: StarRatingProps) {
           className={cn(
             iconClass,
             i <= Math.round(value)
-              ? "fill-warning text-warning"
+              ? "fill-accent text-accent"
               : "fill-muted text-muted"
           )}
+          strokeWidth={1.5}
         />
       ))}
       <span className="text-xs text-muted-foreground">

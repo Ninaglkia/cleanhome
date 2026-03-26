@@ -20,7 +20,7 @@ export function BottomNav({ role }: BottomNavProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white pb-safe shadow-[0_-1px_3px_rgba(0,0,0,0.06)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/30 bg-white pb-safe">
       <div className="flex items-center justify-around px-2 pb-1 pt-2">
         {tabs.map((tab) => {
           const isActive = tab.href === `/${role}` ? pathname === tab.href : pathname.startsWith(tab.href);
@@ -29,7 +29,7 @@ export function BottomNav({ role }: BottomNavProps) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-xs font-medium transition-all duration-200",
+                "relative flex min-h-[44px] min-w-[44px] cursor-pointer flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-xs font-medium transition-all duration-200",
                 isActive ? "text-accent" : "text-muted-foreground hover:text-primary"
               )}
             >
@@ -39,11 +39,11 @@ export function BottomNav({ role }: BottomNavProps) {
               )}>
                 <tab.icon
                   className={cn("transition-all duration-200", isActive && "text-accent")}
-                  style={{ height: "1.25rem", width: "1.25rem" }}
+                  style={{ height: "1.5rem", width: "1.5rem" }}
                   strokeWidth={isActive ? 2.5 : 1.5}
                 />
               </div>
-              <span className={cn("text-[10px] leading-tight", isActive && "font-bold")}>{tab.label}</span>
+              <span className={cn("text-xs leading-tight", isActive && "font-bold")}>{tab.label}</span>
             </Link>
           );
         })}

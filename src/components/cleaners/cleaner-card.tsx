@@ -25,7 +25,7 @@ export function CleanerCard({
       type="button"
       onClick={() => onClick(cleaner.id)}
       className={cn(
-        "flex w-full items-start gap-4 rounded-2xl bg-white text-left transition-all duration-200",
+        "flex w-full cursor-pointer items-start gap-4 rounded-2xl bg-white text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
         highlighted
           ? "shadow-md shadow-accent/10 ring-2 ring-accent scale-[1.01]"
           : "shadow-sm ring-1 ring-black/[0.04] hover:shadow-md hover:-translate-y-0.5",
@@ -36,9 +36,8 @@ export function CleanerCard({
       <div className="relative shrink-0">
         <Avatar
           className={cn(
-            "ring-2 ring-offset-2",
-            highlighted ? "ring-accent" : "ring-border/50",
-            compact ? "h-12 w-12" : "h-[72px] w-[72px]"
+            "ring-2 ring-white shadow-sm",
+            compact ? "h-12 w-12" : "h-16 w-16"
           )}
         >
           <AvatarImage src={cleaner.avatar_url ?? undefined} />
@@ -49,7 +48,7 @@ export function CleanerCard({
         {cleaner.is_available && (
           <span
             aria-label="Disponibile"
-            className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-[2.5px] border-white bg-success shadow-sm"
+            className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white bg-green-500 shadow-sm"
           />
         )}
       </div>
@@ -59,15 +58,15 @@ export function CleanerCard({
         <div className="flex items-start justify-between gap-2">
           <span
             className={cn(
-              "font-bold text-primary truncate leading-tight",
-              compact ? "text-sm" : "text-[15px]"
+              "font-semibold text-primary truncate leading-tight",
+              compact ? "text-sm" : "text-lg"
             )}
           >
             {cleaner.full_name}
           </span>
           <Badge
             className={cn(
-              "shrink-0 rounded-lg px-2 py-0.5 text-[11px] font-semibold border-0",
+              "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold border-0",
               cleaner.cleaner_type === "azienda"
                 ? "bg-primary/8 text-primary"
                 : "bg-accent/10 text-accent"
@@ -79,7 +78,7 @@ export function CleanerCard({
 
         <StarRating value={cleaner.avg_rating} count={cleaner.review_count} />
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
           <span className="flex items-center gap-1">
             <MapPin className="h-3 w-3" />
             {cleaner.city?.split(",")[0]}
@@ -89,14 +88,14 @@ export function CleanerCard({
         </div>
 
         {!compact && (
-          <p className="mt-1.5 text-lg font-bold text-accent tracking-tight">
-            €{cleaner.hourly_rate}
+          <p className="mt-1.5 text-xl font-bold text-accent tracking-tight">
+            &euro;{cleaner.hourly_rate}
             <span className="text-xs font-normal text-muted-foreground">/ora</span>
           </p>
         )}
         {compact && (
           <p className="text-sm font-bold text-accent">
-            €{cleaner.hourly_rate}<span className="text-xs font-normal text-muted-foreground">/ora</span>
+            &euro;{cleaner.hourly_rate}<span className="text-xs font-normal text-muted-foreground">/ora</span>
           </p>
         )}
       </div>

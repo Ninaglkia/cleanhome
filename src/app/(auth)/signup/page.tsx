@@ -50,20 +50,19 @@ function SignupForm() {
     <div className="flex flex-col gap-8">
       {/* Logo + heading */}
       <div className="text-center">
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 shadow-lg shadow-black/10 backdrop-blur-sm ring-1 ring-white/20">
-          <span className="font-serif text-4xl font-bold text-accent">C</span>
-        </div>
-        <h1 className="font-serif text-5xl font-bold text-white tracking-tight">CleanHome</h1>
+        <h1 className="font-serif text-5xl font-bold text-white tracking-tight">
+          Clean<span className="text-accent">Home</span>
+        </h1>
         <p className="mt-3 text-base text-white/70">
           {role === "cleaner" ? "Crea il tuo profilo pulitore" : "Crea il tuo account"}
         </p>
       </div>
 
       {/* Form card */}
-      <div className="rounded-3xl bg-white/[0.07] p-6 backdrop-blur-md ring-1 ring-white/10">
-        <form onSubmit={handleSignup} className="flex flex-col gap-4">
+      <div className="rounded-2xl bg-white p-8 shadow-xl">
+        <form onSubmit={handleSignup} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="signup-name" className="text-xs font-semibold uppercase tracking-wider text-white/50">Nome completo</label>
+            <label htmlFor="signup-name" className="text-sm font-medium text-muted-foreground">Nome completo</label>
             <input
               id="signup-name"
               type="text"
@@ -71,11 +70,11 @@ function SignupForm() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-white placeholder:text-white/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+              className="h-12 w-full rounded-xl border border-border bg-white px-4 text-primary placeholder:text-muted-foreground/50 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="signup-email" className="text-xs font-semibold uppercase tracking-wider text-white/50">Email</label>
+            <label htmlFor="signup-email" className="text-sm font-medium text-muted-foreground">Email</label>
             <input
               id="signup-email"
               type="email"
@@ -83,11 +82,11 @@ function SignupForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-white placeholder:text-white/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+              className="h-12 w-full rounded-xl border border-border bg-white px-4 text-primary placeholder:text-muted-foreground/50 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="signup-pw" className="text-xs font-semibold uppercase tracking-wider text-white/50">Password</label>
+            <label htmlFor="signup-pw" className="text-sm font-medium text-muted-foreground">Password</label>
             <input
               id="signup-pw"
               type="password"
@@ -96,16 +95,16 @@ function SignupForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-white placeholder:text-white/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+              className="h-12 w-full rounded-xl border border-border bg-white px-4 text-primary placeholder:text-muted-foreground/50 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
             />
           </div>
           {error && (
-            <p className="rounded-xl bg-red-500/15 px-4 py-2.5 text-center text-sm text-red-300 ring-1 ring-red-500/20">{error}</p>
+            <p className="rounded-xl bg-error/10 px-4 py-2.5 text-center text-sm text-error ring-1 ring-error/20">{error}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded-2xl bg-accent py-4 text-lg font-bold text-primary shadow-lg shadow-accent/25 transition-all duration-200 hover:bg-accent/90 hover:shadow-xl active:scale-[0.97] disabled:opacity-30 disabled:shadow-none"
+            className="mt-1 h-12 w-full cursor-pointer rounded-xl bg-accent text-base font-semibold text-primary shadow-md shadow-accent/20 transition-all duration-200 hover:bg-accent/90 hover:shadow-lg active:scale-[0.97] disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             {loading ? "Registrazione..." : "Registrati"}
           </button>
@@ -122,7 +121,7 @@ function SignupForm() {
 
       <p className="text-center text-sm text-white/50">
         Hai già un account?{" "}
-        <Link href="/login" className="font-semibold text-accent hover:text-accent/80 transition-colors">Accedi</Link>
+        <Link href="/login" className="cursor-pointer font-semibold text-accent hover:text-accent/80 transition-colors">Accedi</Link>
       </p>
     </div>
   );

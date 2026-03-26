@@ -52,11 +52,11 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
       </div>
 
       {/* Service */}
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] space-y-5">
+      <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/[0.04] space-y-5">
         <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Servizio</label>
+          <label className="text-sm font-medium text-muted-foreground">Servizio</label>
           <select
-            className="w-full h-12 rounded-xl bg-background px-4 text-sm text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-all cursor-pointer"
+            className="w-full h-12 cursor-pointer rounded-xl border border-border bg-white px-4 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
             value={values.service_type}
             onChange={(e) => update("service_type", e.target.value)}
           >
@@ -68,28 +68,28 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
 
         {/* Date */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data</label>
+          <label className="text-sm font-medium text-muted-foreground">Data</label>
           <input
             type="date"
             min={todayStr}
             value={values.date}
             onChange={(e) => update("date", e.target.value)}
-            className="w-full h-12 rounded-xl bg-background px-4 text-sm text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-all"
+            className="w-full h-12 cursor-pointer rounded-xl border border-border bg-white px-4 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
           />
         </div>
 
         {/* Time slot */}
         <div className="space-y-2.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Orario</label>
+          <label className="text-sm font-medium text-muted-foreground">Orario</label>
           <div className="grid grid-cols-4 gap-2">
             {TIME_SLOTS.map((slot) => (
               <button
                 key={slot}
                 onClick={() => update("time_slot", slot)}
-                className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-200 ${
+                className={`cursor-pointer rounded-full py-2.5 text-sm font-semibold transition-all duration-200 ${
                   values.time_slot === slot
                     ? "bg-accent text-white shadow-sm shadow-accent/20"
-                    : "bg-background text-primary ring-1 ring-border hover:ring-accent/40"
+                    : "border border-border bg-white text-primary hover:border-accent/40"
                 }`}
               >
                 {slot}
@@ -101,7 +101,7 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
         {/* Num rooms */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Numero stanze</label>
+            <label className="text-sm font-medium text-muted-foreground">Numero stanze</label>
             <span className="text-sm font-bold text-accent">{values.num_rooms}</span>
           </div>
           <input
@@ -110,7 +110,7 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
             max={10}
             value={values.num_rooms}
             onChange={(e) => update("num_rooms", Number(e.target.value))}
-            className="w-full accent-accent"
+            className="w-full cursor-pointer accent-accent"
           />
           <div className="flex justify-between text-[11px] text-muted-foreground">
             <span>1</span><span>10</span>
@@ -133,7 +133,7 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
       <Button
         onClick={handleSubmit}
         disabled={loading}
-        className="w-full h-14 bg-primary text-white rounded-2xl text-base font-bold shadow-md hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-40"
+        className="w-full h-14 cursor-pointer bg-primary text-white rounded-xl text-base font-semibold shadow-md transition-all duration-200 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
         {loading ? "Caricamento..." : "Continua al pagamento"}
       </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { Send } from "lucide-react";
 import { useRealtimeMessages } from "@/hooks/use-realtime-messages";
 import { usePhotoUpload } from "@/hooks/use-photo-upload";
 import { ChatMessage } from "./chat-message";
@@ -100,7 +101,7 @@ export function ChatView({
       {/* Input bar */}
       <form
         onSubmit={handleSubmit}
-        className="flex items-center gap-2.5 px-4 py-3 bg-white shadow-[0_-1px_3px_rgba(0,0,0,0.04)] pb-safe"
+        className="fixed bottom-0 left-0 right-0 flex items-center gap-2.5 border-t border-border/30 bg-white px-4 py-3 pb-safe"
       >
         <ChatPhotoInput onFile={handlePhotoFile} disabled={uploading || sending} />
         <input
@@ -108,17 +109,15 @@ export function ChatView({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Scrivi un messaggio..."
-          className="flex-1 h-11 rounded-full bg-background px-5 text-sm text-primary ring-1 ring-border outline-none focus:ring-2 focus:ring-accent transition-all placeholder:text-muted-foreground"
+          className="flex-1 h-14 rounded-full bg-background px-5 text-sm text-primary ring-1 ring-border outline-none focus:ring-2 focus:ring-accent/30 transition-all placeholder:text-muted-foreground"
           disabled={sending}
         />
         <button
           type="submit"
           disabled={sending || (!text.trim() && !uploading)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/20 disabled:opacity-30 transition-all hover:bg-accent/90 active:scale-95"
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/20 transition-all duration-200 hover:bg-accent/90 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 -rotate-45">
-            <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" />
-          </svg>
+          <Send className="h-5 w-5" strokeWidth={2} />
         </button>
       </form>
     </div>

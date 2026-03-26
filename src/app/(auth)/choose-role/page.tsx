@@ -32,17 +32,14 @@ export default function ChooseRolePage() {
     <div className="flex flex-col gap-10">
       {/* Logo + heading */}
       <div className="text-center">
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 shadow-lg shadow-black/10 backdrop-blur-sm ring-1 ring-white/20">
-          <span className="font-serif text-4xl font-bold text-accent">C</span>
-        </div>
-        <h1 className="font-serif text-5xl font-bold text-white tracking-tight">
-          CleanHome
+        <h1 className="font-serif text-5xl font-bold text-white tracking-tight md:text-6xl">
+          Clean<span className="text-accent">Home</span>
         </h1>
-        <p className="mt-3 text-base text-white/70">Come vuoi usare CleanHome?</p>
+        <p className="mt-3 text-base text-accent/80">Come vuoi usare CleanHome?</p>
       </div>
 
-      {/* Role cards */}
-      <div className="flex flex-col gap-4">
+      {/* Role cards — side by side on desktop, stacked on mobile */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
         <RoleCard title="Sono un pulitore" description="Offri i tuoi servizi di pulizia" icon="sparkles" selected={selectedRole === "cleaner"} onClick={() => setSelectedRole("cleaner")} />
         <RoleCard title="Cerco un pulitore" description="Trova chi pulisce la tua casa" icon="search" selected={selectedRole === "client"} onClick={() => setSelectedRole("client")} />
       </div>
@@ -51,7 +48,7 @@ export default function ChooseRolePage() {
       <button
         onClick={handleContinue}
         disabled={!selectedRole}
-        className="w-full rounded-2xl bg-accent py-4 text-lg font-bold text-primary shadow-lg shadow-accent/25 transition-all duration-200 hover:bg-accent/90 hover:shadow-xl hover:shadow-accent/30 active:scale-[0.97] disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"
+        className="w-full cursor-pointer rounded-xl bg-accent py-4 text-lg font-semibold text-primary shadow-md shadow-accent/25 transition-all duration-200 hover:bg-accent/90 hover:shadow-lg hover:shadow-accent/30 active:scale-[0.97] disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2"
       >
         Continua
       </button>

@@ -14,8 +14,8 @@ export function ChatMessage({ message, currentUserId }: ChatMessageProps) {
       <div
         className={`max-w-[78%] px-4 py-2.5 text-[14px] leading-relaxed ${
           isOwn
-            ? "rounded-2xl rounded-br-md bg-accent text-white shadow-sm shadow-accent/10"
-            : "rounded-2xl rounded-bl-md bg-white text-primary shadow-sm ring-1 ring-black/[0.04]"
+            ? "rounded-2xl rounded-br-sm bg-accent text-white shadow-sm shadow-accent/10"
+            : "rounded-2xl rounded-bl-sm bg-white text-primary shadow-sm ring-1 ring-black/[0.04]"
         }`}
       >
         {message.photo_url && (

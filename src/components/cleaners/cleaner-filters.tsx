@@ -44,7 +44,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
     onChange({ ...filters, [key]: value });
 
   return (
-    <div className="flex flex-col gap-3 bg-white px-4 pb-3 pt-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="flex flex-col gap-3 bg-white px-4 pb-3 pt-4 shadow-sm">
       {/* Zone search */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
@@ -52,7 +52,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
           ref={zoneInputRef}
           placeholder="Cerca zona o città..."
           defaultValue={filters.zone}
-          className="h-12 rounded-2xl border-0 bg-background pl-11 pr-4 text-sm shadow-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-accent transition-all"
+          className="h-12 rounded-xl border border-border bg-white pl-11 pr-4 text-sm shadow-sm ring-0 focus-visible:ring-2 focus-visible:ring-accent/30 transition-all"
           autoComplete="off"
         />
       </div>
@@ -65,10 +65,10 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
             type="button"
             onClick={() => set("type", opt.value)}
             className={cn(
-              "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
+              "shrink-0 cursor-pointer rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
               filters.type === opt.value
                 ? "bg-primary text-white shadow-sm"
-                : "bg-background text-muted-foreground ring-1 ring-border hover:ring-primary/30 hover:text-primary"
+                : "border border-border bg-white text-muted-foreground hover:border-primary/30 hover:text-primary"
             )}
           >
             {opt.label}
@@ -79,10 +79,10 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
           type="button"
           onClick={() => set("service", "")}
           className={cn(
-            "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
+            "shrink-0 cursor-pointer rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
             !filters.service
               ? "bg-accent text-white shadow-sm"
-              : "bg-background text-muted-foreground ring-1 ring-border hover:ring-accent/40 hover:text-primary"
+              : "border border-border bg-white text-muted-foreground hover:border-accent/40 hover:text-primary"
           )}
         >
           Tutti i servizi
@@ -93,10 +93,10 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
             type="button"
             onClick={() => set("service", s)}
             className={cn(
-              "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
+              "shrink-0 cursor-pointer rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
               filters.service === s
                 ? "bg-accent text-white shadow-sm"
-                : "bg-background text-muted-foreground ring-1 ring-border hover:ring-accent/40 hover:text-primary"
+                : "border border-border bg-white text-muted-foreground hover:border-accent/40 hover:text-primary"
             )}
           >
             {s}
@@ -108,7 +108,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
       <button
         type="button"
         onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
+        className="flex cursor-pointer items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground transition-colors duration-200 hover:text-primary"
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />
         Filtri avanzati
@@ -128,7 +128,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
               <select
                 value={filters.sortBy}
                 onChange={(e) => set("sortBy", e.target.value as Filters["sortBy"])}
-                className="rounded-xl bg-background px-3 py-1.5 text-xs font-medium text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-colors cursor-pointer"
+                className="cursor-pointer rounded-xl bg-background px-3 py-1.5 text-xs font-medium text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -150,7 +150,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
                 step={5}
                 value={[filters.maxRate]}
                 onValueChange={([v]) => set("maxRate", v)}
-                className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2 [&_[role=slider]]:border-accent [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-sm"
+                className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2 [&_[role=slider]]:border-accent [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-sm [&_[role=slider]]:cursor-pointer"
               />
             </div>
 
@@ -164,7 +164,7 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
                     type="button"
                     onClick={() => set("minRating", r)}
                     className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
+                      "cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
                       filters.minRating === r
                         ? "bg-primary text-white shadow-sm"
                         : "bg-background text-muted-foreground ring-1 ring-border hover:ring-primary/30 hover:text-primary"

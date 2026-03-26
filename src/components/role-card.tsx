@@ -23,17 +23,17 @@ export function RoleCard({ title, description, icon, selected, onClick }: RoleCa
       data-selected={selected}
       onClick={onClick}
       className={cn(
-        "group flex w-full items-center gap-5 rounded-2xl border-2 p-6 text-left transition-all duration-200",
+        "group flex w-full items-center gap-5 rounded-2xl border-2 p-6 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2",
         selected
-          ? "border-accent bg-white shadow-md shadow-accent/15 scale-[1.02]"
-          : "border-white/15 bg-white/5 backdrop-blur-sm hover:border-white/30 hover:bg-white/10"
+          ? "border-accent bg-white shadow-lg hover:shadow-xl scale-[1.02]"
+          : "border-white/15 bg-white/5 backdrop-blur-sm hover:border-white/30 hover:bg-white/10 hover:scale-[1.01]"
       )}
     >
       <div className={cn(
         "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-all duration-200",
-        selected ? "bg-accent text-white shadow-sm shadow-accent/30" : "bg-white/10 text-white/60 group-hover:bg-white/15 group-hover:text-white/80"
+        selected ? "bg-accent text-white shadow-md shadow-accent/30" : "bg-white/10 text-white/60 group-hover:bg-white/15 group-hover:text-white/80"
       )}>
-        <Icon className="h-7 w-7" />
+        <Icon className="h-7 w-7" strokeWidth={1.5} />
       </div>
       <div>
         <h3 className={cn(

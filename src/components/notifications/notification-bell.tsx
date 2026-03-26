@@ -84,10 +84,12 @@ export function NotificationBell({ role, initialUnread = 0 }: NotificationBellPr
     <Link
       href={`/${role}/notifications`}
       aria-label={`Notifiche${unread > 0 ? `, ${displayCount} non lette` : ""}`}
-      className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-accent/10"
+      className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
     >
       <Bell
-        className={cn("h-5 w-5", unread > 0 ? "text-primary" : "text-muted-foreground")}
+        className={cn("transition-colors duration-200", unread > 0 ? "text-primary" : "text-muted-foreground")}
+        style={{ height: "1.5rem", width: "1.5rem" }}
+        strokeWidth={1.5}
       />
       {unread > 0 && (
         <span className="absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 py-0.5 text-[10px] font-bold leading-none text-white">
