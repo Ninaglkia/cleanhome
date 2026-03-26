@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { Search } from "lucide-react";
+import { useRef, useState } from "react";
+import { Search, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ const RATING_OPTIONS = [0, 3, 4, 4.5];
 
 export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
   const zoneInputRef = useRef<HTMLInputElement>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   usePlacesAutocomplete({
     inputRef: zoneInputRef,
@@ -43,104 +44,48 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
     onChange({ ...filters, [key]: value });
 
   return (
-    <div className="flex flex-col gap-4 border-b border-border bg-card px-4 py-5 shadow-sm">
+    <div className="flex flex-col gap-3 bg-white px-4 pb-3 pt-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       {/* Zone search */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
+        <Search className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={zoneInputRef}
-          placeholder="Zona o città..."
+          placeholder="Cerca zona o città..."
           defaultValue={filters.zone}
-          className="pl-10 rounded-xl border-border bg-background shadow-none focus-visible:ring-accent focus-visible:ring-2 focus-visible:border-accent transition-colors"
+          className="h-12 rounded-2xl border-0 bg-background pl-11 pr-4 text-sm shadow-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-accent transition-all"
           autoComplete="off"
         />
       </div>
 
-      {/* Type chips + Sort */}
-      <div className="flex items-center gap-2">
-        <div className="flex gap-1.5">
-          {TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => set("type", opt.value)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150",
-                filters.type === opt.value
-                  ? "bg-accent text-white shadow-sm shadow-accent/30"
-                  : "bg-background border border-border text-muted-foreground hover:border-accent/50 hover:text-primary"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Sort */}
-        <select
-          value={filters.sortBy}
-          onChange={(e) => set("sortBy", e.target.value as Filters["sortBy"])}
-          className="ml-auto rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors cursor-pointer"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Price range */}
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-semibold text-primary">Tariffa max</span>
-          <span className="text-xs font-semibold text-accent bg-accent/10 px-2.5 py-0.5 rounded-full">
-            {filters.maxRate >= 200 ? "Qualsiasi" : `≤ €${filters.maxRate}/ora`}
-          </span>
-        </div>
-        <Slider
-          min={5}
-          max={200}
-          step={5}
-          value={[filters.maxRate]}
-          onValueChange={([v]) => set("maxRate", v)}
-          className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-accent [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md"
-        />
-      </div>
-
-      {/* Min rating chips */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-primary shrink-0">Min ★</span>
-        <div className="flex gap-1.5">
-          {RATING_OPTIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => set("minRating", r)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150",
-                filters.minRating === r
-                  ? "bg-accent text-white shadow-sm shadow-accent/30"
-                  : "bg-background border border-border text-muted-foreground hover:border-accent/50 hover:text-primary"
-              )}
-            >
-              {r === 0 ? "Tutti" : `${r}+`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Service filter */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+      {/* Horizontal scrollable chips: type + services */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar -mx-4 px-4">
+        {TYPE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => set("type", opt.value)}
+            className={cn(
+              "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
+              filters.type === opt.value
+                ? "bg-primary text-white shadow-sm"
+                : "bg-background text-muted-foreground ring-1 ring-border hover:ring-primary/30 hover:text-primary"
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <div className="h-5 w-px shrink-0 bg-border" />
         <button
           type="button"
           onClick={() => set("service", "")}
           className={cn(
-            "shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150",
+            "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
             !filters.service
-              ? "bg-accent text-white shadow-sm shadow-accent/30"
-              : "bg-background border border-border text-muted-foreground hover:border-accent/50 hover:text-primary"
+              ? "bg-accent text-white shadow-sm"
+              : "bg-background text-muted-foreground ring-1 ring-border hover:ring-accent/40 hover:text-primary"
           )}
         >
-          Tutti
+          Tutti i servizi
         </button>
         {ALL_SERVICES.map((s) => (
           <button
@@ -148,15 +93,90 @@ export function CleanerFilters({ filters, onChange }: CleanerFiltersProps) {
             type="button"
             onClick={() => set("service", s)}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150",
+              "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-all duration-200",
               filters.service === s
-                ? "bg-accent text-white shadow-sm shadow-accent/30"
-                : "bg-background border border-border text-muted-foreground hover:border-accent/50 hover:text-primary"
+                ? "bg-accent text-white shadow-sm"
+                : "bg-background text-muted-foreground ring-1 ring-border hover:ring-accent/40 hover:text-primary"
             )}
           >
             {s}
           </button>
         ))}
+      </div>
+
+      {/* Advanced toggle */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Filtri avanzati
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", showAdvanced && "rotate-180")} />
+      </button>
+
+      {/* Collapsible advanced filters */}
+      <div className={cn(
+        "grid transition-all duration-300 ease-in-out",
+        showAdvanced ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}>
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-4 pt-1 pb-1">
+            {/* Sort */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-primary">Ordina per</span>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => set("sortBy", e.target.value as Filters["sortBy"])}
+                className="rounded-xl bg-background px-3 py-1.5 text-xs font-medium text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-colors cursor-pointer"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price range */}
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold text-primary">Tariffa max</span>
+                <span className="text-xs font-bold text-accent">
+                  {filters.maxRate >= 200 ? "Qualsiasi" : `${filters.maxRate}/ora`}
+                </span>
+              </div>
+              <Slider
+                min={5}
+                max={200}
+                step={5}
+                value={[filters.maxRate]}
+                onValueChange={([v]) => set("maxRate", v)}
+                className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2 [&_[role=slider]]:border-accent [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-sm"
+              />
+            </div>
+
+            {/* Min rating chips */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-primary shrink-0">Valutazione min.</span>
+              <div className="flex gap-1.5">
+                {RATING_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => set("minRating", r)}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
+                      filters.minRating === r
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-background text-muted-foreground ring-1 ring-border hover:ring-primary/30 hover:text-primary"
+                    )}
+                  >
+                    {r === 0 ? "Tutti" : `${r}+`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

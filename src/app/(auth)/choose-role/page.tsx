@@ -29,33 +29,37 @@ export default function ChooseRolePage() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
+      {/* Logo + heading */}
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/20 shadow-lg shadow-accent/20">
-          <span className="font-serif text-3xl font-bold text-accent">C</span>
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 shadow-lg shadow-black/10 backdrop-blur-sm ring-1 ring-white/20">
+          <span className="font-serif text-4xl font-bold text-accent">C</span>
         </div>
-        <h1 className="font-serif text-4xl font-bold text-white tracking-tight">
+        <h1 className="font-serif text-5xl font-bold text-white tracking-tight">
           CleanHome
         </h1>
-        <p className="mt-2 text-accent/90 text-base">Come vuoi usare CleanHome?</p>
+        <p className="mt-3 text-base text-white/70">Come vuoi usare CleanHome?</p>
       </div>
 
-      <div className="flex flex-col gap-3">
+      {/* Role cards */}
+      <div className="flex flex-col gap-4">
         <RoleCard title="Sono un pulitore" description="Offri i tuoi servizi di pulizia" icon="sparkles" selected={selectedRole === "cleaner"} onClick={() => setSelectedRole("cleaner")} />
         <RoleCard title="Cerco un pulitore" description="Trova chi pulisce la tua casa" icon="search" selected={selectedRole === "client"} onClick={() => setSelectedRole("client")} />
       </div>
 
+      {/* CTA */}
       <button
         onClick={handleContinue}
         disabled={!selectedRole}
-        className="w-full rounded-2xl bg-accent py-4 text-lg font-bold text-primary shadow-lg shadow-accent/30 transition-all duration-150 hover:bg-accent/90 hover:shadow-accent/40 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+        className="w-full rounded-2xl bg-accent py-4 text-lg font-bold text-primary shadow-lg shadow-accent/25 transition-all duration-200 hover:bg-accent/90 hover:shadow-xl hover:shadow-accent/30 active:scale-[0.97] disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"
       >
         Continua
       </button>
 
+      {/* Divider */}
       <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/15" /></div>
-        <div className="relative flex justify-center"><span className="bg-primary/80 px-4 text-sm text-white/50 backdrop-blur-sm rounded-full">oppure</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+        <div className="relative flex justify-center"><span className="bg-transparent px-5 text-sm text-white/40 backdrop-blur-sm">oppure</span></div>
       </div>
 
       <SocialAuthButtons />

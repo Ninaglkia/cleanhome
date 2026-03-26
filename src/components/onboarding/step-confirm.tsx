@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -18,74 +19,79 @@ interface StepConfirmProps {
 export function StepConfirm({ draft, onBack, onComplete, submitting }: StepConfirmProps) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col items-center gap-3">
-        <Avatar className="h-20 w-20 border-2 border-accent">
+      {/* Profile hero */}
+      <div className="flex flex-col items-center gap-4 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/[0.04]">
+        <Avatar className="h-24 w-24 ring-2 ring-accent ring-offset-4">
           <AvatarImage src={draft.avatarPreview || undefined} />
-          <AvatarFallback className="bg-muted text-2xl font-semibold text-primary">
+          <AvatarFallback className="bg-gradient-to-br from-accent/20 to-accent/5 text-2xl font-bold text-accent">
             {draft.fullName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="text-center">
-          <h3 className="font-serif text-xl text-primary">{draft.fullName}</h3>
-          <p className="text-sm text-muted-foreground">{draft.city}</p>
+          <h3 className="font-serif text-2xl font-bold text-primary">{draft.fullName}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">{draft.city}</p>
         </div>
         <Badge
-          className={
+          className={cn(
+            "rounded-lg px-3 py-1 text-xs font-semibold",
             draft.cleanerType === "azienda"
-              ? "bg-primary text-white"
-              : "bg-accent/20 text-accent"
-          }
+              ? "bg-primary/8 text-primary"
+              : "bg-accent/10 text-accent"
+          )}
         >
           {draft.cleanerType === "azienda" ? "Azienda" : "Privato"}
         </Badge>
       </div>
 
-      <Separator />
-
-      <div className="flex flex-col gap-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Tariffa oraria</span>
-          <span className="font-medium text-primary">€{draft.hourlyRate}/ora</span>
+      {/* Details card */}
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] flex flex-col gap-4">
+        <div className="flex justify-between items-center py-1">
+          <span className="text-sm text-muted-foreground">Tariffa oraria</span>
+          <span className="text-base font-bold text-accent">{draft.hourlyRate}/ora</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Disponibile</span>
-          <span className={draft.isAvailable ? "text-success font-medium" : "text-muted-foreground"}>
-            {draft.isAvailable ? "Sì" : "No"}
+        <Separator className="bg-border/50" />
+        <div className="flex justify-between items-center py-1">
+          <span className="text-sm text-muted-foreground">Disponibile</span>
+          <span className={cn("text-sm font-semibold", draft.isAvailable ? "text-success" : "text-muted-foreground")}>
+            {draft.isAvailable ? "Si" : "No"}
           </span>
         </div>
+
+        {draft.services.length > 0 && (
+          <>
+            <Separator className="bg-border/50" />
+            <div className="flex flex-col gap-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Servizi</p>
+              <div className="flex flex-wrap gap-2">
+                {draft.services.map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {draft.bio && (
+          <>
+            <Separator className="bg-border/50" />
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bio</p>
+              <p className="text-sm text-primary/80 leading-relaxed">{draft.bio}</p>
+            </div>
+          </>
+        )}
       </div>
 
-      {draft.services.length > 0 && (
-        <>
-          <Separator />
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-primary">Servizi</p>
-            <div className="flex flex-wrap gap-1.5">
-              {draft.services.map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs text-accent"
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {draft.bio && (
-        <>
-          <Separator />
-          <p className="text-sm text-muted-foreground leading-relaxed">{draft.bio}</p>
-        </>
-      )}
-
       <div className="flex gap-3 mt-2">
-        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1">
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 h-13 rounded-2xl text-base font-semibold ring-1 ring-border hover:bg-background transition-colors">
           Indietro
         </Button>
-        <Button onClick={onComplete} disabled={submitting} className="flex-1 gap-2">
+        <Button onClick={onComplete} disabled={submitting} className="flex-1 h-13 gap-2 rounded-2xl bg-primary text-base font-bold text-white shadow-md hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-40">
           <CheckCircle className="h-4 w-4" />
           {submitting ? "Salvataggio..." : "Completa profilo"}
         </Button>

@@ -23,19 +23,27 @@ export function RoleCard({ title, description, icon, selected, onClick }: RoleCa
       data-selected={selected}
       onClick={onClick}
       className={cn(
-        "flex w-full flex-col items-center gap-4 rounded-2xl border-2 bg-card p-8 text-center transition-all",
-        selected ? "border-accent shadow-lg shadow-accent/20" : "border-border hover:border-accent/50"
+        "group flex w-full items-center gap-5 rounded-2xl border-2 p-6 text-left transition-all duration-200",
+        selected
+          ? "border-accent bg-white shadow-md shadow-accent/15 scale-[1.02]"
+          : "border-white/15 bg-white/5 backdrop-blur-sm hover:border-white/30 hover:bg-white/10"
       )}
     >
       <div className={cn(
-        "flex h-16 w-16 items-center justify-center rounded-full",
-        selected ? "bg-accent text-primary" : "bg-muted text-muted-foreground"
+        "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-all duration-200",
+        selected ? "bg-accent text-white shadow-sm shadow-accent/30" : "bg-white/10 text-white/60 group-hover:bg-white/15 group-hover:text-white/80"
       )}>
-        <Icon className="h-8 w-8" />
+        <Icon className="h-7 w-7" />
       </div>
       <div>
-        <h3 className="text-xl font-semibold text-primary">{title}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <h3 className={cn(
+          "text-lg font-bold transition-colors",
+          selected ? "text-primary" : "text-white"
+        )}>{title}</h3>
+        <p className={cn(
+          "mt-0.5 text-sm transition-colors",
+          selected ? "text-muted-foreground" : "text-white/50"
+        )}>{description}</p>
       </div>
     </button>
   );

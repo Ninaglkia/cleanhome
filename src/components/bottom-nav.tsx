@@ -20,8 +20,8 @@ export function BottomNav({ role }: BottomNavProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-sm pb-safe shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center justify-around py-1.5">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white pb-safe shadow-[0_-1px_3px_rgba(0,0,0,0.06)]">
+      <div className="flex items-center justify-around px-2 pb-1 pt-2">
         {tabs.map((tab) => {
           const isActive = tab.href === `/${role}` ? pathname === tab.href : pathname.startsWith(tab.href);
           return (
@@ -29,15 +29,21 @@ export function BottomNav({ role }: BottomNavProps) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "relative flex flex-col items-center gap-1 px-4 py-1.5 text-xs font-medium transition-all duration-150",
+                "relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-xs font-medium transition-all duration-200",
                 isActive ? "text-accent" : "text-muted-foreground hover:text-primary"
               )}
             >
-              {isActive && (
-                <span className="absolute -top-1.5 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-accent" />
-              )}
-              <tab.icon className={cn("h-5.5 w-5.5 transition-transform", isActive && "scale-110")} style={{ height: "1.25rem", width: "1.25rem" }} />
-              <span className={cn("text-[11px]", isActive && "font-semibold")}>{tab.label}</span>
+              <div className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
+                isActive && "bg-accent/10"
+              )}>
+                <tab.icon
+                  className={cn("transition-all duration-200", isActive && "text-accent")}
+                  style={{ height: "1.25rem", width: "1.25rem" }}
+                  strokeWidth={isActive ? 2.5 : 1.5}
+                />
+              </div>
+              <span className={cn("text-[10px] leading-tight", isActive && "font-bold")}>{tab.label}</span>
             </Link>
           );
         })}

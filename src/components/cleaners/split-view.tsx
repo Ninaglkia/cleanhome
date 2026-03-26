@@ -33,44 +33,10 @@ export function SplitView({ cleaners, loading, onCardClick }: SplitViewProps) {
 
   return (
     <div className="relative flex h-full w-full flex-col md:flex-row">
-      {/* Mobile toggle bar */}
-      <div className="flex items-center justify-center border-b border-border bg-card px-4 py-3 shadow-sm md:hidden">
-        <div className="flex rounded-xl bg-background p-1 gap-1 border border-border">
-          <button
-            type="button"
-            onClick={() => setMobileView("list")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-150",
-              mobileView === "list"
-                ? "bg-accent text-white shadow-sm"
-                : "text-muted-foreground hover:text-primary"
-            )}
-          >
-            <List className="h-4 w-4" />
-            Lista
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileView("map")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-150",
-              mobileView === "map"
-                ? "bg-accent text-white shadow-sm"
-                : "text-muted-foreground hover:text-primary"
-            )}
-          >
-            <Map className="h-4 w-4" />
-            Mappa
-          </button>
-        </div>
-      </div>
-
       {/* List panel */}
       <div
         className={[
-          // Desktop: always visible, fixed width, scrollable
           "md:w-[420px] md:flex-shrink-0 md:overflow-y-auto md:block",
-          // Mobile: toggle visibility
           mobileView === "list" ? "block flex-1 overflow-y-auto" : "hidden",
         ].join(" ")}
       >
@@ -85,9 +51,7 @@ export function SplitView({ cleaners, loading, onCardClick }: SplitViewProps) {
       {/* Map panel */}
       <div
         className={[
-          // Desktop: fills remaining space, sticky
           "md:flex-1 md:block md:sticky md:top-0 md:h-[calc(100vh-60px)]",
-          // Mobile: toggle visibility
           mobileView === "map" ? "block h-[calc(100vh-180px)]" : "hidden",
         ].join(" ")}
       >
@@ -98,6 +62,25 @@ export function SplitView({ cleaners, loading, onCardClick }: SplitViewProps) {
           onCardClick={handleCardClick}
         />
       </div>
+
+      {/* Mobile floating toggle button */}
+      <button
+        type="button"
+        onClick={() => setMobileView(mobileView === "list" ? "map" : "list")}
+        className="fixed bottom-24 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl active:scale-95 md:hidden"
+      >
+        {mobileView === "list" ? (
+          <>
+            <Map className="h-4 w-4" />
+            Mappa
+          </>
+        ) : (
+          <>
+            <List className="h-4 w-4" />
+            Lista
+          </>
+        )}
+      </button>
     </div>
   );
 }

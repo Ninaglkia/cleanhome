@@ -25,10 +25,10 @@ export function CleanerCard({
       type="button"
       onClick={() => onClick(cleaner.id)}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl border bg-card text-left transition-all duration-200",
+        "flex w-full items-start gap-4 rounded-2xl bg-white text-left transition-all duration-200",
         highlighted
-          ? "border-accent shadow-lg shadow-accent/10 scale-[1.01]"
-          : "border-border shadow-sm hover:border-accent/60 hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5",
+          ? "shadow-md shadow-accent/10 ring-2 ring-accent scale-[1.01]"
+          : "shadow-sm ring-1 ring-black/[0.04] hover:shadow-md hover:-translate-y-0.5",
         compact ? "p-3" : "p-4"
       )}
     >
@@ -36,20 +36,20 @@ export function CleanerCard({
       <div className="relative shrink-0">
         <Avatar
           className={cn(
-            "border-2",
-            highlighted ? "border-accent" : "border-border",
-            compact ? "h-11 w-11" : "h-16 w-16"
+            "ring-2 ring-offset-2",
+            highlighted ? "ring-accent" : "ring-border/50",
+            compact ? "h-12 w-12" : "h-[72px] w-[72px]"
           )}
         >
           <AvatarImage src={cleaner.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-accent/10 text-base font-bold text-accent">
+          <AvatarFallback className="bg-gradient-to-br from-accent/20 to-accent/5 text-lg font-bold text-accent">
             {cleaner.full_name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         {cleaner.is_available && (
           <span
             aria-label="Disponibile"
-            className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card bg-success shadow-sm"
+            className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-[2.5px] border-white bg-success shadow-sm"
           />
         )}
       </div>
@@ -60,17 +60,17 @@ export function CleanerCard({
           <span
             className={cn(
               "font-bold text-primary truncate leading-tight",
-              compact ? "text-sm" : "text-base"
+              compact ? "text-sm" : "text-[15px]"
             )}
           >
             {cleaner.full_name}
           </span>
           <Badge
             className={cn(
-              "shrink-0 text-xs font-semibold border-0",
+              "shrink-0 rounded-lg px-2 py-0.5 text-[11px] font-semibold border-0",
               cleaner.cleaner_type === "azienda"
-                ? "bg-primary/10 text-primary"
-                : "bg-accent/15 text-accent"
+                ? "bg-primary/8 text-primary"
+                : "bg-accent/10 text-accent"
             )}
           >
             {cleaner.cleaner_type === "azienda" ? "Azienda" : "Privato"}
@@ -79,24 +79,24 @@ export function CleanerCard({
 
         <StarRating value={cleaner.avg_rating} count={cleaner.review_count} />
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
           <span className="flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-accent/70" />
+            <MapPin className="h-3 w-3" />
             {cleaner.city?.split(",")[0]}
           </span>
-          <span className="text-border">·</span>
+          <span className="text-border/60">·</span>
           <span>{cleaner.distance_km} km</span>
         </div>
 
         {!compact && (
-          <p className="mt-1 text-base font-bold text-accent">
+          <p className="mt-1.5 text-lg font-bold text-accent tracking-tight">
             €{cleaner.hourly_rate}
             <span className="text-xs font-normal text-muted-foreground">/ora</span>
           </p>
         )}
         {compact && (
-          <p className="text-xs font-bold text-accent">
-            €{cleaner.hourly_rate}/ora
+          <p className="text-sm font-bold text-accent">
+            €{cleaner.hourly_rate}<span className="text-xs font-normal text-muted-foreground">/ora</span>
           </p>
         )}
       </div>

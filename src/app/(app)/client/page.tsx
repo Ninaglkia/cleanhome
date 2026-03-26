@@ -27,10 +27,10 @@ export default function ClientHomePage() {
   })[];
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 60px)" }}>
+    <div className="flex flex-col" style={{ height: "calc(100vh - 56px)" }}>
       <CleanerFilters filters={filters} onChange={setFilters} />
       {error && (
-        <p className="px-4 py-2 text-sm text-error">{error}</p>
+        <div className="mx-4 mt-2 rounded-xl bg-error/10 px-4 py-2.5 text-sm text-error ring-1 ring-error/20">{error}</div>
       )}
       <div className="flex-1 overflow-hidden">
         <SplitView

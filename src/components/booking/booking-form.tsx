@@ -45,70 +45,76 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
   }
 
   return (
-    <div className="space-y-6 p-4">
-      <h2 className="text-xl font-semibold text-[#1a3a35]">Prenota {cleanerName}</h2>
+    <div className="space-y-6 p-5">
+      <div>
+        <h2 className="font-serif text-2xl font-bold text-primary">Prenota</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">{cleanerName}</p>
+      </div>
 
       {/* Service */}
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[#1a3a35]">Servizio</label>
-        <select
-          className="w-full rounded-xl border border-[#e0eae8] px-3 py-2 text-sm bg-white"
-          value={values.service_type}
-          onChange={(e) => update("service_type", e.target.value)}
-        >
-          {ALL_SERVICES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Date */}
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[#1a3a35]">Data</label>
-        <input
-          type="date"
-          min={todayStr}
-          value={values.date}
-          onChange={(e) => update("date", e.target.value)}
-          className="w-full rounded-xl border border-[#e0eae8] px-3 py-2 text-sm bg-white"
-        />
-      </div>
-
-      {/* Time slot */}
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[#1a3a35]">Orario</label>
-        <div className="grid grid-cols-4 gap-2">
-          {TIME_SLOTS.map((slot) => (
-            <button
-              key={slot}
-              onClick={() => update("time_slot", slot)}
-              className={`rounded-xl border px-2 py-1.5 text-xs font-medium transition-colors ${
-                values.time_slot === slot
-                  ? "bg-[#4fc4a3] text-white border-[#4fc4a3]"
-                  : "border-[#e0eae8] text-[#1a3a35] bg-white"
-              }`}
-            >
-              {slot}
-            </button>
-          ))}
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] space-y-5">
+        <div className="space-y-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Servizio</label>
+          <select
+            className="w-full h-12 rounded-xl bg-background px-4 text-sm text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-all cursor-pointer"
+            value={values.service_type}
+            onChange={(e) => update("service_type", e.target.value)}
+          >
+            {ALL_SERVICES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      {/* Num rooms */}
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[#1a3a35]">
-          Numero stanze ({values.num_rooms})
-        </label>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          value={values.num_rooms}
-          onChange={(e) => update("num_rooms", Number(e.target.value))}
-          className="w-full accent-[#4fc4a3]"
-        />
-        <div className="flex justify-between text-xs text-[#6b7280]">
-          <span>1</span><span>10</span>
+        {/* Date */}
+        <div className="space-y-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data</label>
+          <input
+            type="date"
+            min={todayStr}
+            value={values.date}
+            onChange={(e) => update("date", e.target.value)}
+            className="w-full h-12 rounded-xl bg-background px-4 text-sm text-primary ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-accent transition-all"
+          />
+        </div>
+
+        {/* Time slot */}
+        <div className="space-y-2.5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Orario</label>
+          <div className="grid grid-cols-4 gap-2">
+            {TIME_SLOTS.map((slot) => (
+              <button
+                key={slot}
+                onClick={() => update("time_slot", slot)}
+                className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  values.time_slot === slot
+                    ? "bg-accent text-white shadow-sm shadow-accent/20"
+                    : "bg-background text-primary ring-1 ring-border hover:ring-accent/40"
+                }`}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Num rooms */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Numero stanze</label>
+            <span className="text-sm font-bold text-accent">{values.num_rooms}</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            value={values.num_rooms}
+            onChange={(e) => update("num_rooms", Number(e.target.value))}
+            className="w-full accent-accent"
+          />
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>1</span><span>10</span>
+          </div>
         </div>
       </div>
 
@@ -120,12 +126,14 @@ export function BookingForm({ cleanerId, hourlyRate, cleanerName }: BookingFormP
         />
       )}
 
-      {error && <p className="text-sm text-[#e53e3e]">{error}</p>}
+      {error && (
+        <div className="rounded-xl bg-error/10 px-4 py-2.5 text-sm text-error ring-1 ring-error/20">{error}</div>
+      )}
 
       <Button
         onClick={handleSubmit}
         disabled={loading}
-        className="w-full h-12 bg-[#1a3a35] text-white rounded-2xl font-semibold"
+        className="w-full h-14 bg-primary text-white rounded-2xl text-base font-bold shadow-md hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-40"
       >
         {loading ? "Caricamento..." : "Continua al pagamento"}
       </Button>

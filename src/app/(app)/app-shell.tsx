@@ -19,11 +19,11 @@ export function AppShell({ activeRole: initialRole, userName, children }: AppShe
   return (
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={["places"]}>
       <div className="min-h-screen bg-background pb-20">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-sm">
+        <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-5 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
           <h1 className="font-serif text-2xl font-bold tracking-tight text-primary">
             Clean<span className="text-accent">Home</span>
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <NotificationBell role={activeRole} />
             <RoleSwitch activeRole={activeRole} onSwitch={switchRole} switching={switching} />
           </div>

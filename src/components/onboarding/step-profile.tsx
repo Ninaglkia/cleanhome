@@ -44,22 +44,22 @@ export function StepProfile({ draft, setDraft, onNext }: StepProfileProps) {
     draft.cityLat !== null;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       {/* Avatar upload */}
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div className="flex flex-col items-center gap-4 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/[0.04]">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className="relative focus-visible:outline-none group"
           aria-label="Carica foto profilo"
         >
-          <Avatar className="h-24 w-24 border-2 border-dashed border-accent/50 group-hover:border-accent transition-colors">
+          <Avatar className="h-28 w-28 ring-2 ring-dashed ring-accent/30 ring-offset-4 group-hover:ring-accent/60 transition-all duration-200">
             <AvatarImage src={draft.avatarPreview || undefined} />
-            <AvatarFallback className="bg-accent/10 text-accent">
-              <Camera className="h-8 w-8" />
+            <AvatarFallback className="bg-gradient-to-br from-accent/15 to-accent/5 text-accent">
+              <Camera className="h-9 w-9" />
             </AvatarFallback>
           </Avatar>
-          <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-accent shadow-md shadow-accent/30 group-hover:bg-accent/90 transition-colors">
+          <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-accent shadow-md shadow-accent/25 group-hover:scale-110 transition-transform">
             <Camera className="h-4 w-4 text-white" />
           </span>
         </button>
@@ -70,14 +70,13 @@ export function StepProfile({ draft, setDraft, onNext }: StepProfileProps) {
           className="hidden"
           onChange={handleFileChange}
         />
-        <p className="text-xs font-medium text-muted-foreground">Tocca per aggiungere una foto</p>
+        <p className="text-xs text-muted-foreground">Tocca per aggiungere una foto</p>
       </div>
 
-      {/* Name + City in card */}
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
-        {/* Name */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="fullName" className="text-sm font-semibold text-primary">
+      {/* Name + City */}
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="fullName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Nome completo
           </label>
           <Input
@@ -85,13 +84,12 @@ export function StepProfile({ draft, setDraft, onNext }: StepProfileProps) {
             value={draft.fullName}
             onChange={(e) => setDraft({ fullName: e.target.value })}
             placeholder="Mario Rossi"
-            className="rounded-xl focus-visible:ring-accent focus-visible:ring-2"
+            className="h-12 rounded-xl border-0 bg-background ring-1 ring-border focus-visible:ring-2 focus-visible:ring-accent transition-all"
           />
         </div>
 
-        {/* City */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="city" className="text-sm font-semibold text-primary">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="city" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Città / zona
           </label>
           <Input
@@ -100,14 +98,14 @@ export function StepProfile({ draft, setDraft, onNext }: StepProfileProps) {
             defaultValue={draft.city}
             placeholder="Roma, Milano..."
             autoComplete="off"
-            className="rounded-xl focus-visible:ring-accent focus-visible:ring-2"
+            className="h-12 rounded-xl border-0 bg-background ring-1 ring-border focus-visible:ring-2 focus-visible:ring-accent transition-all"
           />
         </div>
       </div>
 
-      {/* Bio in card */}
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col gap-1.5">
-        <label htmlFor="bio" className="text-sm font-semibold text-primary">
+      {/* Bio */}
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] flex flex-col gap-2">
+        <label htmlFor="bio" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Bio
         </label>
         <textarea
@@ -120,14 +118,14 @@ export function StepProfile({ draft, setDraft, onNext }: StepProfileProps) {
           }}
           rows={4}
           placeholder="Descrivi la tua esperienza e i tuoi punti di forza..."
-          className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+          className="w-full resize-none rounded-xl border-0 bg-background px-4 py-3 text-sm text-primary ring-1 ring-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent transition-all"
         />
-        <p className="text-right text-xs text-muted-foreground">
-          {draft.bio.length} / {MAX_BIO}
+        <p className="text-right text-[11px] text-muted-foreground">
+          {draft.bio.length}/{MAX_BIO}
         </p>
       </div>
 
-      <Button onClick={onNext} disabled={!canProceed} className="mt-1 h-12 rounded-2xl text-base font-bold shadow-md">
+      <Button onClick={onNext} disabled={!canProceed} className="mt-2 h-13 rounded-2xl bg-accent text-base font-bold text-primary shadow-md shadow-accent/20 hover:bg-accent/90 transition-all active:scale-[0.98] disabled:opacity-30">
         Avanti
       </Button>
     </div>
