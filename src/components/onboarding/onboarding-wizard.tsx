@@ -91,19 +91,8 @@ export function OnboardingWizard() {
       </header>
 
       {/* Content */}
-      <main className="flex flex-1 flex-col gap-6 px-4 py-6 max-w-md mx-auto w-full">
+      <main className="flex flex-1 flex-col gap-6 px-4 py-6 max-w-lg mx-auto w-full">
         <OnboardingProgress currentStep={draft.step} totalSteps={TOTAL_STEPS} />
-
-        <div className="text-center">
-          <h2 className="font-serif text-2xl text-primary">
-            {draft.step === 1 && "Il tuo profilo"}
-            {draft.step === 2 && "Servizi e tariffa"}
-            {draft.step === 3 && "Conferma"}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Passo {draft.step} di {TOTAL_STEPS}
-          </p>
-        </div>
 
         {submitError && (
           <p className="rounded-xl bg-error/10 px-4 py-2 text-sm text-error">
