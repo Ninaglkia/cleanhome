@@ -6,6 +6,7 @@ import { CleanerServicesList } from "@/components/profile/cleaner-services-list"
 import { CleanerReviewsList } from "@/components/profile/cleaner-reviews-list";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { getReviewsForProfile, calcAverageRating } from "@/lib/supabase/reviews";
 import type { CleanerProfile } from "@/types/cleaner";
 import type { Review } from "@/components/profile/cleaner-reviews-list";
 
@@ -35,45 +36,20 @@ export default async function CleanerProfilePage({ params }: PageProps) {
 
   if (error || !profile) notFound();
 
-  // Fetch reviews with reviewer names
-  const { data: rawReviews } = await supabase
-    .from("reviews")
-    .select(
-      "id, reviewer_id, rating, comment, created_at, profiles!reviewer_id(full_name, avatar_url)"
-    )
-    .eq("reviewed_id", id)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  // Fetch reviews with reviewer names (works for both client and cleaner reviewers)
+  const rawReviews = await getReviewsForProfile(supabase, id);
 
-  type RawReview = {
-    id: string;
-    reviewer_id: string;
-    rating: number;
-    comment: string | null;
-    created_at: string;
-    profiles:
-      | { full_name: string | null; avatar_url: string | null }
-      | { full_name: string | null; avatar_url: string | null }[]
-      | null;
-  };
+  const reviews: Review[] = rawReviews.map((r) => ({
+    id: r.id,
+    reviewer_id: r.reviewer_id,
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+    reviewer_name: r.reviewer_name,
+    reviewer_avatar: r.reviewer_avatar,
+  }));
 
-  const reviews: Review[] = (rawReviews ?? []).map((r: RawReview) => {
-    const profile = Array.isArray(r.profiles) ? r.profiles[0] ?? null : r.profiles;
-    return {
-      id: r.id,
-      reviewer_id: r.reviewer_id,
-      rating: r.rating,
-      comment: r.comment,
-      created_at: r.created_at,
-      reviewer_name: profile?.full_name ?? null,
-      reviewer_avatar: profile?.avatar_url ?? null,
-    };
-  });
-
-  const avgRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
+  const avgRating = calcAverageRating(reviews);
 
   const cleaner: CleanerProfile = {
     id: profile.id,
@@ -85,7 +61,7 @@ export default async function CleanerProfilePage({ params }: PageProps) {
     hourly_rate: profile.hourly_rate,
     services: profile.services,
     is_available: profile.is_available,
-    avg_rating: Math.round(avgRating * 10) / 10,
+    avg_rating: avgRating,
     review_count: reviews.length,
     distance_km: 0, // not shown on profile page
   };
