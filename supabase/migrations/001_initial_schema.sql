@@ -10,7 +10,7 @@ create table public.profiles (
   avatar_url text,
   bio text default '',
   city text,
-  location geography(point, 4326),
+  location extensions.geography(point, 4326),
   active_role text not null default 'client' check (active_role in ('cleaner', 'client')),
   cleaner_type text check (cleaner_type in ('privato', 'azienda')),
   hourly_rate numeric(10, 2),
@@ -55,7 +55,7 @@ create trigger profiles_updated_at
   for each row execute function public.update_updated_at();
 
 -- Index for geolocation queries
-create index profiles_location_idx on public.profiles using gist (location);
+create index profiles_location_idx on public.profiles using gist ((location::extensions.geometry));
 
 -- Index for available cleaners
 create index profiles_available_cleaners_idx on public.profiles (is_available, is_banned)
@@ -332,18 +332,18 @@ as $$
     p.cleaner_type,
     p.hourly_rate,
     p.services,
-    round((st_distance(
+    round((extensions.st_distance(
       p.location,
-      st_point(user_lng, user_lat)::geography
+      extensions.st_point(user_lng, user_lat)::extensions.geography
     ) / 1000)::numeric, 1)::double precision as distance_km
   from public.profiles p
   where p.cleaner_onboarded = true
     and p.is_available = true
     and p.is_banned = false
     and p.location is not null
-    and st_dwithin(
+    and extensions.st_dwithin(
       p.location,
-      st_point(user_lng, user_lat)::geography,
+      extensions.st_point(user_lng, user_lat)::extensions.geography,
       radius_km * 1000
     )
   order by distance_km;
