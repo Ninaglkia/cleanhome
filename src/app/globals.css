@@ -18,6 +18,28 @@
   --radius-2xl: 24px;
   --font-serif: var(--font-dm-serif), serif;
   --font-sans: var(--font-dm-sans), sans-serif;
+
+  /* shadcn/ui CSS variables */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 162 37% 16%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 160 14% 90%;
+  --muted-foreground: 168 7% 45%;
+  --accent: 165 55% 54%;
+  --accent-foreground: 162 37% 16%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 168 20% 83%;
+  --input: 168 20% 83%;
+  --ring: 162 37% 16%;
+  --radius: 0.5rem;
 }
 
 * {
