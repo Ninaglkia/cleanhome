@@ -3,7 +3,6 @@ import { stripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type Stripe from "stripe";
 
-export const config = { api: { bodyParser: false } };
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
