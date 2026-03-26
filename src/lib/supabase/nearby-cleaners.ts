@@ -8,8 +8,8 @@ export async function fetchNearbyCleaners(
 ): Promise<CleanerProfile[]> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("nearby_cleaners", {
-    lat,
-    lng,
+    user_lat: lat,
+    user_lng: lng,
     radius_km: radiusKm,
   });
   if (error) throw error;
