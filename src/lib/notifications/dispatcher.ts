@@ -110,14 +110,14 @@ export async function dispatchNotification(
 
       // Prune invalid tokens
       if (staleTokens.length > 0) {
-        await supabase
+        const pruneQuery = supabase
           .from("device_tokens")
           .delete()
           .in("token", staleTokens)
-          .eq("user_id", userId)
-          .catch((err) =>
-            console.error("[dispatcher] token cleanup error:", err)
-          );
+          .eq("user_id", userId);
+        await Promise.resolve(pruneQuery).catch((err: unknown) =>
+          console.error("[dispatcher] token cleanup error:", err)
+        );
       }
     }
   }
