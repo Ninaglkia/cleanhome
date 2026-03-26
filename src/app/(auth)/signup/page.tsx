@@ -47,34 +47,65 @@ function SignupForm() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-7">
       <div className="text-center">
-        <h1 className="font-serif text-4xl text-white">CleanHome</h1>
-        <p className="mt-2 text-accent">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/20 shadow-lg shadow-accent/20">
+          <span className="font-serif text-3xl font-bold text-accent">C</span>
+        </div>
+        <h1 className="font-serif text-4xl font-bold text-white tracking-tight">CleanHome</h1>
+        <p className="mt-2 text-accent/90">
           {role === "cleaner" ? "Crea il tuo profilo pulitore" : "Crea il tuo account"}
         </p>
       </div>
 
-      <form onSubmit={handleSignup} className="flex flex-col gap-4">
-        <input type="text" placeholder="Nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="w-full rounded-xl border border-border bg-card px-4 py-3 text-primary placeholder:text-muted-foreground focus:border-accent focus:outline-none" />
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full rounded-xl border border-border bg-card px-4 py-3 text-primary placeholder:text-muted-foreground focus:border-accent focus:outline-none" />
-        <input type="password" placeholder="Password (min. 6 caratteri)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full rounded-xl border border-border bg-card px-4 py-3 text-primary placeholder:text-muted-foreground focus:border-accent focus:outline-none" />
-        {error && <p className="text-center text-sm text-error">{error}</p>}
-        <button type="submit" disabled={loading} className="w-full rounded-xl bg-accent py-4 text-lg font-semibold text-primary transition-opacity disabled:opacity-40">
+      <form onSubmit={handleSignup} className="flex flex-col gap-3">
+        <input
+          type="text"
+          placeholder="Nome completo"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-white placeholder:text-white/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all backdrop-blur-sm"
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-white placeholder:text-white/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all backdrop-blur-sm"
+        />
+        <input
+          type="password"
+          placeholder="Password (min. 6 caratteri)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-white placeholder:text-white/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all backdrop-blur-sm"
+        />
+        {error && (
+          <p className="rounded-lg bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">{error}</p>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-1 w-full rounded-2xl bg-accent py-4 text-lg font-bold text-primary shadow-lg shadow-accent/30 transition-all duration-150 hover:bg-accent/90 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+        >
           {loading ? "Registrazione..." : "Registrati"}
         </button>
       </form>
 
       <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/20" /></div>
-        <div className="relative flex justify-center"><span className="bg-primary px-4 text-sm text-white/60">oppure</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/15" /></div>
+        <div className="relative flex justify-center"><span className="bg-primary/80 px-4 text-sm text-white/50 backdrop-blur-sm rounded-full">oppure</span></div>
       </div>
 
       <SocialAuthButtons />
 
       <p className="text-center text-sm text-white/60">
-        Hai gia un account?{" "}
-        <Link href="/login" className="text-accent hover:underline">Accedi</Link>
+        Hai già un account?{" "}
+        <Link href="/login" className="font-semibold text-accent hover:underline">Accedi</Link>
       </p>
     </div>
   );

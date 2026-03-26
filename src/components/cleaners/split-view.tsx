@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Map, List } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { CleanerList } from "./cleaner-list";
 import { CleanerMap } from "./cleaner-map";
 import type { CleanerProfile } from "@/types/cleaner";
@@ -34,25 +34,35 @@ export function SplitView({ cleaners, loading, onCardClick }: SplitViewProps) {
   return (
     <div className="relative flex h-full w-full flex-col md:flex-row">
       {/* Mobile toggle bar */}
-      <div className="flex items-center justify-center gap-2 border-b border-border bg-card p-2 md:hidden">
-        <Button
-          variant={mobileView === "list" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMobileView("list")}
-          className="gap-1.5"
-        >
-          <List className="h-4 w-4" />
-          Lista
-        </Button>
-        <Button
-          variant={mobileView === "map" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMobileView("map")}
-          className="gap-1.5"
-        >
-          <Map className="h-4 w-4" />
-          Mappa
-        </Button>
+      <div className="flex items-center justify-center border-b border-border bg-card px-4 py-3 shadow-sm md:hidden">
+        <div className="flex rounded-xl bg-background p-1 gap-1 border border-border">
+          <button
+            type="button"
+            onClick={() => setMobileView("list")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-150",
+              mobileView === "list"
+                ? "bg-accent text-white shadow-sm"
+                : "text-muted-foreground hover:text-primary"
+            )}
+          >
+            <List className="h-4 w-4" />
+            Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileView("map")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-150",
+              mobileView === "map"
+                ? "bg-accent text-white shadow-sm"
+                : "text-muted-foreground hover:text-primary"
+            )}
+          >
+            <Map className="h-4 w-4" />
+            Mappa
+          </button>
+        </div>
       </div>
 
       {/* List panel */}

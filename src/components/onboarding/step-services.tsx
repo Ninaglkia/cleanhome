@@ -28,48 +28,52 @@ export function StepServices({ draft, setDraft, onNext, onBack }: StepServicesPr
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Type toggle */}
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-primary">Tipo</p>
-        <div className="flex gap-2">
-          {(["privato", "azienda"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setDraft({ cleanerType: t })}
-              className={cn(
-                "flex-1 rounded-xl border px-4 py-2 text-sm font-medium capitalize transition-colors",
-                draft.cleanerType === t
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-border bg-card text-muted-foreground"
-              )}
-            >
-              {t}
-            </button>
-          ))}
+    <div className="flex flex-col gap-5">
+      {/* Type + Rate in one card */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+        {/* Type toggle */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold text-primary">Tipo di profilo</p>
+          <div className="flex gap-2 rounded-xl bg-background p-1 border border-border">
+            {(["privato", "azienda"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setDraft({ cleanerType: t })}
+                className={cn(
+                  "flex-1 rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-all duration-150",
+                  draft.cleanerType === t
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-muted-foreground hover:text-primary"
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hourly rate */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="hourlyRate" className="text-sm font-semibold text-primary">
+            Tariffa oraria (€/ora)
+          </label>
+          <Input
+            id="hourlyRate"
+            type="number"
+            min="1"
+            max="500"
+            value={draft.hourlyRate}
+            onChange={(e) => setDraft({ hourlyRate: e.target.value })}
+            placeholder="es. 18"
+            className="rounded-xl focus-visible:ring-accent focus-visible:ring-2"
+          />
         </div>
       </div>
 
-      {/* Hourly rate */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="hourlyRate" className="text-sm font-medium text-primary">
-          Tariffa oraria (€/ora)
-        </label>
-        <Input
-          id="hourlyRate"
-          type="number"
-          min="1"
-          max="500"
-          value={draft.hourlyRate}
-          onChange={(e) => setDraft({ hourlyRate: e.target.value })}
-          placeholder="es. 18"
-        />
-      </div>
-
-      {/* Services */}
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-primary">Servizi offerti</p>
+      {/* Services in card */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+        <p className="text-sm font-semibold text-primary">Servizi offerti</p>
         <div className="flex flex-wrap gap-2">
           {ALL_SERVICES.map((service) => {
             const selected = draft.services.includes(service);
@@ -80,10 +84,10 @@ export function StepServices({ draft, setDraft, onNext, onBack }: StepServicesPr
                 aria-label={service}
                 onClick={() => toggleService(service)}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150",
                   selected
-                    ? "border-accent bg-accent text-white"
-                    : "border-border bg-card text-muted-foreground"
+                    ? "bg-accent text-white shadow-sm shadow-accent/30"
+                    : "border border-border bg-background text-muted-foreground hover:border-accent/50 hover:text-primary"
                 )}
               >
                 {service}
@@ -97,10 +101,10 @@ export function StepServices({ draft, setDraft, onNext, onBack }: StepServicesPr
       </div>
 
       {/* Availability toggle */}
-      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 shadow-sm">
         <div>
-          <p className="text-sm font-medium text-primary">Disponibile</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-semibold text-primary">Disponibile ora</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             I clienti possono prenotarti
           </p>
         </div>
@@ -110,11 +114,11 @@ export function StepServices({ draft, setDraft, onNext, onBack }: StepServicesPr
         />
       </div>
 
-      <div className="flex gap-3 mt-2">
-        <Button variant="outline" onClick={onBack} className="flex-1">
+      <div className="flex gap-3 mt-1">
+        <Button variant="outline" onClick={onBack} className="flex-1 h-12 rounded-2xl text-base font-semibold">
           Indietro
         </Button>
-        <Button onClick={onNext} disabled={!canProceed} className="flex-1">
+        <Button onClick={onNext} disabled={!canProceed} className="flex-1 h-12 rounded-2xl text-base font-bold shadow-md">
           Avanti
         </Button>
       </div>
