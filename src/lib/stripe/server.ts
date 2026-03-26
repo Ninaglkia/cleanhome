@@ -23,6 +23,6 @@ export function getStripeServer() {
 // Lazy — only throws at runtime when actually used, not at import time
 export const stripe = new Proxy({} as Stripe, {
   get(_, prop) {
-    return (getStripeServer() as Record<string | symbol, unknown>)[prop];
+    return (getStripeServer() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
