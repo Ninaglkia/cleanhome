@@ -10,7 +10,9 @@ export type NotificationType =
   | "new_message"
   | "job_completed"
   | "booking_confirmed"
-  | "dispute_opened";
+  | "dispute_opened"
+  // Phase 5 additions:
+  | "review_received";
 
 interface InsertNotificationParams {
   supabase: SupabaseClient;
