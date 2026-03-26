@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { SocialAuthButtons } from "@/components/social-auth-buttons";
 
-export default function SignupPage() {
+function SignupForm() {
   const searchParams = useSearchParams();
   const role = searchParams.get("role") || "client";
 
@@ -77,5 +77,13 @@ export default function SignupPage() {
         <Link href="/login" className="text-accent hover:underline">Accedi</Link>
       </p>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="flex flex-col gap-8 animate-pulse" />}>
+      <SignupForm />
+    </Suspense>
   );
 }
