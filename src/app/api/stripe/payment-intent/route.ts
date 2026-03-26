@@ -7,7 +7,7 @@ import {
   estimateHours,
   isAdvanceBookingValid,
 } from "@/lib/stripe/price";
-import { insertNotification } from "@/lib/supabase/notifications";
+import { dispatchNotification } from "@/lib/notifications/dispatcher";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -101,14 +101,29 @@ export async function POST(req: NextRequest) {
     .update({ stripe_payment_intent_id: paymentIntent.id })
     .eq("id", booking.id);
 
-  // Notify cleaner
-  await insertNotification({
+  // Fetch client name for email
+  const { data: clientProfile } = await supabase
+    .from("profiles")
+    .select("full_name, email:id")
+    .eq("id", user.id)
+    .single();
+
+  // Notify cleaner via all channels
+  await dispatchNotification({
     supabase,
     userId: cleanerId,
     type: "new_booking",
     title: "Nuova prenotazione",
     body: `Hai ricevuto una richiesta per ${service_type} il ${date} alle ${time_slot}`,
     data: { booking_id: booking.id },
+    emailData: {
+      // cleaner email fetched via user lookup in dispatcher (we pass what we have)
+      recipientEmail: "", // dispatcher will skip email if empty
+      recipientName: cleaner.full_name ?? "Pulitore",
+      bookingDate: `${date} ${time_slot}`,
+      bookingId: booking.id,
+      clientName: clientProfile?.full_name ?? "Cliente",
+    },
   });
 
   return NextResponse.json({

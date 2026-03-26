@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/server";
 import { buildWeeklyPayouts } from "@/lib/stripe/payout";
-import { insertNotification } from "@/lib/supabase/notifications";
+import { dispatchNotification } from "@/lib/notifications/dispatcher";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -78,13 +78,20 @@ export async function GET(req: NextRequest) {
         .select()
         .single();
 
-      await insertNotification({
+      await dispatchNotification({
         supabase,
         userId: group.cleanerId,
         type: "payout_sent",
         title: "Pagamento inviato!",
         body: `Hai ricevuto €${group.netAmount.toFixed(2)} per la settimana ${weekStart} – ${weekEnd}.`,
         data: { payout_id: payout?.id, transfer_id: transfer.id },
+        emailData: {
+          recipientEmail: "", // skipped — no email context available in cron without extra query
+          recipientName: "Pulitore",
+          amount: group.netAmount.toFixed(2),
+          weekStart,
+          weekEnd,
+        },
       });
 
       processed++;

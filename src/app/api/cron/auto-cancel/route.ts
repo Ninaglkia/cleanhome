@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/server";
-import { insertNotification } from "@/lib/supabase/notifications";
+import { dispatchNotification } from "@/lib/notifications/dispatcher";
 
 export async function GET(req: NextRequest) {
   // Verify cron secret
@@ -38,22 +38,34 @@ export async function GET(req: NextRequest) {
         .eq("id", booking.id);
 
       // Notify both parties
-      await insertNotification({
+      await dispatchNotification({
         supabase,
         userId: booking.client_id,
         type: "booking_auto_cancelled",
         title: "Prenotazione annullata",
         body: `La prenotazione del ${booking.date} è stata annullata automaticamente. Rimborso in arrivo.`,
         data: { booking_id: booking.id },
+        emailData: {
+          recipientEmail: "",
+          recipientName: "Cliente",
+          bookingDate: booking.date,
+          bookingId: booking.id,
+        },
       });
 
-      await insertNotification({
+      await dispatchNotification({
         supabase,
         userId: booking.cleaner_id,
         type: "booking_auto_cancelled",
         title: "Prenotazione annullata",
         body: `Non hai risposto in tempo. La prenotazione del ${booking.date} è stata annullata.`,
         data: { booking_id: booking.id },
+        emailData: {
+          recipientEmail: "",
+          recipientName: "Pulitore",
+          bookingDate: booking.date,
+          bookingId: booking.id,
+        },
       });
 
       cancelled++;
