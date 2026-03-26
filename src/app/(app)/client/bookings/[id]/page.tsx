@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getBookingById } from "@/lib/supabase/bookings";
 import { getMessages } from "@/lib/supabase/messages";
@@ -6,6 +7,7 @@ import { getBookingPhotos } from "@/lib/supabase/booking-photos";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { ChatView } from "@/components/chat/chat-view";
 import { CompletionConfirm } from "@/components/completion/completion-confirm";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,18 @@ export default async function ClientBookingDetailPage({ params }: PageProps) {
   const isWorkDone = booking.status === "work_done";
   const isCompleted = booking.status === "completed";
   const isDisputed = booking.status === "disputed";
+
+  // Check if client has already left a review
+  let hasReviewed = false;
+  if (isCompleted) {
+    const { data: existingReview } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("booking_id", bookingId)
+      .eq("reviewer_id", user.id)
+      .maybeSingle();
+    hasReviewed = !!existingReview;
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -73,9 +87,17 @@ export default async function ClientBookingDetailPage({ params }: PageProps) {
       )}
 
       {isCompleted && (
-        <div className="p-4 text-center space-y-2">
+        <div className="p-4 text-center space-y-3">
           <p className="text-sm font-semibold text-[#38a169]">Lavoro confermato. Grazie!</p>
-          <p className="text-xs text-[#6b7280]">Lascia una recensione al tuo pulitore.</p>
+          {hasReviewed ? (
+            <p className="text-xs text-[#6b7280]">Recensione già inviata.</p>
+          ) : (
+            <Button asChild size="sm" className="w-full">
+              <Link href={`/client/bookings/${bookingId}/review`}>
+                Lascia una recensione
+              </Link>
+            </Button>
+          )}
         </div>
       )}
 

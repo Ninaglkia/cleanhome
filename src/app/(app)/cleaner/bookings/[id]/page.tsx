@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getBookingById } from "@/lib/supabase/bookings";
 import { getMessages } from "@/lib/supabase/messages";
@@ -6,6 +7,7 @@ import { getBookingPhotos } from "@/lib/supabase/booking-photos";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { ChatView } from "@/components/chat/chat-view";
 import { CompletionUpload } from "@/components/completion/completion-upload";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,19 @@ export default async function CleanerBookingDetailPage({ params }: PageProps) {
   const isAccepted = booking.status === "accepted";
   const isWorkDone = booking.status === "work_done";
   const isCompleted = ["completed", "disputed"].includes(booking.status);
+  const isReviewable = booking.status === "completed";
+
+  // Check if cleaner has already left a review
+  let hasReviewed = false;
+  if (isReviewable) {
+    const { data: existingReview } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("booking_id", bookingId)
+      .eq("reviewer_id", user.id)
+      .maybeSingle();
+    hasReviewed = !!existingReview;
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -79,8 +94,18 @@ export default async function CleanerBookingDetailPage({ params }: PageProps) {
       )}
 
       {isCompleted && (
-        <div className="p-4 text-center text-sm text-[#6b7280]">
-          Prenotazione chiusa. Nessuna ulteriore azione richiesta.
+        <div className="p-4 text-center space-y-3">
+          <p className="text-sm text-[#6b7280]">Prenotazione chiusa.</p>
+          {isReviewable && !hasReviewed && (
+            <Button asChild size="sm" className="w-full">
+              <Link href={`/cleaner/bookings/${bookingId}/review`}>
+                Valuta il cliente
+              </Link>
+            </Button>
+          )}
+          {isReviewable && hasReviewed && (
+            <p className="text-xs text-[#6b7280]">Recensione già inviata.</p>
+          )}
         </div>
       )}
     </div>
