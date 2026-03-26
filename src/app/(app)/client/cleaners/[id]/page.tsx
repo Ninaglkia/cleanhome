@@ -45,22 +45,30 @@ export default async function CleanerProfilePage({ params }: PageProps) {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  const reviews: Review[] = (rawReviews ?? []).map((r: {
+  type RawReview = {
     id: string;
     reviewer_id: string;
     rating: number;
     comment: string | null;
     created_at: string;
-    profiles: { full_name: string | null; avatar_url: string | null } | null;
-  }) => ({
-    id: r.id,
-    reviewer_id: r.reviewer_id,
-    rating: r.rating,
-    comment: r.comment,
-    created_at: r.created_at,
-    reviewer_name: r.profiles?.full_name ?? null,
-    reviewer_avatar: r.profiles?.avatar_url ?? null,
-  }));
+    profiles:
+      | { full_name: string | null; avatar_url: string | null }
+      | { full_name: string | null; avatar_url: string | null }[]
+      | null;
+  };
+
+  const reviews: Review[] = (rawReviews ?? []).map((r: RawReview) => {
+    const profile = Array.isArray(r.profiles) ? r.profiles[0] ?? null : r.profiles;
+    return {
+      id: r.id,
+      reviewer_id: r.reviewer_id,
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at,
+      reviewer_name: profile?.full_name ?? null,
+      reviewer_avatar: profile?.avatar_url ?? null,
+    };
+  });
 
   const avgRating =
     reviews.length > 0
