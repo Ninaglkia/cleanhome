@@ -3,6 +3,7 @@ export type BookingStatus =
   | "accepted"
   | "declined"
   | "completed"
+  | "work_done"
   | "disputed"
   | "cancelled"
   | "auto_cancelled";
