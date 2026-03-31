@@ -23,12 +23,14 @@ export default function RootLayout() {
   const router = useRouter();
 
   const refreshProfile = useCallback(async () => {
-    if (!user) return;
+    if (!user) return null;
     try {
       const p = await fetchProfile(user.id);
       setProfile(p);
+      return p;
     } catch {
       setProfile(null);
+      return null;
     }
   }, [user]);
 
@@ -209,6 +211,12 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="cleaner" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="documents" />
+        <Stack.Screen name="payments" />
+        <Stack.Screen name="booking" />
+        <Stack.Screen name="chat" />
       </Stack>
     </AuthContext.Provider>
   );
