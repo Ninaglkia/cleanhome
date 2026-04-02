@@ -197,17 +197,21 @@ export default function RoleSelectionScreen() {
           <View style={styles.progressDot} />
         </View>
 
+        {/* ── Back button ── */}
+        <View style={{ paddingHorizontal: 24 }}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={20} color="#022420" />
+            <Text style={styles.backText}>Indietro</Text>
+          </Pressable>
+        </View>
+
         {/* ── CTA ── */}
-        <Pressable
-          onPress={handleNext}
-          style={({ pressed }) => [
-            styles.ctaButton,
-            pressed && styles.ctaButtonPressed,
-          ]}
-        >
-          <Text style={styles.ctaText}>Next</Text>
-          <Ionicons name="arrow-forward" size={20} color={C.accentCtaText} />
-        </Pressable>
+        <View style={styles.ctaBtnOuter}>
+          <Pressable onPress={handleNext} style={styles.ctaBtnTap}>
+            <Text style={styles.ctaText}>Avanti</Text>
+            <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -301,9 +305,9 @@ const styles = StyleSheet.create({
     borderColor: `${C.outlineVariant}1A`,
   },
   questionHeadline: {
+    // Stitch: font-headline text-3xl font-bold — Noto Serif bold, no italic
     fontSize: 28,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.primary,
     lineHeight: 34,
     letterSpacing: -0.3,
@@ -406,30 +410,40 @@ const styles = StyleSheet.create({
     backgroundColor: C.progressActive,
   },
 
+  // ── Back button ─────────────────────────────────────────────────────────────────
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#022420",
+  },
+
   // ── CTA button ─────────────────────────────────────────────────────────────────
-  ctaButton: {
+  ctaBtnOuter: {
+    height: 54,
+    backgroundColor: "#022420",
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 8,
     marginHorizontal: 24,
-    backgroundColor: C.accentCta,
-    borderRadius: 12,
-    height: 58,
+  },
+  ctaBtnTap: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  ctaButtonPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
   },
   ctaText: {
     fontSize: 17,
     fontWeight: "700",
-    color: C.accentCtaText,
+    color: "#ffffff",
     letterSpacing: 0.3,
   },
 });

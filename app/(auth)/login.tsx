@@ -15,22 +15,22 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleLogo } from "../../components/icons/GoogleLogo";
+import { AppleLogo } from "../../components/icons/AppleLogo";
 
-// ─── Design tokens (dal Stitch HTML) ──────────────────────────────────────────
+// Design tokens — Stitch login_with_social_buttons/code.html
 const C = {
-  background: "#f0f4f3",          // body bg del design HTML
-  surface: "#ffffff",             // card white
-  surfaceLow: "#f0f4f3",          // input fill
-  primary: "#022420",             // deep forest — CTA, headline
-  primaryContainer: "#1a3a35",    // decorative card bg
-  secondary: "#006b55",           // link color, focus ring
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
+  background: "#f0f4f3",         // body bg = surface-container-low
+  surface: "#ffffff",            // surface-container-lowest — card bg
+  surfaceLow: "#f0f4f3",         // surface-container-low — input bg
+  primary: "#022420",            // primary — "Bentornato" headline, CTA bg
+  primaryContainer: "#1a3a35",   // primary-container — brand header text
+  secondary: "#006b55",          // secondary — links, forgot password
+  onSurface: "#181c1c",          // on-surface — input text
+  onSurfaceVariant: "#414846",   // on-surface-variant — subtitle
+  outline: "#717976",            // outline — field labels, divider text
+  outlineVariant: "#c1c8c5",     // outline-variant — divider line
 } as const;
-
-// ─── Login Screen ─────────────────────────────────────────────────────────────
 
 export default function LoginScreen() {
   const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
@@ -56,14 +56,6 @@ export default function LoginScreen() {
     }
   }, [email, password, signInWithEmail]);
 
-  const handleTogglePassword = useCallback(() => {
-    setShowPassword((prev) => !prev);
-  }, []);
-
-  const handleRegister = useCallback(() => {
-    router.push("/(auth)/register");
-  }, [router]);
-
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
@@ -76,47 +68,51 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Top bar: brand mark ── */}
+          {/* ── Brand header: sticky-style top bar ── */}
           <View style={styles.topBar}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+              <Ionicons name="arrow-back" size={20} color="#022420" />
+              <Text style={styles.backText}>Indietro</Text>
+            </Pressable>
             <Text style={styles.brandMark}>CleanHome</Text>
           </View>
 
-          {/* ── Form card ── */}
+          {/* ── Form card: bg-surface-container-lowest, shadow ── */}
           <View style={styles.card}>
-            {/* Hero headline */}
+            {/* Hero */}
             <View style={styles.heroSection}>
               <Text style={styles.headline}>Bentornato</Text>
-              <Text style={styles.subheadline}>Accedi per gestire la tua casa</Text>
+              <Text style={styles.subheadline}>
+                Accedi per gestire la tua casa
+              </Text>
             </View>
 
-            {/* EMAIL */}
+            {/* Email field */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Email</Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.textInput}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="nome@esempio.it"
-                  placeholderTextColor={`${C.outline}80`}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+              <TextInput
+                style={styles.textInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="nome@esempio.it"
+                placeholderTextColor={`${C.outline}80`}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
             </View>
 
-            {/* PASSWORD */}
+            {/* Password field */}
             <View style={styles.fieldGroup}>
               <View style={styles.passwordLabelRow}>
                 <Text style={styles.fieldLabel}>Password</Text>
-                <Pressable hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Pressable hitSlop={8}>
                   <Text style={styles.forgotLink}>Password dimenticata?</Text>
                 </Pressable>
               </View>
-              <View style={styles.inputContainer}>
+              <View style={styles.passwordInputWrap}>
                 <TextInput
-                  style={[styles.textInput, { flex: 1 }]}
+                  style={[styles.textInput, styles.passwordTextInput]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
@@ -124,8 +120,8 @@ export default function LoginScreen() {
                   secureTextEntry={!showPassword}
                 />
                 <Pressable
-                  onPress={handleTogglePassword}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={10}
                   style={styles.eyeButton}
                 >
                   <Ionicons
@@ -137,7 +133,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* ── CTA primary ── */}
+            {/* Primary CTA — "Accedi" */}
             <Pressable
               onPress={handleLogin}
               disabled={loading}
@@ -153,57 +149,57 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            {/* ── Divider ── */}
+            {/* Divider "oppure" */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Oppure continua con</Text>
+              <Text style={styles.dividerText}>oppure</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* ── Social buttons ── */}
-            <View style={styles.socialRow}>
-              {/* Google */}
-              <Pressable
-                onPress={signInWithGoogle}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  pressed && styles.socialButtonPressed,
-                ]}
-              >
-                <Ionicons name="logo-google" size={18} color={C.onSurface} />
-                <Text style={styles.socialButtonText}>Google</Text>
-              </Pressable>
+            {/* Google button: bg-white, border #dadce0, h-48, rounded-[12px] */}
+            <Pressable
+              onPress={signInWithGoogle}
+              style={({ pressed }) => [
+                styles.googleButton,
+                pressed && { backgroundColor: "#f8f9fa" },
+              ]}
+            >
+              <GoogleLogo size={20} />
+              <Text style={styles.googleButtonText}>Accedi con Google</Text>
+            </Pressable>
 
-              {/* Apple — attivo su iOS, disabilitato su Android per layout simmetrico */}
-              <Pressable
-                onPress={Platform.OS === "ios" ? signInWithApple : undefined}
-                disabled={Platform.OS !== "ios"}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  pressed && Platform.OS === "ios" && styles.socialButtonPressed,
-                  Platform.OS !== "ios" && { opacity: 0.38 },
-                ]}
-              >
-                <Ionicons name="logo-apple" size={18} color={C.onSurface} />
-                <Text style={styles.socialButtonText}>Apple</Text>
-              </Pressable>
-            </View>
+            {/* Apple button: bg-black, h-48, rounded-[12px] */}
+            <Pressable
+              onPress={Platform.OS === "ios" ? signInWithApple : undefined}
+              disabled={Platform.OS !== "ios"}
+              style={({ pressed }) => [
+                styles.appleButton,
+                pressed && { opacity: 0.9 },
+                Platform.OS !== "ios" && { opacity: 0.4 },
+              ]}
+            >
+              <AppleLogo size={20} color="#ffffff" />
+              <Text style={styles.appleButtonText}>Accedi con Apple</Text>
+            </Pressable>
 
-            {/* ── Register link ── */}
+            {/* Register link */}
             <View style={styles.registerRow}>
-              <Text style={styles.registerText}>Non hai ancora un account? </Text>
+              <Text style={styles.registerText}>
+                Non hai ancora un account?{" "}
+              </Text>
               <Pressable
-                onPress={handleRegister}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                onPress={() => router.push("/(auth)/register")}
+                hitSlop={8}
               >
                 <Text style={styles.registerLink}>Registrati ora</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* ── Footer copyright ── */}
+          {/* Footer copyright */}
           <Text style={styles.copyright}>
-            © 2025 CleanHome. Tutti i diritti riservati. La tua privacy è la nostra priorità.
+            © 2024 CleanHome. Tutti i diritti riservati. La tua privacy è la
+            nostra priorità.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -221,23 +217,34 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  // ── Top bar ──────────────────────────────────────────────────────────────────
+  // ── Top bar (brand) ───────────────────────────────────────────────────────
   topBar: {
     paddingHorizontal: 24,
     paddingTop: Platform.OS === "ios" ? 60 : 48,
     paddingBottom: 16,
-    alignItems: "center",
+    backgroundColor: C.background,
   },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#022420",
+  },
+  // Noto Serif, font-black, text-2xl, color #1a3a35
   brandMark: {
-    // Simula "Noto Serif" font con italic bold
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "900",
-    fontStyle: "italic",
     color: C.primaryContainer,
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
   },
 
-  // ── Card ──────────────────────────────────────────────────────────────────────
+  // ── Card: bg-surface-container-lowest, p-8 md:p-12, rounded-lg, shadow ───
   card: {
     marginHorizontal: 16,
     backgroundColor: C.surface,
@@ -252,29 +259,30 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // ── Hero ──────────────────────────────────────────────────────────────────────
+  // ── Hero ──────────────────────────────────────────────────────────────────
   heroSection: {
     marginBottom: 28,
   },
+  // DM Serif Display, text-5xl (#022420) — fontSize 48, fontWeight "700"
   headline: {
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.primary,
     letterSpacing: -0.5,
     marginBottom: 6,
   },
+  // text-lg text-on-surface-variant
   subheadline: {
-    fontSize: 16,
-    fontWeight: "400",
+    fontSize: 18,
     color: C.onSurfaceVariant,
-    lineHeight: 22,
+    lineHeight: 26,
   },
 
-  // ── Form fields ───────────────────────────────────────────────────────────────
+  // ── Fields ────────────────────────────────────────────────────────────────
   fieldGroup: {
     marginBottom: 20,
   },
+  // text-[10px] font-bold uppercase tracking-widest text-outline (#717976)
   fieldLabel: {
     fontSize: 10,
     fontWeight: "700",
@@ -291,6 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 2,
   },
+  // text-[10px] font-bold uppercase tracking-widest text-secondary
   forgotLink: {
     fontSize: 10,
     fontWeight: "700",
@@ -298,61 +307,71 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  inputContainer: {
-    backgroundColor: C.surfaceLow,
-    borderRadius: 14,
-    height: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
+  // bg-surface-container-low border-none rounded-md px-5 py-4
   textInput: {
-    flex: 1,
+    backgroundColor: C.surfaceLow,
+    borderRadius: 12,
+    height: 56,
+    paddingHorizontal: 20,
     fontSize: 15,
     color: C.onSurface,
-    paddingVertical: 0,
+  },
+  // Password input: row with eye toggle
+  passwordInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.surfaceLow,
+    borderRadius: 12,
+    height: 56,
+    paddingHorizontal: 20,
+  },
+  passwordTextInput: {
+    backgroundColor: "transparent",
+    flex: 1,
+    paddingHorizontal: 0,
+    height: "100%",
   },
   eyeButton: {
     paddingLeft: 8,
   },
 
-  // ── CTA ────────────────────────────────────────────────────────────────────────
+  // ── Primary CTA — bg-primary, py-5, rounded-lg, text-lg, shadow-lg ───────
   primaryButton: {
     backgroundColor: C.primary,
-    borderRadius: 14,
-    height: 56,
+    borderRadius: 16,
+    height: 58,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 4,
-    marginBottom: 32,
+    marginBottom: 28,
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.1,
     shadowRadius: 14,
     elevation: 6,
   },
   primaryButtonPressed: {
-    opacity: 0.92,
+    opacity: 0.95,
     transform: [{ scale: 0.98 }],
   },
   primaryButtonText: {
     color: "#ffffff",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    letterSpacing: 0.2,
   },
 
-  // ── Divider ───────────────────────────────────────────────────────────────────
+  // ── Divider ───────────────────────────────────────────────────────────────
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: `${C.outlineVariant}4D`, // ~30% opacity
+    backgroundColor: `${C.outlineVariant}4D`,
   },
+  // text-[10px] font-bold uppercase tracking-widest text-outline
   dividerText: {
     marginHorizontal: 14,
     fontSize: 10,
@@ -362,44 +381,51 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // ── Social buttons ─────────────────────────────────────────────────────────────
-  socialRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 32,
-  },
-  socialButton: {
-    flex: 1,
+  // ── Google button: bg-white, border #dadce0, h-[48px], rounded-[12px] ────
+  googleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    borderRadius: 14,
-    height: 52,
+    gap: 12,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: `${C.outlineVariant}4D`,
-    backgroundColor: "transparent",
+    borderColor: "#dadce0",
+    marginBottom: 12,
   },
-  socialButtonPressed: {
-    backgroundColor: C.surfaceLow,
-  },
-  socialButtonText: {
+  googleButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: C.onSurface,
+    color: "#333333",
   },
 
-  // ── Register link ──────────────────────────────────────────────────────────────
+  // ── Apple button: bg-black, h-[48px], rounded-[12px] ─────────────────────
+  appleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#000000",
+    marginBottom: 28,
+  },
+  appleButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+
+  // ── Register link ─────────────────────────────────────────────────────────
   registerRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    flexWrap: "wrap",
   },
   registerText: {
     fontSize: 14,
     color: C.onSurfaceVariant,
-    lineHeight: 20,
   },
   registerLink: {
     fontSize: 14,
@@ -407,7 +433,7 @@ const styles = StyleSheet.create({
     color: C.secondary,
   },
 
-  // ── Footer ─────────────────────────────────────────────────────────────────────
+  // ── Footer ────────────────────────────────────────────────────────────────
   copyright: {
     textAlign: "center",
     fontSize: 11,
