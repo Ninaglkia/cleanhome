@@ -41,16 +41,32 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = useCallback(async () => {
-    if (!email || !password) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
       Alert.alert("Errore", "Inserisci email e password");
+      return;
+    }
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      Alert.alert("Email non valida", "Controlla l'indirizzo email inserito");
       return;
     }
     setLoading(true);
     try {
-      await signInWithEmail(email, password);
+      await signInWithEmail(trimmedEmail, password);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Login fallito";
-      Alert.alert("Errore", message);
+      const raw = err instanceof Error ? err.message : "Login fallito";
+      // Translate common Supabase auth errors to friendly Italian
+      let friendly = raw;
+      if (raw.includes("Invalid login credentials")) {
+        friendly = "Email o password errati";
+      } else if (raw.includes("Email not confirmed")) {
+        friendly =
+          "Email non confermata. Controlla la tua casella per il link di verifica.";
+      } else if (raw.toLowerCase().includes("network")) {
+        friendly = "Connessione non disponibile. Riprova.";
+      }
+      Alert.alert("Errore", friendly);
     } finally {
       setLoading(false);
     }

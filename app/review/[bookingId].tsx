@@ -66,6 +66,21 @@ export default function ReviewScreen() {
       Alert.alert("Valutazione mancante", "Seleziona da 1 a 5 stelle");
       return;
     }
+    // Defensive client check — RLS does its own server-side check.
+    if (user.id !== booking.client_id) {
+      Alert.alert(
+        "Non autorizzato",
+        "Solo il cliente che ha effettuato la prenotazione può lasciare una recensione."
+      );
+      return;
+    }
+    if (booking.status !== "completed" && booking.status !== "work_done") {
+      Alert.alert(
+        "Lavoro non completato",
+        "Puoi lasciare una recensione solo dopo che il lavoro è stato completato."
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       await submitReview(

@@ -137,24 +137,41 @@ export default function RegisterScreen() {
   }, []);
 
   const handleRegister = useCallback(async () => {
-    if (!fullName.trim()) {
-      Alert.alert("Errore", "Inserisci il tuo nome completo");
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (trimmedName.length < 2) {
+      Alert.alert("Errore", "Inserisci il tuo nome completo (min. 2 caratteri)");
       return;
     }
-    if (!email.trim()) {
-      Alert.alert("Errore", "Inserisci la tua email");
+    // RFC 5322 simplified — good enough to catch typos client-side
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      Alert.alert("Email non valida", "Controlla l'indirizzo email inserito");
       return;
     }
-    if (password.length < 6) {
-      Alert.alert("Errore", "La password deve avere almeno 6 caratteri");
+    if (password.length < 8) {
+      Alert.alert(
+        "Password troppo corta",
+        "Usa almeno 8 caratteri per proteggere il tuo account"
+      );
+      return;
+    }
+    // Require at least one letter and one digit — simple but effective
+    // check that prevents the worst passwords without being annoying.
+    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      Alert.alert(
+        "Password debole",
+        "La password deve contenere almeno una lettera e un numero"
+      );
       return;
     }
     setLoading(true);
     try {
-      await signUpWithEmail(email.trim(), password, fullName.trim());
+      await signUpWithEmail(trimmedEmail, password, trimmedName);
       Alert.alert(
         "Registrazione completata",
-        "Controlla la tua email per confermare l'account"
+        "Ti abbiamo inviato un'email di conferma. Apri il link nella tua casella per attivare l'account."
       );
       router.back();
     } catch (err: unknown) {

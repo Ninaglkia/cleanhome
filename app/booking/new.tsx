@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -303,6 +303,37 @@ export default function NewBookingScreen() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
 
+  // Block the booking flow up-front if the cleaner doesn't have an
+  // active Stripe Connect account. Without it the payment intent
+  // can't have a transfer destination and the edge function fails
+  // mid-flow with a confusing error. Better to fail fast and tell
+  // the user to choose another cleaner.
+  const [cleanerStripeReady, setCleanerStripeReady] = useState<
+    boolean | null
+  >(null); // null = checking
+  useEffect(() => {
+    if (!cleanerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("cleaner_profiles")
+          .select("stripe_onboarding_complete, stripe_charges_enabled")
+          .eq("id", cleanerId)
+          .maybeSingle();
+        if (cancelled) return;
+        setCleanerStripeReady(
+          !!data?.stripe_onboarding_complete && !!data?.stripe_charges_enabled
+        );
+      } catch {
+        if (!cancelled) setCleanerStripeReady(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cleanerId]);
+
   const rate = parseFloat(hourlyRate || "25");
   const estimatedHours = Math.max(1, numRooms * 0.75);
   const basePrice = rate * estimatedHours;
@@ -324,10 +355,12 @@ export default function NewBookingScreen() {
   }, [selectedWindow]);
 
   const canProceed = useCallback((): boolean => {
+    // Block the entire flow if the cleaner can't accept payments
+    if (cleanerStripeReady === false) return false;
     if (step === 0) return !!selectedDate && !!selectedWindow;
     if (step === 1) return numRooms > 0 && !!address.trim();
     return true;
-  }, [step, selectedDate, selectedWindow, numRooms, address]);
+  }, [step, selectedDate, selectedWindow, numRooms, address, cleanerStripeReady]);
 
   const handleSubmit = useCallback(async () => {
     if (!user || !cleanerId || !selectedDate || !selectedWindow) return;
@@ -695,6 +728,40 @@ export default function NewBookingScreen() {
         <Text style={s.priceBarLabel}>Stima totale</Text>
         <Text style={s.priceBarValue}>€{totalPrice.toFixed(0)}</Text>
       </View>
+
+      {/* Cleaner-not-payable banner */}
+      {cleanerStripeReady === false && (
+        <View
+          style={{
+            marginHorizontal: 20,
+            marginTop: 12,
+            padding: 14,
+            borderRadius: 14,
+            backgroundColor: "#fef3c7",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 10,
+          }}
+        >
+          <Ionicons
+            name="alert-circle"
+            size={20}
+            color="#b45309"
+            style={{ marginTop: 1 }}
+          />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{ fontSize: 13, fontWeight: "800", color: "#b45309", marginBottom: 2 }}
+            >
+              Questo professionista non può ancora ricevere pagamenti
+            </Text>
+            <Text style={{ fontSize: 12, color: "#92400e", lineHeight: 17 }}>
+              Sta completando la verifica Stripe. Riprova più tardi o scegli un
+              altro professionista nella mappa.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <ScrollView
         style={{ flex: 1 }}
