@@ -128,41 +128,56 @@ export async function removePushToken(userId: string) {
 }
 
 /**
- * Send a push notification via Supabase Edge Function.
- * Call this from the app when a booking is created, accepted, etc.
+ * Send a push notification via the `send-push-notification` Edge Function.
+ *
+ * All delivery goes through the server so that:
+ *   - Push tokens are never exposed to clients (profiles.expo_push_token
+ *     SELECT is restricted to the owner only)
+ *   - The sender is authenticated and must be a party on the booking
+ *   - We can later add rate limiting, templating, and audit logging in
+ *     one place
+ *
+ * All notifications are booking-scoped — booking_id is required.
+ * Non-booking notifications (marketing, system-wide) should use a
+ * dedicated endpoint, not this function.
  */
 export async function sendPushNotification(
   targetUserId: string,
   title: string,
   body: string,
   data?: Record<string, string>
-) {
-  // Fetch target user's push token
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("expo_push_token")
-    .eq("id", targetUserId)
-    .maybeSingle();
+): Promise<void> {
+  // booking_id and optional screen are passed through in `data`. We
+  // forward them as top-level fields for the edge function.
+  const bookingId = data?.bookingId ?? data?.booking_id;
+  const screen = data?.screen;
 
-  if (error || !profile?.expo_push_token) {
+  if (!bookingId) {
+    // Without a booking_id the edge function will reject the call.
+    // Log and skip — not a crash, just a no-op.
+    if (__DEV__) {
+      console.warn(
+        "[sendPushNotification] called without bookingId, skipping",
+        { targetUserId, title }
+      );
+    }
     return;
   }
 
-  // Send via Expo Push API
-  await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      to: profile.expo_push_token,
-      title,
-      body,
-      sound: "default",
-      data: data ?? {},
-      priority: "high",
-    }),
-  });
+  try {
+    await supabase.functions.invoke("send-push-notification", {
+      body: {
+        recipient_id: targetUserId,
+        title,
+        body,
+        booking_id: bookingId,
+        screen,
+        data,
+      },
+    });
+  } catch {
+    // Silent — delivery failures should not break the calling flow
+  }
 }
 
 /**
