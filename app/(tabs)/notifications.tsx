@@ -9,12 +9,27 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
+
+// ─── Design tokens (Stitch) ───────────────────────────────────────────────────
+
+const C = {
+  background: "#f6faf9",
+  surface: "#ffffff",
+  surfaceLow: "#f0f4f3",
+  surfaceContainerHigh: "#e5e9e8",
+  surfaceVariant: "#dfe3e2",
+  primary: "#022420",
+  secondary: "#006b55",
+  onSurface: "#181c1c",
+  onSurfaceVariant: "#414846",
+  outline: "#717976",
+  outlineVariant: "#c1c8c5",
+} as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NotificationType = "booking" | "message" | "service";
-type NotificationTab = "bookings" | "messages";
+type NotificationType = "booking" | "message" | "system";
+type NotificationFilter = "all" | "bookings" | "messages" | "system";
 
 interface AppNotification {
   id: string;
@@ -23,153 +38,123 @@ interface AppNotification {
   description: string;
   timestamp: string;
   isRead: boolean;
-  tab: NotificationTab;
+  actionLabel?: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: "1",
-    type: "booking",
-    title: "Prenotazione Confermata",
-    description: "La tua pulizia ordinaria per il 15 aprile è stata confermata da Elena R.",
-    timestamp: "2 min fa",
-    isRead: false,
-    tab: "bookings",
-  },
-  {
-    id: "2",
-    type: "booking",
-    title: "Aggiornamento Servizio",
-    description: "Il tuo appuntamento del 12 aprile è stato completato. Lascia una recensione!",
-    timestamp: "1 ora fa",
-    isRead: false,
-    tab: "bookings",
-  },
-  {
-    id: "3",
-    type: "booking",
-    title: "Promemoria Prenotazione",
-    description: "Domani alle 10:00 hai la pulizia profonda. Assicurati di essere a casa.",
-    timestamp: "3 ore fa",
-    isRead: true,
-    tab: "bookings",
-  },
-  {
-    id: "4",
-    type: "booking",
-    title: "Richiesta Accettata",
-    description: "Marco B. ha accettato la tua richiesta per il servizio di stiratura.",
-    timestamp: "ieri",
-    isRead: true,
-    tab: "bookings",
-  },
-  {
-    id: "5",
-    type: "message",
-    title: "Nuovo Messaggio da Elena R.",
-    description: "Ciao! Confermo la mia presenza per domani mattina alle 10:00.",
-    timestamp: "5 min fa",
-    isRead: false,
-    tab: "messages",
-  },
-  {
-    id: "6",
-    type: "message",
-    title: "Nuovo Messaggio da Marco B.",
-    description: "Ho portato tutti i prodotti necessari. Ci vediamo giovedì!",
-    timestamp: "2 ore fa",
-    isRead: false,
-    tab: "messages",
-  },
-  {
-    id: "7",
-    type: "message",
-    title: "Nuovo Messaggio da Sofia G.",
-    description: "Potresti indicarmi il codice del palazzo? Grazie mille.",
-    timestamp: "ieri",
-    isRead: true,
-    tab: "messages",
-  },
-  {
-    id: "8",
-    type: "service",
-    title: "Aggiornamento Servizio",
-    description: "CleanHome ha aggiunto nuovi professionisti nella tua zona. Scoprili ora!",
-    timestamp: "2 giorni fa",
-    isRead: true,
-    tab: "messages",
-  },
-];
+// Notifications are driven by the backend. Until the notifications table
+// is populated (webhook → INSERT on booking status changes, etc.) this
+// screen shows an empty state with guidance for the user.
+const INITIAL_NOTIFICATIONS: AppNotification[] = [];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ITEM_HEIGHT = 90;
-const SEPARATOR_HEIGHT = 8;
+const ITEM_HEIGHT = 120;
+const SEPARATOR_HEIGHT = 12;
 
-// ─── Notification Card ────────────────────────────────────────────────────────
+const FILTERS: { key: NotificationFilter; label: string }[] = [
+  { key: "all", label: "All Updates" },
+  { key: "bookings", label: "Bookings" },
+  { key: "messages", label: "Messages" },
+  { key: "system", label: "System" },
+];
+
+// ─── Icon helpers ─────────────────────────────────────────────────────────────
+
+function getTypeIcon(
+  type: NotificationType
+): React.ComponentProps<typeof Ionicons>["name"] {
+  switch (type) {
+    case "booking":
+      return "calendar-outline";
+    case "message":
+      return "chatbubble-outline";
+    case "system":
+      return "shield-checkmark-outline";
+  }
+}
+
+// ─── Notification card ────────────────────────────────────────────────────────
 
 interface NotificationCardProps {
   item: AppNotification;
   onPress: (id: string) => void;
 }
 
-function getTypeIcon(type: NotificationType): keyof typeof Ionicons.glyphMap {
-  switch (type) {
-    case "booking":
-      return "calendar-outline";
-    case "message":
-      return "chatbubble-outline";
-    case "service":
-      return "information-circle-outline";
-  }
-}
-
-function getTypeColor(type: NotificationType): string {
-  switch (type) {
-    case "booking":
-      return Colors.secondary;
-    case "message":
-      return Colors.accent;
-    case "service":
-      return Colors.info;
-  }
-}
-
 const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
   const iconName = getTypeIcon(item.type);
-  const iconColor = getTypeColor(item.type);
+  const isUnread = !item.isRead;
 
   return (
     <Pressable
       onPress={() => onPress(item.id)}
       style={({ pressed }) => [
         styles.card,
-        !item.isRead && styles.cardUnread,
+        isUnread ? styles.cardUnread : styles.cardRead,
         pressed && styles.cardPressed,
       ]}
     >
-      {/* Icon bubble */}
-      <View style={[styles.iconBubble, { backgroundColor: `${iconColor}18` }]}>
-        <Ionicons name={iconName} size={20} color={iconColor} />
+      {/* Icon circle */}
+      <View
+        style={[
+          styles.iconCircle,
+          isUnread
+            ? styles.iconCircleUnread
+            : styles.iconCircleRead,
+        ]}
+      >
+        <Ionicons
+          name={iconName}
+          size={24}
+          color={isUnread ? C.secondary : C.primary}
+        />
       </View>
 
       {/* Content */}
       <View style={styles.cardContent}>
+        {/* Title row + timestamp */}
         <View style={styles.cardTopRow}>
-          <Text style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.cardTitle,
+              isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
+            ]}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
-          <Text style={styles.cardTimestamp}>{item.timestamp}</Text>
+          <View style={styles.timestampWrap}>
+            {isUnread && <View style={styles.unreadDot} />}
+            <Text
+              style={[
+                styles.cardTimestamp,
+                !isUnread && styles.cardTimestampRead,
+              ]}
+            >
+              {item.timestamp}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.cardDescription} numberOfLines={2}>
+
+        {/* Description */}
+        <Text
+          style={[
+            styles.cardDescription,
+            !isUnread && styles.cardDescriptionRead,
+          ]}
+          numberOfLines={2}
+        >
           {item.description}
         </Text>
-      </View>
 
-      {/* Unread dot */}
-      {!item.isRead && <View style={styles.unreadDot} />}
+        {/* Action button */}
+        {item.actionLabel ? (
+          <View style={styles.actionWrap}>
+            <View style={styles.actionBtn}>
+              <Text style={styles.actionBtnText}>{item.actionLabel}</Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 };
@@ -177,13 +162,21 @@ const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NotificationsScreen() {
-  const [activeTab, setActiveTab] = useState<NotificationTab>("bookings");
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
+  const [notifications, setNotifications] =
+    useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
-  const filtered = useMemo(
-    () => notifications.filter((n) => n.tab === activeTab),
-    [notifications, activeTab]
-  );
+  const filtered = useMemo(() => {
+    if (activeFilter === "all") return notifications;
+    const typeMap: Record<NotificationFilter, NotificationType | null> = {
+      all: null,
+      bookings: "booking",
+      messages: "message",
+      system: "system",
+    };
+    const t = typeMap[activeFilter];
+    return t ? notifications.filter((n) => n.type === t) : notifications;
+  }, [notifications, activeFilter]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,
@@ -220,57 +213,85 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Notifiche</Text>
+      {/* ── TopAppBar: "Sanctuary" italic serif + notification bell ── */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <Text style={styles.topBarBrand}>Sanctuary</Text>
+        </View>
+        <View style={styles.topBarRight}>
+          <Pressable style={styles.bellBtn}>
+            <Ionicons name="notifications-outline" size={22} color={C.primary} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Editorial header: "Your Activity" overline + "Notifications" h1 ── */}
+      <View style={styles.editorialHeader}>
+        <View style={styles.editorialHeaderRow}>
+          <View>
+            <Text style={styles.overlineText}>Your Activity</Text>
+            <Text style={styles.headlineText}>Notifications</Text>
+          </View>
           {unreadCount > 0 && (
-            <Pressable onPress={handleMarkAllRead} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.markAllRead}>Segna tutte lette</Text>
+            <Pressable
+              onPress={handleMarkAllRead}
+              style={styles.markAllBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="checkmark-done-outline" size={16} color={C.primary} />
+              <Text style={styles.markAllText}>Mark all as read</Text>
             </Pressable>
           )}
         </View>
-        {unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <View style={styles.unreadBadgeDot} />
-            <Text style={styles.unreadBadgeText}>{unreadCount} non lette</Text>
-          </View>
-        )}
       </View>
 
-      {/* ── Tab pills ── */}
-      <View style={styles.tabsRow}>
-        <Pressable
-          style={[styles.tabPill, activeTab === "bookings" && styles.tabPillActive]}
-          onPress={() => setActiveTab("bookings")}
-        >
-          <Text style={[styles.tabPillText, activeTab === "bookings" && styles.tabPillTextActive]}>
-            Prenotazioni
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tabPill, activeTab === "messages" && styles.tabPillActive]}
-          onPress={() => setActiveTab("messages")}
-        >
-          <Text style={[styles.tabPillText, activeTab === "messages" && styles.tabPillTextActive]}>
-            Messaggi
-          </Text>
-        </Pressable>
-      </View>
+      {/* ── Filter chips: "All Updates" active, others bg-surface-container-high ── */}
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={FILTERS}
+        keyExtractor={(f) => f.key}
+        contentContainerStyle={styles.filtersList}
+        style={styles.filtersWrap}
+        renderItem={({ item: filter }) => {
+          const isActive = activeFilter === filter.key;
+          return (
+            <Pressable
+              onPress={() => setActiveFilter(filter.key)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                isActive && styles.filterChipActive,
+                pressed && !isActive && { opacity: 0.7 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  isActive && styles.filterChipTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </Pressable>
+          );
+        }}
+      />
 
       {/* ── Content ── */}
       {filtered.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
-            <Ionicons name="notifications-off-outline" size={34} color={Colors.textTertiary} />
+            <Ionicons
+              name="notifications-off-outline"
+              size={34}
+              color={C.outlineVariant}
+            />
           </View>
           <Text style={styles.emptyTitle}>Nessuna notifica</Text>
           <Text style={styles.emptySubtitle}>
-            {activeTab === "bookings"
-              ? "Le notifiche sulle prenotazioni appariranno qui"
-              : "I nuovi messaggi appariranno qui"}
+            Le notifiche appariranno qui
           </Text>
         </View>
       ) : (
@@ -280,7 +301,9 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           getItemLayout={getItemLayout}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ height: SEPARATOR_HEIGHT }} />}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: SEPARATOR_HEIGHT }} />
+          )}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           maxToRenderPerBatch={10}
@@ -296,179 +319,263 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: C.background,
   },
 
-  // Header
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.md,
-  },
-  headerTop: {
+  // ── TopAppBar ─────────────────────────────────────────────────────────────────
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.xs,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  headerTitle: {
-    fontSize: 26,
+  topBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  // "Sanctuary" — italic serif bold text-2xl
+  topBarBrand: {
+    fontFamily: "NotoSerif_700Bold",
+    fontSize: 22,
     fontWeight: "700",
     fontStyle: "italic",
-    color: Colors.primary,
-    letterSpacing: -0.4,
+    color: C.primary,
+    letterSpacing: -0.3,
   },
-  markAllRead: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.secondary,
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  unreadBadge: {
+
+  // ── Editorial header ──────────────────────────────────────────────────────────
+  editorialHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  editorialHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  // "Your Activity" — overline uppercase bold tracking-widest text-secondary
+  overlineText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.secondary,
+    textTransform: "uppercase",
+    letterSpacing: 2.5,
+    marginBottom: 4,
+  },
+  // "Notifications" — font-headline text-4xl
+  headlineText: {
+    fontFamily: "NotoSerif_700Bold",
+    fontSize: 36,
+    fontWeight: "700",
+    color: C.primary,
+    letterSpacing: -0.8,
+  },
+  markAllBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    paddingBottom: 4,
   },
-  unreadBadgeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.accent,
-  },
-  unreadBadgeText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: Colors.textSecondary,
-  },
-
-  // Tabs
-  tabsRow: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
-  },
-  tabPill: {
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: Colors.borderLight,
-  },
-  tabPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  tabPillText: {
+  markAllText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.textSecondary,
-  },
-  tabPillTextActive: {
-    color: Colors.textOnDark,
+    color: C.primary,
   },
 
-  // Card
+  // ── Filter chips ──────────────────────────────────────────────────────────────
+  filtersWrap: {
+    maxHeight: 52,
+    marginBottom: 20,
+  },
+  filtersList: {
+    paddingHorizontal: 24,
+    gap: 10,
+    paddingBottom: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    backgroundColor: C.surfaceContainerHigh,
+  },
+  filterChipActive: {
+    backgroundColor: C.primary,
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: C.primary,
+  },
+  filterChipTextActive: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+
+  // ── Notification card ─────────────────────────────────────────────────────────
   card: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
+    gap: 16,
+    borderRadius: 16,
+    padding: 20,
     minHeight: ITEM_HEIGHT,
-    ...Shadows.sm,
   },
+  // Unread: white bg + left border-l-4 border-secondary + shadow
   cardUnread: {
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.accent,
+    backgroundColor: C.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: C.secondary,
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  // Read: surface-container-low, muted
+  cardRead: {
+    backgroundColor: C.surfaceLow,
   },
   cardPressed: {
     opacity: 0.85,
   },
-  iconBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
+
+  // Icon circle: w-14 h-14 rounded-full
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
+  iconCircleUnread: {
+    backgroundColor: `${C.secondary}1A`,
+  },
+  iconCircleRead: {
+    backgroundColor: C.surfaceVariant,
+  },
+
   cardContent: {
     flex: 1,
     gap: 4,
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: Spacing.sm,
+    gap: 8,
+    marginBottom: 2,
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
+    fontSize: 16,
+    fontWeight: "700",
     flex: 1,
   },
   cardTitleUnread: {
-    fontWeight: "700",
-    color: Colors.primary,
+    fontFamily: "NotoSerif_700Bold",
+    color: C.primary,
   },
-  cardTimestamp: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    fontWeight: "500",
+  cardTitleRead: {
+    color: `${C.primary}99`,
+  },
+  timestampWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     flexShrink: 0,
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
   },
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.accent,
-    flexShrink: 0,
-    alignSelf: "center",
+    borderRadius: 4,
+    backgroundColor: C.secondary,
+  },
+  cardTimestamp: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: `${C.onSurfaceVariant}99`,
+  },
+  cardTimestampRead: {
+    color: `${C.onSurfaceVariant}66`,
+  },
+  cardDescription: {
+    fontSize: 13,
+    color: C.onSurfaceVariant,
+    lineHeight: 20,
+  },
+  cardDescriptionRead: {
+    opacity: 0.7,
+  },
+  actionWrap: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
+  actionBtn: {
+    backgroundColor: C.surfaceContainerHigh,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.primary,
+    letterSpacing: 0.2,
   },
 
-  // List
+  // ── List ──────────────────────────────────────────────────────────────────────
   listContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
 
-  // Empty state
+  // ── Empty state ───────────────────────────────────────────────────────────────
   emptyState: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 40,
+    gap: 12,
   },
   emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.xxl,
-    backgroundColor: Colors.surfaceElevated,
+    width: 84,
+    height: 84,
+    borderRadius: 20,
+    backgroundColor: C.surfaceLow,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: Colors.text,
+    color: C.onSurface,
     textAlign: "center",
-    marginBottom: Spacing.sm,
-    letterSpacing: -0.3,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: C.onSurfaceVariant,
     textAlign: "center",
     lineHeight: 21,
   },

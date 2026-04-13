@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import { useAuth } from "../../lib/auth";
+import { fetchBookings } from "../../lib/api";
+import { Booking } from "../../lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,21 +29,31 @@ interface Invoice {
   status: InvoiceStatus;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// In production these would come from a hook / Supabase query
-
-const MOCK_INVOICES: Invoice[] = [
-  { id: "inv-001", date: "Set 2025", description: "Anticipo settembre", amount: 340.0, status: "paid" },
-  { id: "inv-002", date: "Ago 2025", description: "Manutenzione agosto", amount: 280.0, status: "paid" },
-  { id: "inv-003", date: "Ago 2025", description: "Pulizia profonda", amount: 180.0, status: "paid" },
-  { id: "inv-004", date: "Lug 2025", description: "Pulizia ordinaria", amount: 120.0, status: "paid" },
-  { id: "inv-005", date: "Lug 2025", description: "Anticipo luglio", amount: 340.0, status: "paid" },
-  { id: "inv-006", date: "Giu 2025", description: "Stiratura premium", amount: 95.0, status: "paid" },
-  { id: "inv-007", date: "Giu 2025", description: "Pulizia vetri", amount: 145.0, status: "paid" },
-  { id: "inv-008", date: "Mag 2025", description: "Pulizia profonda", amount: 180.0, status: "paid" },
-  { id: "inv-009", date: "Ott 2025", description: "Anticipo ottobre", amount: 340.0, status: "pending" },
-  { id: "inv-010", date: "Ott 2025", description: "Pulizia post-ristrutturazione", amount: 258.0, status: "pending" },
+const IT_MONTHS = [
+  "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+  "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
 ];
+
+function bookingToInvoice(b: Booking): Invoice {
+  const d = new Date(b.date);
+  const status: InvoiceStatus =
+    b.status === "completed" || b.status === "work_done"
+      ? "paid"
+      : b.status === "accepted"
+      ? "pending"
+      : b.status === "declined" ||
+        b.status === "cancelled" ||
+        b.status === "auto_cancelled"
+      ? "overdue"
+      : "pending";
+  return {
+    id: b.id,
+    date: `${IT_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+    description: b.service_type,
+    amount: b.total_price,
+    status,
+  };
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -97,8 +110,23 @@ function InvoiceRow({ item, onPress }: InvoiceRowProps) {
 
 export default function InvoicesScreen() {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+
+  const loadInvoices = useCallback(async () => {
+    if (!user || !profile) return;
+    try {
+      const bookings = await fetchBookings(user.id, profile.active_role);
+      setInvoices(bookings.map(bookingToInvoice));
+    } catch {
+      setInvoices([]);
+    }
+  }, [user, profile]);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
 
   const totalPaid = useMemo(
     () => invoices.filter((i) => i.status === "paid").reduce((acc, i) => acc + i.amount, 0),
@@ -112,10 +140,9 @@ export default function InvoicesScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulated refresh delay — replace with real API call
-    await new Promise<void>((resolve) => setTimeout(resolve, 800));
+    await loadInvoices();
     setRefreshing(false);
-  }, []);
+  }, [loadInvoices]);
 
   const handleInvoicePress = useCallback((_id: string) => {
     // Navigate to invoice detail when implemented
@@ -207,7 +234,10 @@ export default function InvoicesScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Supporto</Text>
-          <Text style={styles.headerBrand}>CleanHome</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="leaf" size={20} color="#022420" />
+            <Text style={styles.headerBrand}>CleanHome</Text>
+          </View>
         </View>
         <Pressable style={styles.downloadBtn}>
           <Ionicons name="download-outline" size={18} color={Colors.secondary} />
@@ -287,9 +317,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerBrand: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: Colors.primary,
+    fontSize: 20,
+    fontWeight: "700",
+    fontStyle: "italic",
+    color: "#181c1c",
     letterSpacing: -0.3,
   },
   downloadBtn: {
@@ -298,8 +329,10 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   downloadBtnText: {
     fontSize: 13,
@@ -320,32 +353,33 @@ const styles = StyleSheet.create({
   labelOverline: {
     fontSize: 11,
     fontWeight: "800",
-    color: Colors.secondary,
+    color: Colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 1.5,
+    fontFamily: "PlusJakartaSans-ExtraBold",
   },
   pageTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: Colors.text,
+    fontSize: 32,
+    fontWeight: "700",
+    color: Colors.primary,
     letterSpacing: -0.8,
+    fontFamily: "NotoSerif-Bold",
   },
   pageSubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
-    lineHeight: 21,
+    lineHeight: 22,
+    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Summary cards
   summaryRow: {
-    flexDirection: "row",
     gap: Spacing.md,
     marginBottom: Spacing.base,
   },
   summaryCard: {
-    flex: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.base,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
     gap: Spacing.xs,
     ...Shadows.sm,
     position: "relative",
@@ -365,19 +399,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   summaryCardAmount: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "800",
     color: Colors.textOnDark,
     letterSpacing: -0.5,
+    fontFamily: "NotoSerif-Bold",
   },
   summaryCardIcon: {
     position: "absolute",
-    top: Spacing.md,
-    right: Spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    top: Spacing.base,
+    right: Spacing.base,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -387,17 +422,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.secondary,
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.xl,
     padding: Spacing.base,
     marginBottom: Spacing.xl,
     ...Shadows.md,
   },
   membershipTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: Colors.textOnDark,
     marginBottom: 2,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   membershipSub: {
     fontSize: 12,
@@ -421,9 +457,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
-    color: Colors.text,
+    color: Colors.primary,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   invoiceCount: {
     fontSize: 12,
@@ -437,10 +474,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.base,
     height: ITEM_HEIGHT,
     ...Shadows.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   invoiceIconWrap: {
     width: 40,
@@ -462,6 +501,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.text,
+    fontFamily: "PlusJakartaSans-SemiBold",
   },
   invoiceRight: {
     alignItems: "flex-end",
@@ -470,8 +510,9 @@ const styles = StyleSheet.create({
   invoiceAmount: {
     fontSize: 15,
     fontWeight: "800",
-    color: Colors.text,
+    color: Colors.primary,
     letterSpacing: -0.3,
+    fontFamily: "PlusJakartaSans-ExtraBold",
   },
   statusDotRow: {
     flexDirection: "row",

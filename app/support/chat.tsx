@@ -27,33 +27,29 @@ interface ChatMessage {
   timestamp: string;
 }
 
-// ─── Mock conversation ────────────────────────────────────────────────────────
+// Initial concierge greeting — the rest of the conversation is driven
+// by real user input. Auto-reply is a lightweight FAQ fallback until the
+// live-chat backend is plumbed in.
+function nowTime(): string {
+  return new Date().toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
-    id: "1",
+    id: "welcome",
     sender: "concierge",
-    text: "Benvenuto nel supporto live CleanHome. Sono Elena, il tuo concierge digitale dedicato. Come posso aiutarti oggi?",
-    timestamp: "14:32",
-  },
-  {
-    id: "2",
-    sender: "user",
-    text: "Ciao! Vorrei sapere se è possibile modificare la data della mia prenotazione.",
-    timestamp: "14:33",
-  },
-  {
-    id: "3",
-    sender: "concierge",
-    text: "Certo, posso aiutarti con questo! Per modificare la data devi accedere alla sezione Prenotazioni e selezionare quella da modificare. Ti serve che invii un link diretto?",
-    timestamp: "14:33",
+    text: "Ciao! Sono il supporto CleanHome. Dimmi pure come possiamo aiutarti: prenotazioni, pagamenti, rimborsi, o altro.",
+    timestamp: nowTime(),
   },
 ];
 
 const QUICK_REPLIES = [
-  "Sì, inviami il link",
-  "Qual è la commissione extra?",
-  "Ho un'altra domanda",
+  "Come cancello una prenotazione?",
+  "Problema con un pagamento",
+  "Altro",
 ];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -156,12 +152,8 @@ export default function SupportChatScreen() {
         </Pressable>
 
         <View style={styles.headerCenter}>
-          {/* Online indicator + name */}
-          <View style={styles.headerOnlineRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.headerName}>Elena</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>SERVIZIO CONCIERGE</Text>
+          <Text style={styles.headerName}>Live Support</Text>
+          <Text style={styles.headerSubtitle}>CONCIERGE SERVICE</Text>
         </View>
 
         <View style={styles.headerActions}>
@@ -284,19 +276,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
-  headerOnlineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.accent,
-  },
   headerName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     color: Colors.textOnDark,
     letterSpacing: -0.2,
@@ -341,13 +322,15 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
   },
   avatarWrap: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: Radius.full,
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
   },
   avatarInitial: {
     fontSize: 14,
@@ -356,19 +339,21 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: BUBBLE_MAX_WIDTH,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     gap: 4,
   },
   bubbleConcierge: {
     backgroundColor: Colors.surface,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
     ...Shadows.sm,
   },
   bubbleUser: {
     backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 6,
   },
   bubbleText: {
     fontSize: 14,
@@ -401,19 +386,20 @@ const styles = StyleSheet.create({
   },
   quickChip: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: Radius.full,
-    backgroundColor: Colors.accentLight,
-    borderWidth: 1,
-    borderColor: Colors.accent,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
   quickChipPressed: {
     opacity: 0.75,
+    backgroundColor: Colors.surfaceElevated,
   },
   quickChipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    color: Colors.secondary,
+    color: Colors.text,
   },
 
   // Input bar
@@ -430,16 +416,16 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 42,
     maxHeight: 100,
-    backgroundColor: Colors.background,
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.surfaceLow,
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
     fontSize: 14,
     color: Colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderLight,
   },
   sendBtn: {
     width: 40,

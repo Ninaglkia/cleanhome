@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
-import { updateBookingStatus } from "../../lib/api";
+import { fetchBookings, updateBookingStatus } from "../../lib/api";
+import { Booking } from "../../lib/types";
 
 // ─── Design tokens — tema verde/blu professionista ──────────────────────────
 
@@ -44,54 +45,31 @@ interface MockAppointment {
   timeRange: string;
 }
 
-const MOCK_REQUESTS: MockRequest[] = [
-  {
-    id: "req-1",
-    clientName: "Giulia Marchetti",
-    address: "Via Torino 14, Milano",
-    date: "Sab 5 Apr",
-    timeSlot: "09:00",
-    serviceType: "Pulizia completa",
-  },
-  {
-    id: "req-2",
-    clientName: "Luca Ferrari",
-    address: "Corso Buenos Aires 22, Milano",
-    date: "Dom 6 Apr",
-    timeSlot: "14:00",
-    serviceType: "Pulizia standard",
-  },
-];
+// Italian short day labels (Mon → Dom)
+const IT_DAY_ABBREV = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
 
-const MOCK_APPOINTMENTS: MockAppointment[] = [
-  {
-    id: "apt-1",
-    dayAbbrev: "Lun",
-    dayNum: 7,
-    title: "Via Brera 8 — Pulizia premium",
-    timeRange: "10:00 – 13:00",
-  },
-  {
-    id: "apt-2",
-    dayAbbrev: "Mar",
-    dayNum: 8,
-    title: "Piazza Duomo 3 — Pulizia completa",
-    timeRange: "09:00 – 12:30",
-  },
-  {
-    id: "apt-3",
-    dayAbbrev: "Gio",
-    dayNum: 10,
-    title: "Via Navigli 55 — Pulizia standard",
-    timeRange: "15:00 – 17:00",
-  },
-];
+function bookingToRequest(b: Booking): MockRequest {
+  const d = new Date(b.date);
+  return {
+    id: b.id,
+    clientName: b.address ? `Prenotazione · ${b.address}` : `Cliente`,
+    address: b.address ?? "Indirizzo non specificato",
+    date: `${IT_DAY_ABBREV[d.getDay()]} ${d.getDate()}`,
+    timeSlot: b.time_slot,
+    serviceType: b.service_type,
+  };
+}
 
-const MOCK_STATS = {
-  inAttesa: 2,
-  attive: 3,
-  completate: 14,
-};
+function bookingToAppointment(b: Booking): MockAppointment {
+  const d = new Date(b.date);
+  return {
+    id: b.id,
+    dayAbbrev: IT_DAY_ABBREV[d.getDay()],
+    dayNum: d.getDate(),
+    title: `${b.address ?? "Cliente"} — ${b.service_type}`,
+    timeRange: b.time_slot,
+  };
+}
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -211,6 +189,8 @@ export default function CleanerHomeScreen() {
   const { user, profile } = useAuth();
   const router = useRouter();
 
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
   const firstName =
     profile?.full_name?.split(" ")[0] ??
     user?.user_metadata?.full_name?.split(" ")[0] ??
@@ -220,35 +200,80 @@ export default function CleanerHomeScreen() {
   const greeting =
     hour < 12 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera";
 
-  const handleAccept = useCallback(async (id: string) => {
+  const loadBookings = useCallback(async () => {
+    if (!user) return;
     try {
-      await updateBookingStatus(id, "accepted");
-      Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
+      const data = await fetchBookings(user.id, "cleaner");
+      setBookings(data);
     } catch {
-      Alert.alert("Errore", "Impossibile accettare la richiesta");
+      setBookings([]);
     }
-  }, []);
+  }, [user]);
 
-  const handleDecline = useCallback((id: string) => {
-    Alert.alert(
-      "Rifiutare lavoro?",
-      "Il cliente verrà notificato e potrà scegliere un altro professionista.",
-      [
-        { text: "Annulla", style: "cancel" },
-        {
-          text: "Rifiuta",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await updateBookingStatus(id, "rejected");
-            } catch {
-              Alert.alert("Errore", "Impossibile rifiutare la richiesta");
-            }
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  const pendingRequests = useMemo(
+    () => bookings.filter((b) => b.status === "pending").map(bookingToRequest),
+    [bookings]
+  );
+  const upcomingAppointments = useMemo(
+    () =>
+      bookings
+        .filter((b) => ["accepted", "work_done"].includes(b.status))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 3)
+        .map(bookingToAppointment),
+    [bookings]
+  );
+  const stats = useMemo(
+    () => ({
+      inAttesa: bookings.filter((b) => b.status === "pending").length,
+      attive: bookings.filter((b) => ["accepted", "work_done"].includes(b.status))
+        .length,
+      completate: bookings.filter((b) => b.status === "completed").length,
+    }),
+    [bookings]
+  );
+
+  const handleAccept = useCallback(
+    async (id: string) => {
+      try {
+        await updateBookingStatus(id, "accepted");
+        Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
+        loadBookings();
+      } catch {
+        Alert.alert("Errore", "Impossibile accettare la richiesta");
+      }
+    },
+    [loadBookings]
+  );
+
+  const handleDecline = useCallback(
+    (id: string) => {
+      Alert.alert(
+        "Rifiutare lavoro?",
+        "Il cliente verrà notificato e potrà scegliere un altro professionista.",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Rifiuta",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await updateBookingStatus(id, "declined");
+                loadBookings();
+              } catch {
+                Alert.alert("Errore", "Impossibile rifiutare la richiesta");
+              }
+            },
           },
-        },
-      ]
-    );
-  }, []);
+        ]
+      );
+    },
+    [loadBookings]
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -279,21 +304,21 @@ export default function CleanerHomeScreen() {
         {/* ── Stats grid ──────────────────────────────────────────────────── */}
         <View style={styles.statsRow}>
           <StatCard
-            value={MOCK_STATS.inAttesa}
+            value={stats.inAttesa}
             label="In attesa"
             iconName="alert-circle-outline"
             iconColor="#006b55"
             iconBg="#e6f4f1"
           />
           <StatCard
-            value={MOCK_STATS.attive}
+            value={stats.attive}
             label="Attive"
             iconName="calendar-outline"
             iconColor={PRIMARY}
             iconBg={CLEANER_LIGHT}
           />
           <StatCard
-            value={MOCK_STATS.completate}
+            value={stats.completate}
             label="Completate"
             iconName="checkmark-circle-outline"
             iconColor="#16a34a"
@@ -315,26 +340,47 @@ export default function CleanerHomeScreen() {
           </Pressable>
         </View>
 
-        {MOCK_REQUESTS.map((req) => (
-          <View key={req.id} style={styles.cardWrapper}>
-            <RequestCard
-              item={req}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-            />
+        {pendingRequests.length === 0 ? (
+          <View style={styles.emptyBlock}>
+            <Ionicons name="mail-open-outline" size={28} color={OUTLINE} />
+            <Text style={styles.emptyText}>
+              Nessuna richiesta in attesa
+            </Text>
+            <Text style={styles.emptySubtext}>
+              Le nuove richieste appariranno qui in tempo reale
+            </Text>
           </View>
-        ))}
+        ) : (
+          pendingRequests.map((req) => (
+            <View key={req.id} style={styles.cardWrapper}>
+              <RequestCard
+                item={req}
+                onAccept={handleAccept}
+                onDecline={handleDecline}
+              />
+            </View>
+          ))
+        )}
 
         {/* ── Prossimi appuntamenti ────────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
         </View>
 
-        {MOCK_APPOINTMENTS.map((apt) => (
-          <View key={apt.id} style={styles.cardWrapper}>
-            <AppointmentRow item={apt} />
+        {upcomingAppointments.length === 0 ? (
+          <View style={styles.emptyBlock}>
+            <Ionicons name="calendar-outline" size={28} color={OUTLINE} />
+            <Text style={styles.emptyText}>
+              Nessun appuntamento in programma
+            </Text>
           </View>
-        ))}
+        ) : (
+          upcomingAppointments.map((apt) => (
+            <View key={apt.id} style={styles.cardWrapper}>
+              <AppointmentRow item={apt} />
+            </View>
+          ))
+        )}
 
         {/* Bottom spacer for tab bar */}
         <View style={styles.bottomSpacer} />
@@ -355,6 +401,26 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  emptyBlock: {
+    marginHorizontal: 24,
+    marginVertical: 8,
+    padding: 24,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    alignItems: "center",
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#414846",
+    marginTop: 6,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: "#717976",
+    textAlign: "center",
   },
 
   // ── Header ────────────────────────────────────────────────────────────────
