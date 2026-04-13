@@ -142,7 +142,7 @@ export async function sendPushNotification(
     .from("profiles")
     .select("expo_push_token")
     .eq("id", targetUserId)
-    .single();
+    .maybeSingle();
 
   if (error || !profile?.expo_push_token) {
     return;

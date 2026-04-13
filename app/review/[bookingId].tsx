@@ -45,9 +45,14 @@ export default function ReviewScreen() {
     (async () => {
       try {
         const data = await fetchBooking(bookingId);
+        if (!data) {
+          Alert.alert("Errore", "Prenotazione non trovata");
+          router.back();
+          return;
+        }
         setBooking(data);
       } catch {
-        Alert.alert("Errore", "Prenotazione non trovata");
+        Alert.alert("Errore", "Impossibile caricare la prenotazione");
         router.back();
       } finally {
         setLoading(false);

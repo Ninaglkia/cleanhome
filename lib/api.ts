@@ -56,12 +56,12 @@ export async function fetchBookings(userId: string, role: string): Promise<Booki
   return data ?? [];
 }
 
-export async function fetchBooking(id: string): Promise<Booking> {
+export async function fetchBooking(id: string): Promise<Booking | null> {
   const { data, error } = await supabase
     .from("bookings")
     .select()
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -127,12 +127,12 @@ export async function searchCleaners(city?: string): Promise<CleanerProfile[]> {
   return data ?? [];
 }
 
-export async function fetchCleaner(id: string): Promise<CleanerProfile> {
+export async function fetchCleaner(id: string): Promise<CleanerProfile | null> {
   const { data, error } = await supabase
     .from("cleaner_profiles")
     .select()
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -172,15 +172,17 @@ export async function fetchMyListings(
 }
 
 // Fetch a single listing by id (for the edit page).
-export async function fetchListing(listingId: string): Promise<CleanerListing> {
+export async function fetchListing(
+  listingId: string
+): Promise<CleanerListing | null> {
   const { data, error } = await supabase
     .from("cleaner_listings")
     .select()
     .eq("id", listingId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
-  return data as CleanerListing;
+  return data as CleanerListing | null;
 }
 
 // Create a fresh empty listing. Pass `isFirst: true` only when the
@@ -325,12 +327,12 @@ export function subscribeToMessages(
 
 // --- Profile ---
 
-export async function fetchProfile(userId: string): Promise<UserProfile> {
+export async function fetchProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select()
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;

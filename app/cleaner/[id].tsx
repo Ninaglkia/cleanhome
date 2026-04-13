@@ -43,10 +43,15 @@ export default function CleanerDetailScreen() {
           fetchCleaner(id),
           fetchReviewsForCleaner(id).catch(() => [] as Review[]),
         ]);
+        if (!cleanerData) {
+          Alert.alert("Errore", "Professionista non trovato");
+          router.back();
+          return;
+        }
         setCleaner(cleanerData);
         setReviews(reviewsData);
       } catch {
-        Alert.alert("Errore", "Professionista non trovato");
+        Alert.alert("Errore", "Impossibile caricare il profilo");
         router.back();
       } finally {
         setLoading(false);
