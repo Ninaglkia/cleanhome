@@ -1,27 +1,32 @@
-import { useEffect } from "react";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SplashScreen from "expo-splash-screen";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
+  withSequence,
   Easing,
 } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../lib/auth";
 
-// ─── Splash Screen ────────────────────────────────────────────────────────────
-// Design: full-screen #022420, centered leaf icon + "CleanHome" serif +
-// tagline uppercase + bottom "INIZIALIZZAZIONE" + ActivityIndicator
+const { width: SCREEN_W } = Dimensions.get("window");
+const PROGRESS_BAR_WIDTH = 48;
 
-export default function SplashScreen() {
+// Keep native splash visible until we're ready
+SplashScreen.preventAutoHideAsync();
+
+export default function SplashScreenView() {
   const { isLoading, user, profile } = useAuth();
   const router = useRouter();
 
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.82);
-  const bottomOpacity = useSharedValue(0);
+  const opacity = useSharedValue(1); // Start visible immediately
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.4);
+  const progressWidth = useSharedValue(0);
+  const bottomOpacity = useSharedValue(1);
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -32,60 +37,98 @@ export default function SplashScreen() {
     opacity: bottomOpacity.value,
   }));
 
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: progressWidth.value,
+  }));
+
+  // Hide native splash as soon as our view mounts
+  const onLayoutReady = useCallback(async () => {
+    await SplashScreen.hideAsync();
+  }, []);
+
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
-    scale.value = withSpring(1, { damping: 18, stiffness: 200 });
-    bottomOpacity.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) });
+    // Animate progress bar from 0 → 70% quickly, then slow to ~90%
+    progressWidth.value = withSequence(
+      withTiming(PROGRESS_BAR_WIDTH * 0.7, {
+        duration: 1500,
+        easing: Easing.out(Easing.quad),
+      }),
+      withTiming(PROGRESS_BAR_WIDTH * 0.9, {
+        duration: 1000,
+        easing: Easing.out(Easing.cubic),
+      })
+    );
   }, []);
 
   useEffect(() => {
     if (isLoading) return;
 
+    // Data loaded — fill progress to 100% then navigate
+    progressWidth.value = withTiming(
+      PROGRESS_BAR_WIDTH,
+      { duration: 400, easing: Easing.out(Easing.cubic) }
+    );
+
     const timer = setTimeout(async () => {
       if (!user) {
-        const hasOnboarded = await AsyncStorage.getItem("onboarding_completed");
-        if (hasOnboarded) {
-          router.replace("/(auth)/login");
-        } else {
-          router.replace("/onboarding/welcome");
-        }
+        // Non loggato → sempre login prima di tutto
+        router.replace("/(auth)/login");
       } else if (!profile) {
+        // Profilo non ancora creato (trigger in corso) — aspetta
         router.replace("/(auth)/role-selection");
+      } else if (!profile.cleaner_onboarded) {
+        // Primo accesso: profilo esiste ma onboarding non completato
+        // → mostra le slides di benvenuto + scelta ruolo
+        router.replace("/onboarding/welcome");
       } else if (profile.active_role === "cleaner") {
         router.replace("/(tabs)/cleaner-home");
       } else {
         router.replace("/(tabs)/home");
       }
-    }, 2000);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [isLoading, user, profile]);
 
   return (
-    <View style={styles.container}>
-      {/* Center content */}
+    <View style={styles.container} onLayout={onLayoutReady}>
+      {/* Ambient glow */}
+      <Animated.View style={[styles.glowTopLeft, glowStyle]} />
+      <Animated.View style={[styles.glowBottomRight, glowStyle]} />
+
+      {/* Center content — visible immediately */}
       <Animated.View style={[styles.centerContent, contentStyle]}>
-        {/* Rounded square icon */}
+        {/* Logo icon */}
         <View style={styles.iconWrapper}>
-          {/* Leaf icon — stylized text approximation */}
-          <Text style={styles.leafEmoji}>🌿</Text>
-          {/* Sparkle dot — top-right */}
-          <View style={styles.sparkleDot} />
+          <View style={styles.iconInnerGlow} />
+          <Ionicons name="leaf" size={52} color="#4fc4a3" />
+          <View style={styles.sparkleWrap}>
+            <Ionicons name="sparkles" size={18} color="#4fc4a3" />
+          </View>
         </View>
 
-        {/* Brand name — serif italic via fontWeight 700 + fontStyle italic */}
-        <Text style={styles.brandName}>CleanHome</Text>
+        {/* Brand name */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Ionicons name="leaf" size={28} color="#022420" />
+          <Text style={styles.brandName}>CleanHome</Text>
+        </View>
 
         {/* Tagline */}
         <Text style={styles.tagline}>
-          L'ECCELLENZA NELLA CURA DOMESTICA
+          L'eccellenza nella cura domestica
         </Text>
       </Animated.View>
 
-      {/* Bottom loading area */}
+      {/* Bottom — progress bar + label */}
       <Animated.View style={[styles.bottomArea, bottomStyle]}>
-        <Text style={styles.initLabel}>INIZIALIZZAZIONE</Text>
-        <ActivityIndicator size="small" color="#00c896" style={styles.spinner} />
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, progressStyle]} />
+        </View>
+        <Text style={styles.initLabel}>Inizializzazione</Text>
       </Animated.View>
     </View>
   );
@@ -94,71 +137,95 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#022420",
+    backgroundColor: "#1a3a35",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  glowTopLeft: {
+    position: "absolute",
+    top: "-10%",
+    left: "-10%",
+    width: SCREEN_W * 0.7,
+    height: SCREEN_W * 0.7,
+    borderRadius: SCREEN_W * 0.35,
+    backgroundColor: "rgba(79, 196, 163, 0.08)",
+  },
+  glowBottomRight: {
+    position: "absolute",
+    bottom: "-10%",
+    right: "-10%",
+    width: SCREEN_W * 0.6,
+    height: SCREEN_W * 0.6,
+    borderRadius: SCREEN_W * 0.3,
+    backgroundColor: "rgba(79, 196, 163, 0.04)",
   },
   centerContent: {
     alignItems: "center",
   },
   iconWrapper: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: "#1a3a35",
+    width: 128,
+    height: 128,
+    borderRadius: 16,
+    backgroundColor: "rgba(2, 36, 32, 0.20)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 28,
-    shadowColor: "#00c896",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 22,
-    elevation: 12,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: "rgba(130, 244, 209, 0.10)",
   },
-  leafEmoji: {
-    fontSize: 36,
-    lineHeight: 44,
-  },
-  sparkleDot: {
+  iconInnerGlow: {
     position: "absolute",
-    top: 13,
-    right: 13,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#00c896",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(79, 196, 163, 0.10)",
+  },
+  sparkleWrap: {
+    position: "absolute",
+    top: -4,
+    right: -4,
   },
   brandName: {
     color: "#ffffff",
-    fontSize: 28,
+    fontSize: 48,
     fontWeight: "700",
-    fontStyle: "italic",
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    letterSpacing: -0.5,
+    marginBottom: 16,
   },
   tagline: {
-    color: "#6b9e96",
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 2.5,
+    color: "#83a49d",
+    fontSize: 18,
+    fontWeight: "500",
+    letterSpacing: 3.5,
     textTransform: "uppercase",
     textAlign: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    lineHeight: 26,
   },
   bottomArea: {
     position: "absolute",
-    bottom: 64,
+    bottom: 80,
     alignItems: "center",
+    gap: 16,
+  },
+  progressTrack: {
+    width: PROGRESS_BAR_WIDTH,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(130, 244, 209, 0.30)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#4fc4a3",
+    borderRadius: 1,
   },
   initLabel: {
-    color: "#3d6b62",
+    color: "rgba(79, 196, 163, 0.60)",
     fontSize: 10,
     fontWeight: "600",
-    letterSpacing: 2.5,
+    letterSpacing: 4,
     textTransform: "uppercase",
-    marginBottom: 10,
-  },
-  spinner: {
-    // ActivityIndicator default size "small" is fine
   },
 });

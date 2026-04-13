@@ -8,9 +8,7 @@
     "userInterfaceStyle": "light",
     "scheme": "cleanhome",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#022420"
+      "backgroundColor": "#1a3a35"
     },
     "ios": {
       "supportsTablet": false,
@@ -19,7 +17,10 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "CleanHome usa la tua posizione per trovare i professionisti vicino a te.",
-        "UIBackgroundModes": ["remote-notification"]
+        "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e i documenti di verifica.",
+        "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità.",
+        "UIBackgroundModes": ["remote-notification"],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,7 +31,9 @@
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "CAMERA"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -40,15 +43,32 @@
       "expo-apple-authentication",
       "expo-notifications",
       [
-        "react-native-maps",
-        { "googleMapsApiKey": "" }
-      ]
+        "expo-image-picker",
+        {
+          "photosPermission": "CleanHome accede alle foto per caricare avatar e documenti di verifica.",
+          "cameraPermission": "CleanHome usa la fotocamera per scattare foto del documento d'identità."
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.cleanhome.app",
+          "enableGooglePay": false
+        }
+      ],
+      "@sentry/react-native"
     ],
     "notification": {
       "icon": "./assets/notification-icon.png",
       "color": "#006b55",
       "androidMode": "default",
       "androidCollapsedTitle": "CleanHome"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ed26a96b-0801-4170-a67a-1a46a7b671e2"
+      }
     }
   }
 }
