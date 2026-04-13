@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings, cleanerBookingAction } from "../../lib/api";
 import {
@@ -217,6 +217,14 @@ export default function CleanerHomeScreen() {
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  // Reload whenever the screen regains focus — catches new bookings
+  // created by the Stripe webhook while the user was on another tab.
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
 
   const pendingRequests = useMemo(
     () => bookings.filter((b) => b.status === "pending").map(bookingToRequest),

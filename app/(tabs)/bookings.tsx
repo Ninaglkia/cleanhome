@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings, updateBookingStatus } from "../../lib/api";
@@ -221,23 +221,29 @@ export default function BookingsScreen() {
   const isClientView = profile?.active_role === "client";
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
-  useEffect(() => {
+  const loadBookings = useCallback(async () => {
     if (!user || !profile) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchBookings(user.id, profile.active_role);
-        if (!cancelled) setBookings(data);
-      } catch {
-        if (!cancelled) setBookings([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const data = await fetchBookings(user.id, profile.active_role);
+      setBookings(data);
+    } catch {
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user, profile]);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  // Refresh when returning to the bookings tab (e.g. after the cleaner
+  // accepted/declined, or after a new booking was just made)
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
 
   const handleBookingPress = useCallback(
     (bookingId: string) => {

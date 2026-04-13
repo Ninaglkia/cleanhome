@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings } from "../../lib/api";
@@ -97,23 +97,32 @@ export default function MessagesScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadConversations = useCallback(async () => {
     if (!user || !profile) return;
-    (async () => {
-      try {
-        const data = await fetchBookings(user.id, profile.active_role);
-        setBookings(
-          data.filter((b) =>
-            ["accepted", "work_done", "completed"].includes(b.status)
-          )
-        );
-      } catch {
-        setBookings([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    try {
+      const data = await fetchBookings(user.id, profile.active_role);
+      setBookings(
+        data.filter((b) =>
+          ["accepted", "work_done", "completed"].includes(b.status)
+        )
+      );
+    } catch {
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user, profile]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Refresh on tab focus — catches new bookings / state changes
+  useFocusEffect(
+    useCallback(() => {
+      loadConversations();
+    }, [loadConversations])
+  );
 
   const handlePress = useCallback(
     (bookingId: string) => {
