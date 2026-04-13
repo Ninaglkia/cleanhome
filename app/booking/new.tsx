@@ -352,10 +352,11 @@ export default function NewBookingScreen() {
         });
 
       if (invokeError) {
-        const ctx = (invokeError as any).context;
+        type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
+        const ctx = (invokeError as EdgeFnError).context;
         let details = invokeError.message;
-        if (ctx && typeof ctx === "object" && "text" in ctx) {
-          try { details = await (ctx as any).text(); } catch {}
+        if (ctx && typeof ctx.text === "function") {
+          try { details = await ctx.text(); } catch {}
         }
         throw new Error(details);
       }
@@ -562,7 +563,7 @@ export default function NewBookingScreen() {
           <Ionicons name="location-outline" size={18} color={Colors.textTertiary} />
           <TextInput
             style={s.input}
-            placeholder="Via Roma 1, Milano"
+            placeholder="Indirizzo completo"
             placeholderTextColor={Colors.textTertiary}
             value={address}
             onChangeText={setAddress}

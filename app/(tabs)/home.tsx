@@ -23,7 +23,11 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { searchCleaners } from "../../lib/api";
+import {
+  searchCleaners,
+  searchCleanersNearPoint,
+  searchListingsNearPoint,
+} from "../../lib/api";
 import { CleanerProfile } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, Shadows, SpringConfig } from "../../lib/theme";
@@ -42,6 +46,22 @@ const DEFAULT_REGION: Region = {
   latitudeDelta: 0.08,
   longitudeDelta: 0.08,
 };
+
+// ─── Stitch design tokens (client theme — dark green) ─────────────────────────
+
+const C = {
+  primary: "#022420",
+  primaryContainer: "#1a3a35",
+  secondary: "#006b55",
+  onPrimary: "#ffffff",
+  surface: "#f6faf9",
+  surfaceContainerLowest: "#ffffff",
+  surfaceContainer: "#ebefee",
+  surfaceContainerHigh: "#e5e9e8",
+  onSurface: "#181c1c",
+  onSurfaceVariant: "#414846",
+  outlineVariant: "#c1c8c5",
+} as const;
 
 // ─── Price Marker ────────────────────────────────────────────────────────────
 
@@ -66,6 +86,8 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
     scale.value = withSpring(1, SpringConfig.press);
   };
 
+  // Stitch spec: bg-primary-container (#1a3a35) default, bg-secondary (#006b55) selected
+  // rounded-full px-4 py-1.5, border-2 border-white, shadow-xl
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -76,48 +98,52 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
       <Animated.View style={animatedStyle}>
         <View
           style={{
-            backgroundColor: selected ? Colors.secondary : Colors.primary,
-            borderRadius: 20,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            // Outer glow when selected
-            ...(selected && {
-              shadowColor: Colors.secondary,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.6,
-              shadowRadius: 8,
-              elevation: 8,
-            }),
+            backgroundColor: selected ? C.secondary : C.primaryContainer,
+            borderRadius: 9999,
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+            borderWidth: 2,
+            borderColor: "#ffffff",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: selected ? 0.28 : 0.18,
+            shadowRadius: selected ? 10 : 6,
+            elevation: selected ? 10 : 6,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: selected ? 6 : 0,
           }}
         >
           <Text
             style={{
-              color: selected ? "#ffffff" : Colors.accent,
-              fontSize: 12,
+              color: "#ffffff",
+              fontSize: 13,
               fontWeight: "800",
               letterSpacing: 0.2,
             }}
           >
-            {price}€
+            €{price}/hr
           </Text>
+          {selected && (
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: "#ffffff",
+              }}
+            />
+          )}
         </View>
-        {/* Pointer triangle */}
-        <View
-          style={{
-            width: 8,
-            height: 8,
-            backgroundColor: selected ? Colors.secondary : Colors.primary,
-            alignSelf: "center",
-            marginTop: -4,
-            transform: [{ rotate: "45deg" }],
-          }}
-        />
       </Animated.View>
     </TouchableOpacity>
   );
 }
 
 // ─── Cleaner Map Card ─────────────────────────────────────────────────────────
+// Stitch spec: bg-surface-container-lowest (#fff) rounded-lg p-4
+// photo 112x112 rounded-md, star rating, name font-headline, rate, "View Profile" button
+// PREFERRED badge on avatar — bg-secondary (#006b55) text-white rounded-full
 
 interface MapCleanerCardProps {
   cleaner: CleanerProfile;
@@ -147,6 +173,9 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  // Show PREFERRED badge on every 3rd cleaner (index-agnostic: use rating >= 4.8 as proxy)
+  const isPreferred = cleaner.avg_rating >= 4.8;
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -159,184 +188,201 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
         style={[
           animatedStyle,
           {
-            backgroundColor: Colors.surface,
-            borderRadius: 20,
-            overflow: "hidden",
-            // Premium multi-layer shadow
-            shadowColor: Colors.primary,
+            backgroundColor: C.surfaceContainerLowest,
+            borderRadius: 12,
+            overflow: "visible",
+            shadowColor: C.primary,
             shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: isSelected ? 0.22 : 0.12,
+            shadowOpacity: isSelected ? 0.18 : 0.08,
             shadowRadius: 20,
-            elevation: isSelected ? 12 : 6,
-            // Selected border accent
-            borderWidth: isSelected ? 1.5 : 0,
-            borderColor: isSelected ? Colors.secondary : "transparent",
+            elevation: isSelected ? 12 : 5,
+            borderWidth: 1,
+            borderColor: isSelected ? C.secondary : `${C.outlineVariant}1a`,
           },
         ]}
       >
-        {/* Avatar area */}
-        <View
-          style={{
-            height: 160,
-            backgroundColor: Colors.primary,
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
-          }}
-        >
-          {cleaner.avatar_url ? (
-            <Image
-              source={{ uri: cleaner.avatar_url }}
-              style={{ width: "100%", height: "100%" }}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
-                backgroundColor: Colors.primaryMid,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text
+        <View style={{ padding: 16, borderRadius: 12, overflow: "hidden" }}>
+          {/* Photo + info row */}
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            {/* Square photo — 112x112 rounded-md */}
+            <View style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
+              {cleaner.avatar_url ? (
+                <Image
+                  source={{ uri: cleaner.avatar_url }}
+                  style={{ width: 112, height: 112, borderRadius: 8 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 112,
+                    height: 112,
+                    borderRadius: 8,
+                    backgroundColor: C.surfaceContainerHigh,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: C.onSurfaceVariant,
+                      fontSize: 28,
+                      fontWeight: "800",
+                    }}
+                  >
+                    {initials}
+                  </Text>
+                </View>
+              )}
+              {/* PREFERRED badge */}
+              {isPreferred && (
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: -10,
+                    right: -10,
+                    backgroundColor: C.secondary,
+                    borderRadius: 9999,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderWidth: 2,
+                    borderColor: "#ffffff",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 8,
+                      fontWeight: "800",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    PREFERRED
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Info column */}
+            <View style={{ flex: 1, justifyContent: "center" }}>
+              {/* Star rating */}
+              <View
                 style={{
-                  color: Colors.accent,
-                  fontSize: 26,
-                  fontWeight: "800",
-                  letterSpacing: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  marginBottom: 4,
                 }}
               >
-                {initials}
+                <Ionicons name="star" size={13} color={C.secondary} />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: C.secondary,
+                  }}
+                >
+                  {cleaner.avg_rating.toFixed(1)}
+                </Text>
+              </View>
+
+              {/* Name — font-headline style */}
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: C.primary,
+                  letterSpacing: -0.3,
+                  marginBottom: 2,
+                  lineHeight: 22,
+                }}
+                numberOfLines={1}
+              >
+                {cleaner.full_name}
+              </Text>
+
+              {/* Specialty / bio */}
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: C.onSurfaceVariant,
+                  lineHeight: 16,
+                }}
+                numberOfLines={1}
+              >
+                {cleaner.bio ??
+                  (cleaner.city
+                    ? `Professionista a ${cleaner.city}`
+                    : "Pulizie professionali")}
               </Text>
             </View>
-          )}
-
-          {/* Rating badge — top right corner */}
-          <View
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              backgroundColor: Colors.surface,
-              borderRadius: 20,
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              flexDirection: "row",
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 6,
-              elevation: 4,
-            }}
-          >
-            <Ionicons name="star" size={12} color={Colors.warning} />
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: "700",
-                color: Colors.text,
-                marginLeft: 3,
-              }}
-            >
-              {cleaner.avg_rating.toFixed(1)}
-            </Text>
           </View>
 
-          {/* Availability dot */}
+          {/* Divider */}
           <View
             style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              width: 10,
-              height: 10,
-              borderRadius: 5,
-              backgroundColor: cleaner.is_available ? Colors.success : Colors.error,
-              borderWidth: 2,
-              borderColor: Colors.surface,
+              height: 1,
+              backgroundColor: C.surfaceContainer,
+              marginTop: 16,
+              marginBottom: 14,
             }}
           />
-        </View>
 
-        {/* Card body */}
-        <View style={{ padding: 14 }}>
-          {/* Name + price row */}
+          {/* Rate + CTA row */}
           <View
             style={{
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 4,
             }}
           >
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: "800",
-                color: Colors.text,
-                flex: 1,
-                letterSpacing: -0.3,
-              }}
-              numberOfLines={1}
-            >
-              {cleaner.full_name}
-            </Text>
-            {cleaner.hourly_rate && (
+            <View>
               <Text
                 style={{
-                  fontSize: 15,
-                  fontWeight: "800",
-                  color: Colors.secondary,
-                  marginLeft: 8,
+                  fontSize: 9,
+                  fontWeight: "700",
+                  color: C.onSurfaceVariant,
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                  marginBottom: 2,
                 }}
               >
-                {cleaner.hourly_rate}€/h
+                Tariffa oraria
               </Text>
-            )}
-          </View>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: C.primary,
+                  letterSpacing: -0.3,
+                }}
+              >
+                €{cleaner.hourly_rate?.toFixed(2) ?? "—"}
+              </Text>
+            </View>
 
-          {/* Bio / city */}
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.textSecondary,
-              lineHeight: 16,
-              marginBottom: 12,
-            }}
-            numberOfLines={2}
-          >
-            {cleaner.bio ??
-              (cleaner.city
-                ? `Professionista a ${cleaner.city}`
-                : "Pulizie professionali")}
-          </Text>
-
-          {/* CTA button */}
-          <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.85}
-            style={{
-              backgroundColor: Colors.primary,
-              borderRadius: 12,
-              paddingVertical: 11,
-              alignItems: "center",
-            }}
-          >
-            <Text
+            {/* "View Profile" CTA — bg-primary when selected, bg-surface-container-high otherwise */}
+            <TouchableOpacity
+              onPress={onPress}
+              activeOpacity={0.85}
               style={{
-                color: Colors.accent,
-                fontSize: 13,
-                fontWeight: "700",
-                letterSpacing: 0.3,
+                backgroundColor: isSelected ? C.primary : C.surfaceContainerHigh,
+                borderRadius: 10,
+                paddingVertical: 12,
+                paddingHorizontal: 20,
               }}
             >
-              Vedi profilo
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={{
+                  color: isSelected ? "#ffffff" : C.primary,
+                  fontSize: 13,
+                  fontWeight: "600",
+                }}
+              >
+                Vedi profilo
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
     </TouchableOpacity>
@@ -351,6 +397,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
   const [cleaners, setCleaners] = useState<CleanerProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,53 +415,147 @@ export default function HomeScreen() {
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
+  // Geocode a free-text city name to { lat, lng } via Google Geocoding
+  // API. Used when the user types a city in the header search bar.
+  const geocodeCityWithGoogle = useCallback(
+    async (
+      city: string
+    ): Promise<{ lat: number; lng: number } | null> => {
+      const key = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
+      if (!key) return null;
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+            city + ", Italia"
+          )}&language=it&region=it&key=${key}`
+        );
+        const data = (await res.json()) as {
+          status: string;
+          results: Array<{
+            geometry: { location: { lat: number; lng: number } };
+          }>;
+        };
+        if (data.status !== "OK" || data.results.length === 0) return null;
+        return data.results[0].geometry.location;
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
+
+  // Fetch all listings whose declared coverage zone contains the given
+  // point, via the PostGIS `search_listings_by_point` RPC. The rows
+  // returned are listings JOINed with their cleaner profile fields.
+  // We adapt them into the legacy `CleanerProfile` shape so the rest
+  // of this screen (which still binds to cleaner.* fields) keeps
+  // working unchanged.
+  const loadCleanersAtPoint = useCallback(
+    async (lat: number, lng: number) => {
+      setLoading(true);
+      try {
+        const rows = await searchListingsNearPoint(lat, lng);
+        const adapted: CleanerProfile[] = rows.map((r) => ({
+          // Keep the LISTING id on `id` so navigation can target the
+          // specific listing card the customer clicked.
+          id: r.cleaner_id,
+          full_name: r.cleaner_name,
+          bio: r.cleaner_bio ?? undefined,
+          city: r.city ?? undefined,
+          cleaner_type: r.cleaner_type ?? undefined,
+          hourly_rate: r.hourly_rate ?? undefined,
+          services: r.services ?? undefined,
+          is_available: true,
+          avg_rating: r.avg_rating ?? 0,
+          review_count: r.review_count ?? 0,
+          distance_km: 0,
+          // Fields used by the map marker positioning
+          coverage_center_lat: r.coverage_center_lat,
+          coverage_center_lng: r.coverage_center_lng,
+          // Use the listing cover as the visible avatar/card image
+          avatar_url: r.cover_url ?? undefined,
+        }));
+        setCleaners(adapted);
+        setSelectedIndex(0);
+      } catch {
+        setCleaners([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     (async () => {
-      // Request location
+      // Request GPS permission and use the client's real location as the
+      // anchor for the cleaner search.
+      let lat = DEFAULT_REGION.latitude;
+      let lng = DEFAULT_REGION.longitude;
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         try {
           const loc = await Location.getCurrentPositionAsync({});
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
           setRegion({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
+            latitude: lat,
+            longitude: lng,
             latitudeDelta: 0.06,
             longitudeDelta: 0.06,
           });
         } catch {}
       }
-      // Load cleaners
-      await loadCleaners();
+      await loadCleanersAtPoint(lat, lng);
     })();
-  }, []);
-
-  const loadCleaners = async (city?: string) => {
-    setLoading(true);
-    try {
-      const results = await searchCleaners(city);
-      setCleaners(results);
-      setSelectedIndex(0);
-    } catch {
-      setCleaners([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadCleanersAtPoint]);
 
   const handleSearch = useCallback(
-    (city: string) => {
+    async (city: string) => {
       setSearchText(city);
       setSearchFocused(false);
-      loadCleaners(city);
+      if (!city.trim()) return;
+      // Resolve the typed city to coordinates, then do the spatial search.
+      const geo = await geocodeCityWithGoogle(city);
+      if (geo) {
+        setRegion((r) => ({
+          ...r,
+          latitude: geo.lat,
+          longitude: geo.lng,
+        }));
+        await loadCleanersAtPoint(geo.lat, geo.lng);
+      } else {
+        // Fallback: keep legacy text-based search so users still see
+        // something if geocoding fails (e.g. no API key set in dev).
+        try {
+          const results = await searchCleaners(city);
+          setCleaners(results);
+          setSelectedIndex(0);
+        } catch {
+          setCleaners([]);
+        }
+      }
     },
-    []
+    [geocodeCityWithGoogle, loadCleanersAtPoint]
   );
 
   // ── Marker <-> Card sync ──────────────────────────────────────────────────
 
-  // Spread cleaners around the map center with golden angle distribution
+  // Place each cleaner marker at the center of their declared coverage
+  // zone (from the DB). Fallback to a golden-angle spread around the
+  // customer if a cleaner has no zone yet (legacy rows).
   const getCleanerPosition = useCallback(
     (index: number) => {
+      const cleaner = cleaners[index];
+      if (
+        cleaner?.coverage_center_lat != null &&
+        cleaner?.coverage_center_lng != null
+      ) {
+        return {
+          latitude: Number(cleaner.coverage_center_lat),
+          longitude: Number(cleaner.coverage_center_lng),
+        };
+      }
       const angle = (index * 137.5 * Math.PI) / 180;
       const radius = 0.005 + index * 0.003;
       return {
@@ -422,7 +563,7 @@ export default function HomeScreen() {
         longitude: region.longitude + radius * Math.sin(angle),
       };
     },
-    [region]
+    [cleaners, region]
   );
 
   const scrollToIndex = (index: number) => {
@@ -524,189 +665,104 @@ export default function HomeScreen() {
         ))}
       </MapView>
 
-      {/* ── Floating header ── */}
-      <View
-        style={{
-          position: "absolute",
-          top: insets.top + 8,
-          left: 20,
-          right: 20,
-          zIndex: 20,
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-      >
-        {/* Avatar bubble */}
-        <TouchableOpacity
-          onPress={() => router.push("/(tabs)/profile")}
-          activeOpacity={0.85}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: Colors.primary,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: Colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
-            shadowRadius: 8,
-            elevation: 8,
-            // White border ring
-            borderWidth: 2,
-            borderColor: Colors.surface,
-          }}
-        >
-          {profile?.avatar_url ? (
-            <Image
-              source={{ uri: profile.avatar_url }}
-              style={{ width: 38, height: 38, borderRadius: 19 }}
-            />
-          ) : (
-            <Text
-              style={{
-                color: Colors.accent,
-                fontSize: 13,
-                fontWeight: "800",
-              }}
-            >
-              {avatarInitials}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* App title — editorial serif style per spec */}
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: Colors.primary,
-              letterSpacing: 0.2,
-              fontStyle: "italic",
-              // Text shadow for legibility over map
-              textShadowColor: "rgba(255,255,255,0.95)",
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 8,
-            }}
-          >
-            CleanHome
-          </Text>
-        </View>
-
-        {/* Notification bell — taps to bookings, red badge for unread */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push("/(tabs)/bookings")}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: Colors.surface,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: Colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.14,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
-        >
-          <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
-          {/* Red badge dot */}
-          <View
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              width: 9,
-              height: 9,
-              borderRadius: 5,
-              backgroundColor: Colors.error,
-              borderWidth: 1.5,
-              borderColor: Colors.surface,
-            }}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Floating search bar ── */}
+      {/* ── Floating header pill (Stitch spec) ── */}
+      {/* bg-white/80 backdrop-blur rounded-full mx-4 mt-4 shadow-2xl */}
       <Animated.View
         style={[
           searchBarStyle,
           {
             position: "absolute",
-            top: insets.top + 62,
-            left: 20,
-            right: 20,
+            top: insets.top + 8,
+            left: 16,
+            right: 16,
             zIndex: 20,
-            backgroundColor: Colors.surface,
-            borderRadius: 30,
+            backgroundColor: "rgba(255, 255, 255, 0.88)",
+            borderRadius: 9999,
             flexDirection: "row",
             alignItems: "center",
-            paddingLeft: 16,
-            paddingRight: 6,
-            height: 50,
-            // Base shadow
-            shadowColor: Colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
-            elevation: 6,
+            justifyContent: "space-between",
+            paddingHorizontal: 8,
+            paddingVertical: 8,
+            shadowColor: "#022420",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.07,
+            shadowRadius: 24,
+            elevation: 12,
           },
         ]}
       >
-        <Ionicons name="search" size={17} color={Colors.textTertiary} />
-        <TextInput
-          style={{
-            flex: 1,
-            marginLeft: 10,
-            fontSize: 14,
-            color: Colors.text,
-            paddingVertical: 0,
-          }}
-          placeholder="Cerca pulitori..."
-          placeholderTextColor={Colors.textTertiary}
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={() => handleSearch(searchText)}
-          onFocus={() => {
-            setSearchFocused(true);
-            searchExpanded.value = withTiming(1, { duration: 200 });
-          }}
-          onBlur={() => {
-            setSearchFocused(false);
-            searchExpanded.value = withTiming(0, { duration: 200 });
-          }}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-
-        {/* Clear button */}
-        {searchText.length > 0 && (
+        {/* Left: search icon + Discovery/Explore label */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {/* Search icon button — focuses the TextInput next to it */}
           <TouchableOpacity
-            onPress={() => handleSearch("")}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ marginRight: 6 }}
+            onPress={() => searchInputRef.current?.focus()}
+            activeOpacity={0.75}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <Ionicons name="close-circle" size={17} color={Colors.textTertiary} />
+            <Ionicons name="search" size={20} color="#022420" />
           </TouchableOpacity>
-        )}
 
-        {/* Filter button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: Colors.secondary,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="options-outline" size={17} color="#ffffff" />
-        </TouchableOpacity>
+          {/* Discovery / Explore text stack */}
+          <View style={{ flexDirection: "column" }}>
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: "700",
+                color: "rgba(2,36,32,0.4)",
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                lineHeight: 12,
+              }}
+            >
+              Scopri
+            </Text>
+            <TextInput
+              ref={searchInputRef}
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: "#022420",
+                padding: 0,
+                margin: 0,
+                lineHeight: 22,
+                minWidth: 120,
+              }}
+              placeholder="Cerca città"
+              placeholderTextColor="#022420"
+              value={searchText}
+              onChangeText={setSearchText}
+              onSubmitEditing={() => handleSearch(searchText)}
+              onFocus={() => {
+                setSearchFocused(true);
+                searchExpanded.value = withTiming(1, { duration: 200 });
+              }}
+              onBlur={() => {
+                setSearchFocused(false);
+                searchExpanded.value = withTiming(0, { duration: 200 });
+              }}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+
+        {/* Right: clear (if text) + tune filter icon */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {searchText.length > 0 && (
+            <TouchableOpacity
+              onPress={() => handleSearch("")}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </Animated.View>
 
       {/* ── My location button ── */}
@@ -756,38 +812,49 @@ export default function HomeScreen() {
           zIndex: 15,
         }}
       >
-        {/* Cleaners count pill */}
-        {!loading && cleaners.length > 0 && (
-          <View
-            style={{
-              alignSelf: "center",
-              backgroundColor: Colors.primary,
-              borderRadius: 20,
-              paddingHorizontal: 14,
-              paddingVertical: 6,
-              marginBottom: 12,
-              shadowColor: Colors.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 6,
-            }}
-          >
-            <Text
+        {/* "Redo search in this area" pill — Stitch spec */}
+        {!loading && (
+          <View style={{ alignItems: "center", marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => loadCleanersAtPoint(region.latitude, region.longitude)}
+              activeOpacity={0.85}
               style={{
-                color: Colors.accent,
-                fontSize: 12,
-                fontWeight: "700",
-                letterSpacing: 0.3,
+                backgroundColor: C.surfaceContainerLowest,
+                borderRadius: 9999,
+                paddingHorizontal: 24,
+                paddingVertical: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+                elevation: 6,
+                borderWidth: 1,
+                borderColor: `${C.outlineVariant}33`,
               }}
             >
-              {cleaners.length} professionisti vicino a te
-            </Text>
+              <Ionicons name="refresh" size={14} color={C.secondary} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: C.primary,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                }}
+              >
+                {cleaners.length > 0
+                  ? `${cleaners.length} professionisti · aggiorna`
+                  : "Cerca in questa zona"}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
         {loading ? (
-          // Skeleton cards while loading
+          // Skeleton cards — match new card layout: photo left + info right
           <FlatList
             data={[1, 2, 3]}
             keyExtractor={(item) => String(item)}
@@ -803,50 +870,94 @@ export default function HomeScreen() {
               <View
                 style={{
                   width: CARD_WIDTH,
-                  height: 300,
-                  backgroundColor: Colors.surface,
-                  borderRadius: 20,
-                  overflow: "hidden",
+                  backgroundColor: C.surfaceContainerLowest,
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: C.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 12,
+                  elevation: 4,
                 }}
               >
-                {/* Shimmer avatar area */}
+                {/* Photo + info row skeleton */}
+                <View style={{ flexDirection: "row", gap: 16, marginBottom: 16 }}>
+                  <View
+                    style={{
+                      width: 112,
+                      height: 112,
+                      borderRadius: 8,
+                      backgroundColor: C.surfaceContainerHigh,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <View style={{ flex: 1, justifyContent: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        height: 10,
+                        width: "50%",
+                        backgroundColor: C.surfaceContainerHigh,
+                        borderRadius: 5,
+                      }}
+                    />
+                    <View
+                      style={{
+                        height: 18,
+                        width: "80%",
+                        backgroundColor: C.surfaceContainer,
+                        borderRadius: 6,
+                      }}
+                    />
+                    <View
+                      style={{
+                        height: 12,
+                        width: "65%",
+                        backgroundColor: C.surfaceContainerHigh,
+                        borderRadius: 5,
+                      }}
+                    />
+                  </View>
+                </View>
+                {/* Divider skeleton */}
                 <View
                   style={{
-                    height: 160,
-                    backgroundColor: Colors.surfaceElevated,
+                    height: 1,
+                    backgroundColor: C.surfaceContainer,
+                    marginBottom: 14,
                   }}
                 />
-                <View style={{ padding: 14, gap: 8 }}>
-                  <View
-                    style={{
-                      height: 14,
-                      width: "60%",
-                      backgroundColor: Colors.surfaceElevated,
-                      borderRadius: 7,
-                    }}
-                  />
-                  <View
-                    style={{
-                      height: 12,
-                      width: "90%",
-                      backgroundColor: Colors.borderLight,
-                      borderRadius: 6,
-                    }}
-                  />
-                  <View
-                    style={{
-                      height: 12,
-                      width: "70%",
-                      backgroundColor: Colors.borderLight,
-                      borderRadius: 6,
-                    }}
-                  />
+                {/* Rate + button row skeleton */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View style={{ gap: 4 }}>
+                    <View
+                      style={{
+                        height: 9,
+                        width: 60,
+                        backgroundColor: C.surfaceContainerHigh,
+                        borderRadius: 4,
+                      }}
+                    />
+                    <View
+                      style={{
+                        height: 18,
+                        width: 70,
+                        backgroundColor: C.surfaceContainer,
+                        borderRadius: 5,
+                      }}
+                    />
+                  </View>
                   <View
                     style={{
                       height: 40,
-                      backgroundColor: Colors.surfaceElevated,
-                      borderRadius: 12,
-                      marginTop: 4,
+                      width: 100,
+                      backgroundColor: C.surfaceContainerHigh,
+                      borderRadius: 10,
                     }}
                   />
                 </View>
@@ -943,7 +1054,18 @@ export default function HomeScreen() {
             ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
             onScroll={handleCardScroll}
             scrollEventThrottle={16}
-            onScrollToIndexFailed={() => {}}
+            onScrollToIndexFailed={(info) => {
+              // FlatList couldn't measure the target index yet — retry
+              // after a frame once layout has settled. Prevents the
+              // "cannot scroll to index" crash on iOS when the user
+              // taps a marker before the card rendered.
+              setTimeout(() => {
+                flatListRef.current?.scrollToOffset({
+                  offset: info.averageItemLength * info.index,
+                  animated: true,
+                });
+              }, 50);
+            }}
             renderItem={({ item, index }) => (
               <MapCleanerCard
                 cleaner={item}
