@@ -8,12 +8,14 @@ import {
   StatusBar,
   StyleSheet,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings } from "../../lib/api";
+import { fetchBookings, updateBookingStatus } from "../../lib/api";
+import { sendPushNotification } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 
 // ─── Design tokens (Stitch) ───────────────────────────────────────────────────
@@ -84,11 +86,20 @@ interface BookingCardProps {
   item: Booking;
   onPress: (bookingId: string) => void;
   onReview: (bookingId: string) => void;
+  onConfirmWorkDone: (bookingId: string) => void;
+  isClientView: boolean;
 }
 
-const BookingCard = ({ item, onPress, onReview }: BookingCardProps) => {
+const BookingCard = ({
+  item,
+  onPress,
+  onReview,
+  onConfirmWorkDone,
+  isClientView,
+}: BookingCardProps) => {
   const statusCfg = getStatusConfig(item.status);
   const isCompleted = item.status === "completed";
+  const needsClientConfirm = isClientView && item.status === "work_done";
 
   // Derive initials from service_type as avatar fallback
   const initials = item.service_type
@@ -162,7 +173,19 @@ const BookingCard = ({ item, onPress, onReview }: BookingCardProps) => {
           €{item.total_price.toFixed(2)}
         </Text>
 
-        {isCompleted ? (
+        {needsClientConfirm ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onConfirmWorkDone(item.id);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.confirmWorkBtn}
+          >
+            <Ionicons name="checkmark-circle" size={14} color="#fff" />
+            <Text style={styles.confirmWorkBtnText}>Conferma lavoro</Text>
+          </Pressable>
+        ) : isCompleted ? (
           <Pressable
             onPress={(e) => {
               e.stopPropagation();
@@ -187,6 +210,7 @@ export default function BookingsScreen() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const isClientView = profile?.active_role === "client";
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
   useEffect(() => {
@@ -221,6 +245,44 @@ export default function BookingsScreen() {
     [router]
   );
 
+  const handleConfirmWorkDone = useCallback(
+    (bookingId: string) => {
+      Alert.alert(
+        "Confermare il lavoro?",
+        "Confermando il lavoro rilasci il pagamento al professionista. Questa azione non può essere annullata.",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Conferma",
+            onPress: async () => {
+              try {
+                await updateBookingStatus(bookingId, "completed");
+                // Notify the cleaner
+                const booking = bookings.find((b) => b.id === bookingId);
+                if (booking) {
+                  sendPushNotification(
+                    booking.cleaner_id,
+                    "Lavoro confermato",
+                    "Il cliente ha confermato il lavoro. Il pagamento è in arrivo.",
+                    { screen: "jobs", bookingId }
+                  ).catch(() => {});
+                }
+                setBookings((prev) =>
+                  prev.map((b) =>
+                    b.id === bookingId ? { ...b, status: "completed" } : b
+                  )
+                );
+              } catch {
+                Alert.alert("Errore", "Impossibile confermare il lavoro");
+              }
+            },
+          },
+        ]
+      );
+    },
+    [bookings]
+  );
+
   const filteredBookings =
     activeFilter === "all"
       ? bookings
@@ -234,9 +296,11 @@ export default function BookingsScreen() {
         item={item}
         onPress={handleBookingPress}
         onReview={handleReview}
+        onConfirmWorkDone={handleConfirmWorkDone}
+        isClientView={isClientView}
       />
     ),
-    [handleBookingPress, handleReview]
+    [handleBookingPress, handleReview, handleConfirmWorkDone, isClientView]
   );
 
   const keyExtractor = useCallback((item: Booking) => item.id, []);
@@ -556,6 +620,22 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: C.secondary,
     letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  confirmWorkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.secondary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    gap: 6,
+  },
+  confirmWorkBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.4,
     textTransform: "uppercase",
   },
 
