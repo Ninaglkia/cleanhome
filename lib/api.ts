@@ -386,6 +386,27 @@ export async function updateProfileName(
   if (error) throw error;
 }
 
+// Permanently delete the current user's account via the
+// `delete-account` edge function. The function uses the service role
+// key to call auth.admin.deleteUser which cascades to every row that
+// references auth.users(id).
+export async function deleteOwnAccount(): Promise<void> {
+  const { error } = await supabase.functions.invoke("delete-account", {
+    body: {},
+  });
+  if (error) {
+    type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
+    const ctx = (error as EdgeFnError).context;
+    let details = error.message;
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        details = `${error.message}: ${await ctx.text()}`;
+      } catch {}
+    }
+    throw new Error(details);
+  }
+}
+
 // --- Avatar ---
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,17 +11,21 @@ import {
   ActivityIndicator,
   StatusBar,
   StyleSheet,
+  Modal,
+  FlatList,
+  TouchableWithoutFeedback,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleLogo } from "../../components/icons/GoogleLogo";
+import { AppleLogo } from "../../components/icons/AppleLogo";
 
-// ─── Design tokens — dal Stitch HTML registration_screen_italian_luxury_2 ──────
+// ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
-  background: "#f6faf9",
+  background: "#f0f4f3",
   surface: "#ffffff",
   surfaceLow: "#f0f4f3",
-  surfaceContainer: "#ebefee",
   primary: "#022420",
   primaryContainer: "#1a3a35",
   secondary: "#006b55",
@@ -31,57 +35,114 @@ const C = {
   outlineVariant: "#c1c8c5",
 } as const;
 
-// ─── Role card ────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+type UserRole = "cliente" | "professionista";
 
-interface RoleCardProps {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  subtitle: string;
-  selected: boolean;
-  onPress: () => void;
+interface Country {
+  flag: string;
+  name: string;
+  prefix: string;
 }
 
-function RoleCard({ icon, title, subtitle, selected, onPress }: RoleCardProps) {
+// ─── Country data ─────────────────────────────────────────────────────────────
+const COUNTRIES: Country[] = [
+  { flag: "🇮🇹", name: "Italia", prefix: "+39" },
+  { flag: "🇬🇧", name: "UK", prefix: "+44" },
+  { flag: "🇺🇸", name: "USA", prefix: "+1" },
+  { flag: "🇫🇷", name: "Francia", prefix: "+33" },
+  { flag: "🇩🇪", name: "Germania", prefix: "+49" },
+  { flag: "🇪🇸", name: "Spagna", prefix: "+34" },
+  { flag: "🇨🇭", name: "Svizzera", prefix: "+41" },
+  { flag: "🇦🇹", name: "Austria", prefix: "+43" },
+];
+
+const COUNTRY_ITEM_HEIGHT = 56;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function resolveInitialRole(param: string | string[] | undefined): UserRole {
+  const raw = Array.isArray(param) ? param[0] : param;
+  if (raw === "professionista") return "professionista";
+  // "client", "both", undefined → default to "cliente"
+  return "cliente";
+}
+
+// ─── Country item (memoized for FlatList) ─────────────────────────────────────
+interface CountryItemProps {
+  item: Country;
+  isSelected: boolean;
+  onSelect: (country: Country) => void;
+}
+
+function CountryItem({ item, isSelected, onSelect }: CountryItemProps) {
+  const handlePress = useCallback(() => {
+    onSelect(item);
+  }, [item, onSelect]);
+
   return (
     <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.roleCard,
-        selected && styles.roleCardSelected,
-        pressed && !selected && { opacity: 0.85 },
-      ]}
+      onPress={handlePress}
+      style={[styles.countryItem, isSelected && styles.countryItemSelected]}
     >
-      <View style={[styles.roleIconWrap, selected && styles.roleIconWrapSelected]}>
-        <Ionicons
-          name={icon}
-          size={22}
-          color={selected ? "#ffffff" : C.primary}
-        />
-      </View>
-      <Text style={[styles.roleTitle, selected && styles.roleTitleSelected]}>
-        {title}
-      </Text>
-      <Text style={styles.roleSubtitle}>{subtitle}</Text>
+      <Text style={styles.countryItemFlag}>{item.flag}</Text>
+      <Text style={styles.countryItemName}>{item.name}</Text>
+      <Text style={styles.countryItemPrefix}>{item.prefix}</Text>
+      {isSelected && (
+        <Ionicons name="checkmark" size={18} color={C.secondary} />
+      )}
     </Pressable>
   );
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
-
-type Role = "client" | "cleaner";
-
 export default function RegisterScreen() {
   const { signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams<{ role?: string }>();
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [selectedRole, setSelectedRole] = useState<UserRole>(
+    resolveInitialRole(params.role)
+  );
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<Role>("client");
   const [loading, setLoading] = useState(false);
 
+  const [selectedCountry, setSelectedCountry] = useState<Country>(
+    COUNTRIES[0]
+  );
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
+
+  const phoneInputRef = useRef<TextInput>(null);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleRoleSelect = useCallback((role: UserRole) => {
+    setSelectedRole(role);
+  }, []);
+
+  const handleOpenCountryPicker = useCallback(() => {
+    setCountryPickerVisible(true);
+  }, []);
+
+  const handleSelectCountry = useCallback((country: Country) => {
+    setSelectedCountry(country);
+    setCountryPickerVisible(false);
+    // Focus phone input after selection
+    setTimeout(() => phoneInputRef.current?.focus(), 100);
+  }, []);
+
+  const handleCloseCountryPicker = useCallback(() => {
+    setCountryPickerVisible(false);
+  }, []);
+
   const handleRegister = useCallback(async () => {
-    if (!fullName || !email || !password) {
-      Alert.alert("Errore", "Compila tutti i campi");
+    if (!fullName.trim()) {
+      Alert.alert("Errore", "Inserisci il tuo nome completo");
+      return;
+    }
+    if (!email.trim()) {
+      Alert.alert("Errore", "Inserisci la tua email");
       return;
     }
     if (password.length < 6) {
@@ -90,7 +151,7 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      await signUpWithEmail(email, password, fullName);
+      await signUpWithEmail(email.trim(), password, fullName.trim());
       Alert.alert(
         "Registrazione completata",
         "Controlla la tua email per confermare l'account"
@@ -105,12 +166,86 @@ export default function RegisterScreen() {
     }
   }, [fullName, email, password, signUpWithEmail, router]);
 
-  const handleSelectClient = useCallback(() => setSelectedRole("client"), []);
-  const handleSelectCleaner = useCallback(() => setSelectedRole("cleaner"), []);
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
 
+  const handleGoogleSignIn = useCallback(async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Accesso con Google fallito";
+      Alert.alert("Errore", message);
+    }
+  }, [signInWithGoogle]);
+
+  const handleAppleSignIn = useCallback(async () => {
+    if (Platform.OS !== "ios") return;
+    try {
+      await signInWithApple();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Accesso con Apple fallito";
+      Alert.alert("Errore", message);
+    }
+  }, [signInWithApple]);
+
+  // ── Country picker keyExtractor / getItemLayout ────────────────────────────
+  const countryKeyExtractor = useCallback(
+    (item: Country) => item.prefix + item.name,
+    []
+  );
+
+  const getCountryItemLayout = useCallback(
+    (_: ArrayLike<Country> | null | undefined, index: number) => ({
+      length: COUNTRY_ITEM_HEIGHT,
+      offset: COUNTRY_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
+  const renderCountryItem = useCallback(
+    ({ item }: { item: Country }) => (
+      <CountryItem
+        item={item}
+        isSelected={item.prefix === selectedCountry.prefix}
+        onSelect={handleSelectCountry}
+      />
+    ),
+    [selectedCountry.prefix, handleSelectCountry]
+  );
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
+
+      {/* ── Country picker modal ────────────────────────────────────────── */}
+      <Modal
+        visible={countryPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseCountryPicker}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseCountryPicker}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>Seleziona prefisso</Text>
+          <FlatList
+            data={COUNTRIES}
+            keyExtractor={countryKeyExtractor}
+            renderItem={renderCountryItem}
+            getItemLayout={getCountryItemLayout}
+            removeClippedSubviews
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </Modal>
+
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -120,184 +255,242 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Header: close + brand ── */}
-          <View style={styles.topBar}>
+          {/* ── Header: X close | CLEANHOME (centered) | spacer ─────────── */}
+          <View style={styles.header}>
             <Pressable
-              onPress={() => router.back()}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={({ pressed }) => pressed && { opacity: 0.6 }}
+              onPress={handleBack}
+              hitSlop={12}
+              style={styles.closeButton}
             >
               <Ionicons name="close" size={24} color={C.primary} />
             </Pressable>
-            {/* "THE CURATOR" — esatto dal Stitch HTML */}
-            <Text style={styles.brandMark}>THE CURATOR</Text>
-            {/* spacer per allineamento centrale */}
-            <View style={{ width: 24 }} />
+            <Text style={styles.brandMark}>CLEANHOME</Text>
+            <View style={styles.headerSpacer} />
           </View>
 
-          {/* ── Hero headline ── */}
-          <View style={styles.heroSection}>
-            <Text style={styles.eyebrow}>Benvenuto in CleanHome</Text>
-            <Text style={styles.headline}>Crea il tuo{"\n"}account</Text>
-          </View>
+          {/* ── Main content ─────────────────────────────────────────────── */}
+          <View style={styles.content}>
+            {/* ── Hero ───────────────────────────────────────────────────── */}
+            <View style={styles.heroSection}>
+              <Text style={styles.overline}>Benvenuto in CleanHome</Text>
+              <Text style={styles.headline}>Crea il tuo{"\n"}account</Text>
+            </View>
 
-          {/* ── Role selection ── */}
-          <View style={styles.roleRow}>
-            <RoleCard
-              icon="home-outline"
-              title="Cliente"
-              subtitle="Cerco servizi per la mia casa"
-              selected={selectedRole === "client"}
-              onPress={handleSelectClient}
-            />
-            <RoleCard
-              icon="briefcase-outline"
-              title="Professionista"
-              subtitle="Offro le mie competenze"
-              selected={selectedRole === "cleaner"}
-              onPress={handleSelectCleaner}
-            />
-          </View>
+            {/* ── Role selection: 2-column grid ──────────────────────────── */}
+            <View style={styles.roleGrid}>
+              {/* Cliente card */}
+              <Pressable
+                onPress={() => handleRoleSelect("cliente")}
+                style={[
+                  styles.roleCard,
+                  selectedRole === "cliente" && styles.roleCardSelected,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.roleIconWrap,
+                    selectedRole === "cliente" && styles.roleIconWrapSelected,
+                  ]}
+                >
+                  <Ionicons
+                    name="home-outline"
+                    size={22}
+                    color={
+                      selectedRole === "cliente" ? "#ffffff" : C.primary
+                    }
+                  />
+                </View>
+                <Text style={styles.roleTitle}>Cliente</Text>
+                <Text style={styles.roleSubtitle}>
+                  Cerco servizi per la mia casa
+                </Text>
+              </Pressable>
 
-          {/* ── Form ── */}
-          <View style={styles.formSection}>
-            <View style={styles.inputContainer}>
+              {/* Professionista card */}
+              <Pressable
+                onPress={() => handleRoleSelect("professionista")}
+                style={[
+                  styles.roleCard,
+                  selectedRole === "professionista" && styles.roleCardSelected,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.roleIconWrap,
+                    selectedRole === "professionista" &&
+                      styles.roleIconWrapSelected,
+                  ]}
+                >
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={22}
+                    color={
+                      selectedRole === "professionista" ? "#ffffff" : C.primary
+                    }
+                  />
+                </View>
+                <Text style={styles.roleTitle}>Professionista</Text>
+                <Text style={styles.roleSubtitle}>
+                  Offro le mie competenze
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* ── Form ───────────────────────────────────────────────────── */}
+            <View style={styles.form}>
+              {/* Nome completo */}
               <TextInput
                 style={styles.textInput}
                 value={fullName}
                 onChangeText={setFullName}
                 placeholder="Nome completo"
-                placeholderTextColor={`${C.onSurfaceVariant}80`}
+                placeholderTextColor={`${C.outline}80`}
                 autoCapitalize="words"
                 autoCorrect={false}
               />
-            </View>
 
-            <View style={styles.inputContainer}>
+              {/* Email */}
               <TextInput
                 style={styles.textInput}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Email"
-                placeholderTextColor={`${C.onSurfaceVariant}80`}
+                placeholderTextColor={`${C.outline}80`}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-            </View>
 
-            <View style={styles.inputContainer}>
+              {/* Phone number with country prefix picker */}
+              <View style={styles.phoneRow}>
+                <Pressable
+                  onPress={handleOpenCountryPicker}
+                  style={styles.prefixBtn}
+                >
+                  <Text style={styles.prefixFlag}>{selectedCountry.flag}</Text>
+                  <Text style={styles.prefixCode}>
+                    {selectedCountry.prefix}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={14}
+                    color={C.onSurfaceVariant}
+                  />
+                </Pressable>
+                <TextInput
+                  ref={phoneInputRef}
+                  style={styles.phoneInput}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Numero di telefono"
+                  placeholderTextColor={`${C.outline}80`}
+                  keyboardType="phone-pad"
+                  autoCorrect={false}
+                />
+              </View>
+
+              {/* Password */}
               <TextInput
                 style={styles.textInput}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Password"
-                placeholderTextColor={`${C.onSurfaceVariant}80`}
+                placeholderTextColor={`${C.outline}80`}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+
+              {/* CTA — "Registrati" — View wrapper pattern per bg garantito */}
+              <View style={styles.btnOuter}>
+                <Pressable
+                  onPress={handleRegister}
+                  disabled={loading}
+                  style={styles.btnTap}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.btnText}>Registrati</Text>
+                  )}
+                </Pressable>
+              </View>
+
+              {/* Legal disclaimer — required by App Store / Play Store */}
+              <Text style={styles.legalText}>
+                Registrandoti accetti i nostri{" "}
+                <Text
+                  style={styles.legalLink}
+                  onPress={() => router.push("/legal/terms")}
+                  accessibilityRole="link"
+                >
+                  Termini di Servizio
+                </Text>{" "}
+                e l'
+                <Text
+                  style={styles.legalLink}
+                  onPress={() => router.push("/legal/privacy")}
+                  accessibilityRole="link"
+                >
+                  Informativa Privacy
+                </Text>
+                .
+              </Text>
             </View>
 
-            {/* CTA */}
-            <Pressable
-              onPress={handleRegister}
-              disabled={loading}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Registrati</Text>
-              )}
-            </Pressable>
+            {/* ── Divider "Oppure continua con" ──────────────────────────── */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Oppure continua con</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* ── Social buttons: 2-column grid ──────────────────────────── */}
+            <View style={styles.socialGrid}>
+              {/* Google */}
+              <View style={styles.googleOuter}>
+                <Pressable onPress={handleGoogleSignIn} style={styles.socialTap}>
+                  <GoogleLogo size={20} />
+                  <Text style={styles.googleText}>Google</Text>
+                </Pressable>
+              </View>
+
+              {/* Apple */}
+              <View
+                style={[
+                  styles.appleOuter,
+                  Platform.OS !== "ios" && styles.socialDisabled,
+                ]}
+              >
+                <Pressable
+                  onPress={handleAppleSignIn}
+                  disabled={Platform.OS !== "ios"}
+                  style={styles.socialTap}
+                >
+                  <AppleLogo size={20} color="#ffffff" />
+                  <Text style={styles.appleText}>Apple</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* ── Login link ─────────────────────────────────────────────── */}
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>Hai già un account? </Text>
+              <Pressable
+                onPress={handleBack}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text style={styles.loginLink}>Accedi</Text>
+              </Pressable>
+            </View>
           </View>
-
-          {/* ── Divider ── */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Oppure continua con</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* ── Social buttons ── */}
-          <View style={styles.socialRow}>
-            <Pressable
-              onPress={signInWithGoogle}
-              style={({ pressed }) => [
-                styles.socialButton,
-                pressed && styles.socialButtonPressed,
-              ]}
-            >
-              <Ionicons name="logo-google" size={18} color={C.onSurface} />
-              <Text style={styles.socialButtonText}>Google</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={Platform.OS === "ios" ? signInWithApple : undefined}
-              disabled={Platform.OS !== "ios"}
-              style={({ pressed }) => [
-                styles.socialButtonDark,
-                pressed && Platform.OS === "ios" && { opacity: 0.88 },
-                Platform.OS !== "ios" && { opacity: 0.38 },
-              ]}
-            >
-              <Ionicons name="logo-apple" size={18} color="#ffffff" />
-              <Text style={styles.socialButtonDarkText}>Apple</Text>
-            </Pressable>
-          </View>
-
-          {/* ── Login link ── */}
-          <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Hai già un account? </Text>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-            >
-              <Text style={styles.loginLink}>Accedi</Text>
-            </Pressable>
-          </View>
-
-          {/* spacer per la bottom nav */}
-          <View style={{ height: 100 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* ── Bottom nav bar — esatta dal Stitch HTML ── */}
-      <View style={styles.bottomNav}>
-        {/* Sign In — active state (filled pill) */}
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.bottomNavItemActive,
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <Ionicons name="log-in-outline" size={20} color="#f6faf9" />
-          <Text style={styles.bottomNavLabelActive}>Sign In</Text>
-        </Pressable>
-
-        {/* Help */}
-        <Pressable
-          onPress={() => {
-            /* help action — placeholder */
-          }}
-          style={({ pressed }) => [
-            styles.bottomNavItem,
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Ionicons name="help-circle-outline" size={20} color={C.onSurface} />
-          <Text style={styles.bottomNavLabel}>Help</Text>
-        </Pressable>
-      </View>
     </>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -305,56 +498,64 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    paddingBottom: 0,
+    paddingBottom: 48,
   },
 
-  // ── Top bar ──────────────────────────────────────────────────────────────────
-  topBar: {
+  // ── Header ────────────────────────────────────────────────────────────────
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === "ios" ? 56 : 40,
-    paddingBottom: 8,
+    paddingTop: Platform.OS === "ios" ? 60 : 44,
+    paddingBottom: 16,
+    backgroundColor: C.background,
+  },
+  closeButton: {
+    width: 24,
+    alignItems: "center",
   },
   brandMark: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: C.primary,
-    letterSpacing: 3.5,
+    letterSpacing: 3.6,
     textTransform: "uppercase",
-    // Noto Serif non è caricato nativamente — si usa il serif di sistema
-    // In produzione: fontFamily: 'NotoSerif' se caricato con expo-font
+  },
+  headerSpacer: {
+    width: 24,
   },
 
-  // ── Hero ──────────────────────────────────────────────────────────────────────
-  heroSection: {
+  // ── Content ───────────────────────────────────────────────────────────────
+  content: {
     paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 28,
   },
-  eyebrow: {
+
+  // ── Hero ──────────────────────────────────────────────────────────────────
+  heroSection: {
+    marginBottom: 32,
+  },
+  overline: {
     fontSize: 11,
     fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 3.5,
     color: C.secondary,
+    letterSpacing: 3.3,
+    textTransform: "uppercase",
     marginBottom: 12,
   },
   headline: {
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: "700",
     color: C.primary,
-    letterSpacing: -0.8,
-    lineHeight: 50,
+    lineHeight: 52,
+    letterSpacing: -0.5,
   },
 
-  // ── Role cards ────────────────────────────────────────────────────────────────
-  roleRow: {
+  // ── Role cards ────────────────────────────────────────────────────────────
+  roleGrid: {
     flexDirection: "row",
-    paddingHorizontal: 24,
-    gap: 14,
-    marginBottom: 24,
+    gap: 12,
+    marginBottom: 28,
   },
   roleCard: {
     flex: 1,
@@ -366,32 +567,30 @@ const styles = StyleSheet.create({
     shadowColor: C.onSurface,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
-    shadowRadius: 16,
+    shadowRadius: 12,
     elevation: 3,
   },
   roleCardSelected: {
     borderColor: C.secondary,
+    backgroundColor: "#f0faf7",
   },
   roleIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: C.surfaceLow,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 28,
+    marginBottom: 16,
   },
   roleIconWrapSelected: {
     backgroundColor: C.secondary,
   },
   roleTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
     color: C.primary,
     marginBottom: 4,
-  },
-  roleTitleSelected: {
-    color: C.primary,
   },
   roleSubtitle: {
     fontSize: 11,
@@ -399,57 +598,97 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // ── Form ──────────────────────────────────────────────────────────────────────
-  formSection: {
-    paddingHorizontal: 24,
-    gap: 14,
+  // ── Form ──────────────────────────────────────────────────────────────────
+  form: {
+    gap: 12,
     marginBottom: 4,
   },
-  inputContainer: {
-    backgroundColor: C.surfaceLow,
-    borderRadius: 14,
-    height: 56,
-    justifyContent: "center",
-    paddingHorizontal: 22,
-  },
   textInput: {
+    backgroundColor: C.surface,
+    borderRadius: 14,
+    height: 54,
+    paddingHorizontal: 20,
     fontSize: 15,
     color: C.onSurface,
-    paddingVertical: 0,
+    borderWidth: 1,
+    borderColor: `${C.outlineVariant}40`,
   },
 
-  // ── CTA ────────────────────────────────────────────────────────────────────────
-  primaryButton: {
+  // ── Phone row ─────────────────────────────────────────────────────────────
+  phoneRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  prefixBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.surface,
+    borderRadius: 14,
+    height: 54,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: `${C.outlineVariant}40`,
+  },
+  prefixFlag: {
+    fontSize: 20,
+  },
+  prefixCode: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.onSurface,
+  },
+  phoneInput: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 14,
+    height: 54,
+    paddingHorizontal: 20,
+    fontSize: 15,
+    color: C.onSurface,
+    borderWidth: 1,
+    borderColor: `${C.outlineVariant}40`,
+  },
+
+  // ── CTA button — View wrapper pattern ─────────────────────────────────────
+  btnOuter: {
+    height: 54,
     backgroundColor: C.primary,
     borderRadius: 14,
-    height: 58,
+    overflow: "hidden",
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  btnTap: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.10,
-    shadowRadius: 14,
-    elevation: 6,
   },
-  primaryButtonPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  primaryButtonText: {
+  btnText: {
     color: "#ffffff",
     fontSize: 17,
     fontWeight: "700",
-    letterSpacing: 0.2,
+  },
+  legalText: {
+    fontSize: 11,
+    color: C.outline,
+    textAlign: "center",
+    marginTop: 14,
+    lineHeight: 16,
+    paddingHorizontal: 8,
+  },
+  legalLink: {
+    color: C.primary,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 
-  // ── Divider ───────────────────────────────────────────────────────────────────
+  // ── Divider ───────────────────────────────────────────────────────────────
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 24,
-    marginTop: 28,
-    marginBottom: 20,
+    marginVertical: 28,
   },
   dividerLine: {
     flex: 1,
@@ -457,69 +696,64 @@ const styles = StyleSheet.create({
     backgroundColor: `${C.outlineVariant}4D`,
   },
   dividerText: {
-    marginHorizontal: 14,
+    marginHorizontal: 12,
     fontSize: 10,
     fontWeight: "700",
-    color: `${C.onSurfaceVariant}99`,
+    color: `${C.outline}99`,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
 
-  // ── Social buttons ─────────────────────────────────────────────────────────────
-  socialRow: {
+  // ── Social buttons — View wrapper pattern ─────────────────────────────────
+  socialGrid: {
     flexDirection: "row",
-    paddingHorizontal: 24,
-    gap: 14,
-    marginBottom: 28,
+    gap: 12,
+    marginBottom: 36,
   },
-  socialButton: {
+  // Google: white bg, border
+  googleOuter: {
+    flex: 1,
+    height: 48,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#dadce0",
+  },
+  // Apple: black bg
+  appleOuter: {
+    flex: 1,
+    height: 48,
+    backgroundColor: "#000000",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  socialDisabled: {
+    opacity: 0.4,
+  },
+  socialTap: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    height: 52,
-    borderWidth: 1,
-    borderColor: `${C.outlineVariant}33`,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    gap: 12,
   },
-  socialButtonPressed: {
-    backgroundColor: C.surfaceLow,
-  },
-  socialButtonText: {
+  googleText: {
     fontSize: 14,
     fontWeight: "600",
     color: C.onSurface,
   },
-  socialButtonDark: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: C.primary,
-    borderRadius: 14,
-    height: 52,
-  },
-  socialButtonDarkText: {
+  appleText: {
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
   },
 
-  // ── Login link ─────────────────────────────────────────────────────────────────
+  // ── Login link ────────────────────────────────────────────────────────────
   loginRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    flexWrap: "wrap",
-    paddingHorizontal: 24,
   },
   loginText: {
     fontSize: 14,
@@ -531,60 +765,58 @@ const styles = StyleSheet.create({
     color: C.secondary,
   },
 
-  // ── Bottom nav bar — dal Stitch HTML ──────────────────────────────────────────
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingHorizontal: 32,
+  // ── Country picker modal ──────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  modalSheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 32 : 16,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: `${C.onSurface}1A`,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 32,
-    elevation: 12,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    maxHeight: "60%",
   },
-  // Sign In — pill attivo (dark background)
-  bottomNavItemActive: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: C.primaryContainer,
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.outlineVariant,
+    alignSelf: "center",
+    marginBottom: 16,
   },
-  bottomNavLabelActive: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#f6faf9",
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-  },
-  // Help — icona senza sfondo
-  bottomNavItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    opacity: 0.6,
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-  },
-  bottomNavLabel: {
-    fontSize: 11,
+  modalTitle: {
+    fontSize: 15,
     fontWeight: "700",
     color: C.onSurface,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 0.2,
+    paddingHorizontal: 24,
+    marginBottom: 8,
+  },
+  countryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    height: COUNTRY_ITEM_HEIGHT,
+    gap: 14,
+  },
+  countryItemSelected: {
+    backgroundColor: `${C.secondary}12`,
+  },
+  countryItemFlag: {
+    fontSize: 24,
+  },
+  countryItemName: {
+    flex: 1,
+    fontSize: 15,
+    color: C.onSurface,
+    fontWeight: "500",
+  },
+  countryItemPrefix: {
+    fontSize: 14,
+    color: C.onSurfaceVariant,
+    fontWeight: "600",
+    marginRight: 4,
   },
 });

@@ -28,7 +28,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { UserProfile } from "../../lib/types";
-import { uploadAvatar, removeAvatar } from "../../lib/api";
+import { uploadAvatar, removeAvatar, deleteOwnAccount } from "../../lib/api";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -350,6 +350,7 @@ interface CleanerViewProps {
   onPrivacy: () => void;
   onSwitchRole: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
 }
 
 function CleanerView({
@@ -368,6 +369,7 @@ function CleanerView({
   onPrivacy,
   onSwitchRole,
   onSignOut,
+  onDeleteAccount,
 }: CleanerViewProps) {
   return (
     <>
@@ -470,6 +472,7 @@ function CleanerView({
       {/* ── Esci dall'account ── */}
       <Pressable
         onPress={onSignOut}
+        accessibilityLabel="Esci dall'account"
         style={({ pressed }) => ({
           flexDirection: "row",
           alignItems: "center",
@@ -490,6 +493,30 @@ function CleanerView({
         <Ionicons name="log-out-outline" size={20} color="#E53E3E" />
         <Text style={{ fontSize: 15, fontWeight: "700", color: "#E53E3E" }}>
           Esci dall'account
+        </Text>
+      </Pressable>
+
+      {/* ── Elimina account (GDPR + App Store requirement) ── */}
+      <Pressable
+        onPress={onDeleteAccount}
+        accessibilityLabel="Elimina account permanentemente"
+        style={({ pressed }) => ({
+          alignSelf: "center",
+          marginTop: 4,
+          marginBottom: 16,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          opacity: pressed ? 0.5 : 0.7,
+        })}
+      >
+        <Text
+          style={{
+            fontSize: 12,
+            color: C.outline,
+            textDecorationLine: "underline",
+          }}
+        >
+          Elimina definitivamente l'account
         </Text>
       </Pressable>
 
@@ -526,6 +553,7 @@ interface ClientViewProps {
   onBookings: () => void;
   onSwitchRole: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
   onViewListing: () => void;
 }
 
@@ -544,6 +572,7 @@ function ClientView({
   onBookings,
   onSwitchRole,
   onSignOut,
+  onDeleteAccount,
   onViewListing,
 }: ClientViewProps) {
   const services = [
@@ -649,6 +678,7 @@ function ClientView({
       {/* ── Esci dall'account — bottone in fondo ── */}
       <Pressable
         onPress={onSignOut}
+        accessibilityLabel="Esci dall'account"
         style={({ pressed }) => ({
           flexDirection: "row",
           alignItems: "center",
@@ -668,6 +698,29 @@ function ClientView({
         <Ionicons name="log-out-outline" size={18} color="#E53E3E" />
         <Text style={{ fontSize: 15, fontWeight: "600", color: "#E53E3E" }}>
           Esci dall'account
+        </Text>
+      </Pressable>
+
+      {/* ── Elimina account (GDPR + App Store requirement) ── */}
+      <Pressable
+        onPress={onDeleteAccount}
+        accessibilityLabel="Elimina account permanentemente"
+        style={({ pressed }) => ({
+          alignSelf: "center",
+          marginBottom: 24,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          opacity: pressed ? 0.5 : 0.7,
+        })}
+      >
+        <Text
+          style={{
+            fontSize: 12,
+            color: C.outline,
+            textDecorationLine: "underline",
+          }}
+        >
+          Elimina definitivamente l'account
         </Text>
       </Pressable>
 
@@ -713,6 +766,47 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  }, [signOut, router]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      "Eliminare il tuo account?",
+      "Questa azione è IRREVERSIBILE. Verranno cancellati definitivamente:\n\n• Il tuo profilo\n• Le tue prenotazioni passate e future\n• I tuoi annunci (se sei un professionista)\n• Le tue conversazioni e recensioni\n\nNon potrai recuperare i dati. Sei sicuro?",
+      [
+        { text: "Annulla", style: "cancel" },
+        {
+          text: "Elimina definitivamente",
+          style: "destructive",
+          onPress: () => {
+            // Second confirmation for irreversible action
+            Alert.alert(
+              "Conferma finale",
+              "Tocca 'Sì, elimina' per procedere. Non potrai più accedere a questo account.",
+              [
+                { text: "Annulla", style: "cancel" },
+                {
+                  text: "Sì, elimina",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deleteOwnAccount();
+                      await signOut();
+                      router.replace("/(auth)/login");
+                    } catch (err: unknown) {
+                      const msg =
+                        err instanceof Error
+                          ? err.message
+                          : "Impossibile eliminare l'account";
+                      Alert.alert("Errore", msg);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   }, [signOut, router]);
 
   const handleEditProfile = useCallback(() => {
@@ -810,6 +904,7 @@ export default function ProfileScreen() {
               onPrivacy={handlePrivacy}
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
+              onDeleteAccount={handleDeleteAccount}
             />
           ) : (
             <ClientView
@@ -827,6 +922,7 @@ export default function ProfileScreen() {
               onBookings={() => router.push("/(tabs)/bookings")}
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
+              onDeleteAccount={handleDeleteAccount}
               onViewListing={handleViewListing}
             />
           )}

@@ -174,6 +174,27 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
+            {/* Legal links — must be accessible before login */}
+            <Text style={styles.legalText}>
+              Accedendo accetti i nostri{" "}
+              <Text
+                style={styles.legalLink}
+                onPress={() => router.push("/legal/terms")}
+                accessibilityRole="link"
+              >
+                Termini
+              </Text>{" "}
+              e l'
+              <Text
+                style={styles.legalLink}
+                onPress={() => router.push("/legal/privacy")}
+                accessibilityRole="link"
+              >
+                Informativa Privacy
+              </Text>
+              .
+            </Text>
+
             {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -328,6 +349,20 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 17,
     fontWeight: "700",
+  },
+  legalText: {
+    fontSize: 11,
+    color: C.outline,
+    textAlign: "center",
+    marginTop: 14,
+    marginBottom: 8,
+    lineHeight: 16,
+    paddingHorizontal: 8,
+  },
+  legalLink: {
+    color: C.primary,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 
   // Divider
