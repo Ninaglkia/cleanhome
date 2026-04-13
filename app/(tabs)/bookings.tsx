@@ -66,10 +66,18 @@ function getStatusConfig(status: string): StatusConfig {
     case "pending":
       return { label: "In attesa", textColor: C.amber700, bgColor: C.amber50 };
     case "accepted":
-    case "work_done":
       return { label: "ACCETTATA", textColor: C.secondary, bgColor: "#e6f9f4" };
+    case "work_done":
+      return { label: "DA CONFERMARE", textColor: C.amber700, bgColor: C.amber50 };
     case "completed":
       return { label: "COMPLETATA", textColor: C.green700, bgColor: C.green100 };
+    case "declined":
+      return { label: "RIFIUTATA", textColor: "#b3261e", bgColor: "#fee2e2" };
+    case "cancelled":
+    case "auto_cancelled":
+      return { label: "ANNULLATA", textColor: C.outline, bgColor: C.surfaceLow };
+    case "disputed":
+      return { label: "CONTESTATA", textColor: "#b3261e", bgColor: "#fee2e2" };
     default:
       return { label: status.toUpperCase(), textColor: C.outline, bgColor: C.surfaceLow };
   }
