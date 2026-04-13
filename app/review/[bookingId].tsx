@@ -151,6 +151,8 @@ export default function ReviewScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
+          accessibilityLabel="Chiudi"
+          accessibilityRole="button"
           style={{
             width: 40,
             height: 40,

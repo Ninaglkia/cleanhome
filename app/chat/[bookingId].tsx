@@ -343,6 +343,8 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.7 }]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -454,6 +456,9 @@ export default function ChatScreen() {
             <Pressable
               onPress={handleSend}
               disabled={!text.trim() || sending}
+              accessibilityLabel="Invia messaggio"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !text.trim() || sending }}
               style={({ pressed }) => [
                 styles.sendBtn,
                 !text.trim() && styles.sendBtnDisabled,

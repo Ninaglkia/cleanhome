@@ -697,6 +697,8 @@ export default function HomeScreen() {
           <TouchableOpacity
             onPress={() => searchInputRef.current?.focus()}
             activeOpacity={0.75}
+            accessibilityLabel="Cerca città"
+            accessibilityRole="button"
             style={{
               width: 40,
               height: 40,
@@ -767,6 +769,8 @@ export default function HomeScreen() {
 
       {/* ── My location button ── */}
       <TouchableOpacity
+        accessibilityLabel="La mia posizione"
+        accessibilityRole="button"
         style={{
           position: "absolute",
           right: 20,

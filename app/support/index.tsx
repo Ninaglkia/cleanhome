@@ -109,13 +109,15 @@ export default function SupportScreen() {
           <Pressable
             style={styles.backBtn}
             onPress={() => router.back()}
+            accessibilityLabel="Indietro"
+            accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="arrow-back" size={22} color={Colors.textOnDark} />
           </Pressable>
 
-          <Text style={styles.heroLabel}>Support Center</Text>
-          <Text style={styles.heroTitle}>How can we{"\n"}assist you today?</Text>
+          <Text style={styles.heroLabel}>Centro supporto</Text>
+          <Text style={styles.heroTitle}>Come possiamo{"\n"}aiutarti oggi?</Text>
 
           {/* Search bar inside hero */}
           <View style={styles.searchBar}>

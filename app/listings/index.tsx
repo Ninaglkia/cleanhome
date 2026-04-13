@@ -306,6 +306,8 @@ export default function MyListingsScreen() {
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           hitSlop={10}
           style={styles.backBtn}
         >

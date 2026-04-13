@@ -164,6 +164,8 @@ export default function DocumentsScreen() {
         <Pressable
           style={styles.backBtn}
           onPress={() => router.back()}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="arrow-back" size={22} color={Colors.text} />

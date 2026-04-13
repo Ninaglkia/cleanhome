@@ -247,6 +247,8 @@ export default function CleanerProfileViewScreen() {
                 pressed && { opacity: 0.7 },
               ]}
               onPress={handleBack}
+              accessibilityLabel="Indietro"
+              accessibilityRole="button"
             >
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </Pressable>
@@ -256,6 +258,8 @@ export default function CleanerProfileViewScreen() {
                 pressed && { opacity: 0.7 },
               ]}
               onPress={handleShare}
+              accessibilityLabel="Condividi profilo"
+              accessibilityRole="button"
             >
               <Ionicons name="share-outline" size={20} color="#fff" />
             </Pressable>

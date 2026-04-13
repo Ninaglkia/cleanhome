@@ -1758,7 +1758,13 @@ export default function ListingScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Pressable onPress={handleBack} style={styles.backButton} hitSlop={8}>
+          <Pressable
+            onPress={handleBack}
+            accessibilityLabel="Indietro"
+            accessibilityRole="button"
+            style={styles.backButton}
+            hitSlop={8}
+          >
             <Ionicons name="arrow-back" size={22} color={C.onSurface} />
           </Pressable>
           <Text style={styles.headerTitle}>Il mio annuncio</Text>

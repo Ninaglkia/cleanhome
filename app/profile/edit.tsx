@@ -61,6 +61,8 @@ export default function EditProfileScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           style={{
             width: 40,
             height: 40,

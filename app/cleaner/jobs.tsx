@@ -327,6 +327,8 @@ export default function CleanerJobsScreen() {
         {/* ── Header ── */}
         <View style={styles.header}>
           <Pressable
+            accessibilityLabel="Indietro"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.backButton,
               pressed && { opacity: 0.6 },
@@ -335,8 +337,12 @@ export default function CleanerJobsScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>My Jobs</Text>
-          <Pressable style={styles.calendarButton}>
+          <Text style={styles.headerTitle}>I miei lavori</Text>
+          <Pressable
+            accessibilityLabel="Calendario"
+            accessibilityRole="button"
+            style={styles.calendarButton}
+          >
             <Ionicons name="calendar-outline" size={22} color={SECONDARY} />
           </Pressable>
         </View>

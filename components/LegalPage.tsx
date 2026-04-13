@@ -37,6 +37,8 @@ export function LegalPage({ title, lastUpdated, intro, sections }: LegalPageProp
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           style={{
             width: 40,
             height: 40,

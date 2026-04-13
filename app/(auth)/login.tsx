@@ -170,7 +170,12 @@ export default function LoginScreen() {
                 placeholderTextColor={`${C.outline}80`}
                 secureTextEntry={!showPassword}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={10}
+                accessibilityLabel={showPassword ? "Nascondi password" : "Mostra password"}
+                accessibilityRole="button"
+              >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}

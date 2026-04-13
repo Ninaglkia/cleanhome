@@ -705,6 +705,8 @@ export default function NewBookingScreen() {
         <TouchableOpacity
           onPress={() => (step > 0 ? setStep((prev) => prev - 1) : router.back())}
           activeOpacity={0.8}
+          accessibilityLabel={step > 0 ? "Passo precedente" : "Indietro"}
+          accessibilityRole="button"
           style={s.backBtn}
         >
           <Ionicons name="arrow-back" size={20} color={Colors.text} />

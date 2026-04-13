@@ -380,7 +380,12 @@ function CleanerView({
 
       {/* ── Hero ── */}
       <View style={clientStyles.heroSection}>
-        <Pressable style={clientStyles.avatarWrapper} onPress={onAvatarPress}>
+        <Pressable
+          style={clientStyles.avatarWrapper}
+          onPress={onAvatarPress}
+          accessibilityLabel="Cambia foto profilo"
+          accessibilityRole="button"
+        >
           <AvatarDisplay
             avatarUrl={avatarUrl}
             initials={initials}
@@ -590,7 +595,12 @@ function ClientView({
       ) : null}
 
       <View style={styles.heroSection}>
-        <Pressable style={styles.avatarWrapper} onPress={onAvatarPress}>
+        <Pressable
+          style={styles.avatarWrapper}
+          onPress={onAvatarPress}
+          accessibilityLabel="Cambia foto profilo"
+          accessibilityRole="button"
+        >
           <AvatarDisplay
             avatarUrl={avatarUrl}
             initials={initials}
@@ -867,16 +877,18 @@ export default function ProfileScreen() {
             </View>
           </View>
           <Pressable
+            accessibilityLabel="Notifiche"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.bellWrap,
               pressed && { opacity: 0.7 },
             ]}
             onPress={() => router.push("/(tabs)/notifications")}
           >
-            <Ionicons 
-              name="notifications-outline" 
-              size={22} 
-              color={isCleaner ? C.cleanerPrimary : C.primary} 
+            <Ionicons
+              name="notifications-outline"
+              size={22}
+              color={isCleaner ? C.cleanerPrimary : C.primary}
             />
           </Pressable>
         </View>

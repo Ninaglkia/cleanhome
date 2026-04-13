@@ -227,6 +227,8 @@ export default function InvoicesScreen() {
       <View style={styles.navHeader}>
         <Pressable
           onPress={() => router.back()}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

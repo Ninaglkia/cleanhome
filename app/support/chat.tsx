@@ -146,14 +146,16 @@ export default function SupportChatScreen() {
         <Pressable
           style={styles.headerBackBtn}
           onPress={() => router.back()}
+          accessibilityLabel="Indietro"
+          accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="arrow-back" size={20} color={Colors.textOnDark} />
         </Pressable>
 
         <View style={styles.headerCenter}>
-          <Text style={styles.headerName}>Live Support</Text>
-          <Text style={styles.headerSubtitle}>CONCIERGE SERVICE</Text>
+          <Text style={styles.headerName}>Supporto Live</Text>
+          <Text style={styles.headerSubtitle}>SERVIZIO CONCIERGE</Text>
         </View>
 
         <View style={styles.headerActions}>

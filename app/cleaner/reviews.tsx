@@ -185,6 +185,8 @@ export default function CleanerReviewsScreen() {
         <View style={styles.darkHeader}>
           {/* Back button */}
           <Pressable
+            accessibilityLabel="Indietro"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.backButton,
               pressed && { opacity: 0.6 },
