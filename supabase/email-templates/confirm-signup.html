@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conferma il tuo account CleanHome</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f7faf9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f7faf9; padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 4px 24px rgba(2,36,32,0.08);">
+
+          <!-- Hero header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#022420 0%,#006b55 100%); padding:48px 40px; text-align:center;">
+              <div style="display:inline-block; width:64px; height:64px; background-color:rgba(130,244,209,0.15); border-radius:18px; line-height:64px; margin-bottom:16px;">
+                <span style="font-size:32px;">🌿</span>
+              </div>
+              <h1 style="margin:0; color:#ffffff; font-size:28px; font-weight:800; letter-spacing:-0.5px;">CleanHome</h1>
+              <p style="margin:8px 0 0 0; color:#82f4d1; font-size:13px; font-weight:600; letter-spacing:2px; text-transform:uppercase;">L'eccellenza nella cura domestica</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:48px 40px 32px 40px;">
+              <h2 style="margin:0 0 16px 0; color:#0f1f1d; font-size:24px; font-weight:800; letter-spacing:-0.3px;">Benvenuto su CleanHome 👋</h2>
+              <p style="margin:0 0 8px 0; color:#4a6660; font-size:16px; line-height:24px;">
+                Grazie per esserti registrato. Manca solo un ultimo passaggio per attivare il tuo account.
+              </p>
+              <p style="margin:0 0 32px 0; color:#4a6660; font-size:16px; line-height:24px;">
+                Conferma la tua email cliccando sul pulsante qui sotto:
+              </p>
+
+              <!-- CTA button -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                <tr>
+                  <td style="background-color:#006b55; border-radius:14px;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:16px 40px; color:#ffffff; font-size:16px; font-weight:700; text-decoration:none; letter-spacing:0.3px;">Conferma la mia email</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:32px 0 8px 0; color:#8aaca6; font-size:13px; line-height:20px; text-align:center;">
+                Se il pulsante non funziona, copia e incolla questo link nel tuo browser:
+              </p>
+              <p style="margin:0; color:#006b55; font-size:12px; line-height:18px; text-align:center; word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" style="color:#006b55; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Trust bar -->
+          <tr>
+            <td style="padding:0 40px 32px 40px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#e8fdf7; border-radius:14px; padding:18px;">
+                <tr>
+                  <td style="vertical-align:top; padding-right:14px; width:24px;">
+                    <span style="font-size:18px;">🔒</span>
+                  </td>
+                  <td>
+                    <p style="margin:0; color:#006b55; font-size:13px; font-weight:600; line-height:18px;">
+                      Pagamenti sicuri con Stripe · Dati protetti GDPR · Professionisti verificati
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:0 40px 40px 40px; border-top:1px solid #e8f2ef;">
+              <p style="margin:24px 0 8px 0; color:#8aaca6; font-size:12px; line-height:18px; text-align:center;">
+                Hai ricevuto questa email perché qualcuno ha creato un account CleanHome con questo indirizzo.<br>
+                Se non sei stato tu, puoi ignorare questo messaggio in tutta sicurezza.
+              </p>
+              <p style="margin:16px 0 0 0; color:#8aaca6; font-size:11px; line-height:16px; text-align:center;">
+                © CleanHome · <a href="mailto:support@cleanhome.app" style="color:#8aaca6; text-decoration:underline;">support@cleanhome.app</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
