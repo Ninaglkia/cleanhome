@@ -13,6 +13,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings, updateBookingStatus } from "../../lib/api";
+import {
+  NotificationMessages,
+  sendPushNotification,
+} from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 
 // ─── Design tokens — tema verde/blu professionista ──────────────────────────
@@ -242,12 +246,23 @@ export default function CleanerHomeScreen() {
       try {
         await updateBookingStatus(id, "accepted");
         Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
+        // Notify the client
+        const booking = bookings.find((b) => b.id === id);
+        if (booking) {
+          const { title, body } = NotificationMessages.bookingAccepted(
+            profile?.full_name ?? "Il professionista"
+          );
+          sendPushNotification(booking.client_id, title, body, {
+            screen: "bookings",
+            bookingId: id,
+          }).catch(() => {});
+        }
         loadBookings();
       } catch {
         Alert.alert("Errore", "Impossibile accettare la richiesta");
       }
     },
-    [loadBookings]
+    [bookings, profile?.full_name, loadBookings]
   );
 
   const handleDecline = useCallback(
@@ -263,6 +278,15 @@ export default function CleanerHomeScreen() {
             onPress: async () => {
               try {
                 await updateBookingStatus(id, "declined");
+                // Notify the client
+                const booking = bookings.find((b) => b.id === id);
+                if (booking) {
+                  const { title, body } = NotificationMessages.bookingDeclined();
+                  sendPushNotification(booking.client_id, title, body, {
+                    screen: "bookings",
+                    bookingId: id,
+                  }).catch(() => {});
+                }
                 loadBookings();
               } catch {
                 Alert.alert("Errore", "Impossibile rifiutare la richiesta");
@@ -272,7 +296,7 @@ export default function CleanerHomeScreen() {
         ]
       );
     },
-    [loadBookings]
+    [bookings, loadBookings]
   );
 
   return (

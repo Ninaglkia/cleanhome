@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { fetchBooking, submitReview } from "../../lib/api";
+import { sendPushNotification } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 import { Colors } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
@@ -69,6 +70,13 @@ export default function ReviewScreen() {
         rating,
         comment.trim() || undefined
       );
+      // Notify the cleaner of the new review
+      sendPushNotification(
+        booking.cleaner_id,
+        "Nuova recensione ricevuta",
+        `Hai ricevuto ${rating} stelle per "${booking.service_type}"`,
+        { screen: "reviews", bookingId: booking.id }
+      ).catch(() => {});
       Alert.alert(
         "Grazie!",
         "La tua recensione è stata inviata",

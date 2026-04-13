@@ -16,8 +16,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
-import { fetchMessages, sendMessage, subscribeToMessages } from "../../lib/api";
-import { Message } from "../../lib/types";
+import {
+  fetchBooking,
+  fetchMessages,
+  sendMessage,
+  subscribeToMessages,
+} from "../../lib/api";
+import {
+  NotificationMessages,
+  sendPushNotification,
+} from "../../lib/notifications";
+import { Booking, Message } from "../../lib/types";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -202,10 +211,11 @@ const ChatListItem = ({ data }: { data: ListItemData }) => (
 
 export default function ChatScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [booking, setBooking] = useState<Booking | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -218,8 +228,14 @@ export default function ChatScreen() {
 
     (async () => {
       try {
-        const data = await fetchMessages(bookingId);
-        if (mounted) setMessages(data);
+        const [msgs, bk] = await Promise.all([
+          fetchMessages(bookingId),
+          fetchBooking(bookingId).catch(() => null),
+        ]);
+        if (mounted) {
+          setMessages(msgs);
+          setBooking(bk);
+        }
       } catch {
         if (mounted) setMessages([]);
       } finally {
@@ -287,12 +303,23 @@ export default function ChatScreen() {
     setSending(true);
     try {
       await sendMessage(bookingId, user.id, content);
+      // Notify the recipient — the other party in this booking
+      if (booking) {
+        const recipientId =
+          user.id === booking.client_id ? booking.cleaner_id : booking.client_id;
+        const senderName = profile?.full_name ?? "Qualcuno";
+        const { title, body } = NotificationMessages.newMessage(senderName);
+        sendPushNotification(recipientId, title, body, {
+          screen: "chat",
+          bookingId,
+        }).catch(() => {});
+      }
     } catch {
       setText(content);
     } finally {
       setSending(false);
     }
-  }, [text, user, bookingId]);
+  }, [text, user, bookingId, booking, profile?.full_name]);
 
   const handleQuickReply = useCallback((reply: string) => {
     setText(reply);

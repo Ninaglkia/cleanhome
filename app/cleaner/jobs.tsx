@@ -14,7 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings } from "../../lib/api";
+import { fetchBookings, markWorkDone } from "../../lib/api";
+import {
+  NotificationMessages,
+  sendPushNotification,
+} from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 import { Colors } from "../../lib/theme";
 
@@ -38,20 +42,28 @@ type FilterTab = "active" | "cancelled" | "history";
 interface JobCardProps {
   booking: Booking;
   onViewDetails: (id: string) => void;
+  onMarkWorkDone?: (id: string) => void;
 }
 
-function JobCard({ booking, onViewDetails }: JobCardProps) {
+function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
   const earnings = (booking.base_price - booking.cleaner_fee).toFixed(2);
   const hourlyRate = booking.estimated_hours > 0
     ? (booking.base_price / booking.estimated_hours).toFixed(0)
     : "—";
+
+  const canMarkDone = booking.status === "accepted";
+  const isWaitingConfirm = booking.status === "work_done";
 
   return (
     <View style={styles.jobCard}>
       {/* Card header */}
       <View style={styles.jobCardTop}>
         <View style={styles.jobIconWrap}>
-          <Ionicons name="checkmark-circle" size={22} color={Colors.secondary} />
+          <Ionicons
+            name={isWaitingConfirm ? "hourglass-outline" : "checkmark-circle"}
+            size={22}
+            color={Colors.secondary}
+          />
         </View>
         <View style={styles.jobTitleBlock}>
           <Text style={styles.jobTitle} numberOfLines={1}>
@@ -88,17 +100,64 @@ function JobCard({ booking, onViewDetails }: JobCardProps) {
         </View>
       </View>
 
-      {/* CTA */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.viewDetailsBtn,
-          pressed && { opacity: 0.8 },
-        ]}
-        onPress={() => onViewDetails(booking.id)}
-      >
-        <Text style={styles.viewDetailsBtnText}>Vedi Dettagli</Text>
-        <Ionicons name="arrow-forward" size={14} color="#fff" />
-      </Pressable>
+      {isWaitingConfirm ? (
+        <View
+          style={[
+            styles.viewDetailsBtn,
+            { backgroundColor: Colors.warningLight, flexDirection: "row" },
+          ]}
+        >
+          <Ionicons name="time-outline" size={14} color={Colors.warning} />
+          <Text
+            style={[
+              styles.viewDetailsBtnText,
+              { color: Colors.warning, marginLeft: 6 },
+            ]}
+          >
+            In attesa di conferma cliente
+          </Text>
+        </View>
+      ) : canMarkDone && onMarkWorkDone ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.viewDetailsBtn,
+              { flex: 1 },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => onMarkWorkDone(booking.id)}
+          >
+            <Text style={styles.viewDetailsBtnText}>Segna completato</Text>
+            <Ionicons name="checkmark" size={14} color="#fff" />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              {
+                width: 44,
+                borderRadius: 12,
+                backgroundColor: Colors.backgroundAlt,
+                alignItems: "center",
+                justifyContent: "center",
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => onViewDetails(booking.id)}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color={Colors.secondary} />
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [
+            styles.viewDetailsBtn,
+            pressed && { opacity: 0.8 },
+          ]}
+          onPress={() => onViewDetails(booking.id)}
+        >
+          <Text style={styles.viewDetailsBtnText}>Vedi Dettagli</Text>
+          <Ionicons name="arrow-forward" size={14} color="#fff" />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -131,7 +190,7 @@ function PaymentRow({ booking }: PaymentRowProps) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function CleanerJobsScreen() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,6 +231,42 @@ export default function CleanerJobsScreen() {
       router.push(`/chat/${id}`);
     },
     [router]
+  );
+
+  const handleMarkWorkDone = useCallback(
+    (id: string) => {
+      Alert.alert(
+        "Segnare come completato?",
+        "Il cliente verrà notificato per confermare il lavoro e rilasciare il pagamento.",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Conferma",
+            style: "default",
+            onPress: async () => {
+              try {
+                await markWorkDone(id);
+                // Notify the client so they can review and release payment
+                const booking = bookings.find((b) => b.id === id);
+                if (booking) {
+                  const { title, body } = NotificationMessages.workDone(
+                    profile?.full_name ?? "Il professionista"
+                  );
+                  sendPushNotification(booking.client_id, title, body, {
+                    screen: "bookings",
+                    bookingId: id,
+                  }).catch(() => {});
+                }
+                loadBookings();
+              } catch {
+                Alert.alert("Errore", "Impossibile aggiornare il lavoro");
+              }
+            },
+          },
+        ]
+      );
+    },
+    [bookings, profile?.full_name, loadBookings]
   );
 
   const handleBrowseMarket = useCallback(() => {
@@ -309,6 +404,7 @@ export default function CleanerJobsScreen() {
                 key={booking.id}
                 booking={booking}
                 onViewDetails={handleViewDetails}
+                onMarkWorkDone={handleMarkWorkDone}
               />
             ))
           )}
