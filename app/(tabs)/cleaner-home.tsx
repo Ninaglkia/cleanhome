@@ -1,45 +1,116 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   Pressable,
-  ActivityIndicator,
-  Alert,
   StatusBar,
-  RefreshControl,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings, updateBookingStatus } from "../../lib/api";
-import { Booking } from "../../lib/types";
-import { Colors, BookingStatusConfig } from "../../lib/theme";
-import { useFocusEffect } from "expo-router";
+import { updateBookingStatus } from "../../lib/api";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Design tokens — tema verde/blu professionista ──────────────────────────
 
-const CLEANER_BROWN = "#8B5E3C";
-const CLEANER_AMBER = "#D4A574";
-const CLEANER_WASH = "#F5EBE0";
-const CLEANER_DARK = "#5C3D24";
+const PRIMARY = "#006b55";
+const PRIMARY_CONTAINER = "#022420";
+const ON_SURFACE = "#181c1c";
+const ON_SURFACE_VARIANT = "#414846";
+const SURFACE = "#f6faf9";
+const SURFACE_LOW = "#f0f4f3";
+const OUTLINE = "#717976";
+const CLEANER_LIGHT = "#e6f4f1";
+
+// ─── Static mock data ─────────────────────────────────────────────────────────
+
+interface MockRequest {
+  id: string;
+  clientName: string;
+  address: string;
+  date: string;
+  timeSlot: string;
+  serviceType: string;
+}
+
+interface MockAppointment {
+  id: string;
+  dayAbbrev: string;
+  dayNum: number;
+  title: string;
+  timeRange: string;
+}
+
+const MOCK_REQUESTS: MockRequest[] = [
+  {
+    id: "req-1",
+    clientName: "Giulia Marchetti",
+    address: "Via Torino 14, Milano",
+    date: "Sab 5 Apr",
+    timeSlot: "09:00",
+    serviceType: "Pulizia completa",
+  },
+  {
+    id: "req-2",
+    clientName: "Luca Ferrari",
+    address: "Corso Buenos Aires 22, Milano",
+    date: "Dom 6 Apr",
+    timeSlot: "14:00",
+    serviceType: "Pulizia standard",
+  },
+];
+
+const MOCK_APPOINTMENTS: MockAppointment[] = [
+  {
+    id: "apt-1",
+    dayAbbrev: "Lun",
+    dayNum: 7,
+    title: "Via Brera 8 — Pulizia premium",
+    timeRange: "10:00 – 13:00",
+  },
+  {
+    id: "apt-2",
+    dayAbbrev: "Mar",
+    dayNum: 8,
+    title: "Piazza Duomo 3 — Pulizia completa",
+    timeRange: "09:00 – 12:30",
+  },
+  {
+    id: "apt-3",
+    dayAbbrev: "Gio",
+    dayNum: 10,
+    title: "Via Navigli 55 — Pulizia standard",
+    timeRange: "15:00 – 17:00",
+  },
+];
+
+const MOCK_STATS = {
+  inAttesa: 2,
+  attive: 3,
+  completate: 14,
+};
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 interface StatCardProps {
   value: number;
   label: string;
-  color: string;
-  bgColor: string;
+  iconName: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
 }
 
-function StatCard({ value, label, color, bgColor }: StatCardProps) {
+function StatCard({ value, label, iconName, iconColor, iconBg }: StatCardProps) {
   return (
-    <View style={[styles.statCard, { backgroundColor: bgColor }]}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color }]}>{label}</Text>
+    <View style={styles.statCard}>
+      <View style={[styles.statIconCircle, { backgroundColor: iconBg }]}>
+        <Ionicons name={iconName} size={20} color={iconColor} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -47,69 +118,57 @@ function StatCard({ value, label, color, bgColor }: StatCardProps) {
 // ─── Request card ─────────────────────────────────────────────────────────────
 
 interface RequestCardProps {
-  item: Booking;
+  item: MockRequest;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
 }
 
 function RequestCard({ item, onAccept, onDecline }: RequestCardProps) {
-  const serviceTypeLabel = item.service_type?.toUpperCase() ?? "SERVIZIO";
+  const handleAccept = useCallback(() => onAccept(item.id), [item.id, onAccept]);
+  const handleDecline = useCallback(() => onDecline(item.id), [item.id, onDecline]);
 
   return (
     <View style={styles.requestCard}>
-      {/* Top row: avatar + info */}
+      {/* Top row: avatar + name/location + time */}
       <View style={styles.requestTop}>
         <View style={styles.avatarCircle}>
-          <Ionicons name="person" size={18} color={CLEANER_BROWN} />
+          <Ionicons name="person" size={20} color={OUTLINE} />
         </View>
         <View style={styles.requestInfo}>
           <Text style={styles.requestName} numberOfLines={1}>
-            Cliente
+            {item.clientName}
           </Text>
-          <Text style={styles.requestTime}>
-            Oggi {item.time_slot ?? "—"}
-          </Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-sharp" size={12} color={OUTLINE} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {item.address}
+            </Text>
+          </View>
         </View>
-        {/* Service type badge */}
+        <View style={styles.requestTimeWrap}>
+          <Text style={styles.requestDate}>{item.date}</Text>
+          <Text style={styles.requestTime}>{item.timeSlot}</Text>
+        </View>
+      </View>
+
+      {/* Service badge */}
+      <View style={styles.serviceBadgeRow}>
         <View style={styles.serviceBadge}>
-          <Text style={styles.serviceBadgeText} numberOfLines={1}>
-            {serviceTypeLabel}
-          </Text>
+          <Text style={styles.serviceBadgeText}>{item.serviceType}</Text>
         </View>
       </View>
-
-      {/* Location row */}
-      {item.address ? (
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={13} color={Colors.textTertiary} />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {item.address}
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Date row */}
-      <View style={styles.locationRow}>
-        <Ionicons name="calendar-outline" size={13} color={Colors.textTertiary} />
-        <Text style={styles.locationText}>{item.date}</Text>
-      </View>
-
-      {/* Earnings */}
-      <Text style={styles.earningsText}>
-        €{(item.base_price - item.cleaner_fee).toFixed(0)}
-      </Text>
 
       {/* Action buttons */}
       <View style={styles.actionRow}>
         <Pressable
           style={({ pressed }) => [styles.btnDecline, pressed && { opacity: 0.75 }]}
-          onPress={() => onDecline(item.id)}
+          onPress={handleDecline}
         >
           <Text style={styles.btnDeclineText}>Rifiuta</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.btnAccept, pressed && { opacity: 0.85 }]}
-          onPress={() => onAccept(item.id)}
+          onPress={handleAccept}
         >
           <Text style={styles.btnAcceptText}>Accetta</Text>
         </Pressable>
@@ -121,321 +180,189 @@ function RequestCard({ item, onAccept, onDecline }: RequestCardProps) {
 // ─── Appointment row ──────────────────────────────────────────────────────────
 
 interface AppointmentRowProps {
-  item: Booking;
+  item: MockAppointment;
 }
 
 function AppointmentRow({ item }: AppointmentRowProps) {
-  const cfg = BookingStatusConfig[item.status];
-
   return (
     <View style={styles.appointmentRow}>
-      <View style={[styles.appointmentAccent, { backgroundColor: CLEANER_BROWN }]} />
-      <View style={styles.appointmentMeta}>
-        <Text style={styles.appointmentTime}>{item.time_slot ?? "—"}</Text>
-        <Text style={styles.appointmentDate}>{item.date}</Text>
+      {/* Date card */}
+      <View style={styles.appointmentDateCard}>
+        <Text style={styles.appointmentDayAbbrev}>{item.dayAbbrev}</Text>
+        <Text style={styles.appointmentDayNum}>{item.dayNum}</Text>
       </View>
+
+      {/* Body */}
       <View style={styles.appointmentBody}>
-        <Text style={styles.appointmentService} numberOfLines={1}>
-          {item.service_type}
+        <Text style={styles.appointmentTitle} numberOfLines={1}>
+          {item.title}
         </Text>
-        {item.address ? (
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={12} color={Colors.textTertiary} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {item.address}
-            </Text>
-          </View>
-        ) : null}
+        <Text style={styles.appointmentTime}>{item.timeRange}</Text>
       </View>
-      <View style={[styles.statusDot, { backgroundColor: cfg?.color ?? Colors.muted }]} />
+
+      <Ionicons name="chevron-forward" size={18} color={`${ON_SURFACE_VARIANT}66`} />
     </View>
   );
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-type ListItem =
-  | { key: "header" }
-  | { key: "stats" }
-  | { key: "section-incoming" }
-  | { key: "section-upcoming" }
-  | { key: "empty" }
-  | { key: string; booking: Booking };
-
 export default function CleanerHomeScreen() {
   const { user, profile } = useAuth();
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadBookings = useCallback(
-    async (silent = false) => {
-      if (!user) return;
-      if (!silent) setLoading(true);
-      try {
-        const data = await fetchBookings(user.id, "cleaner");
-        setBookings(data);
-      } catch {
-        setBookings([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [user]
-  );
+  const firstName =
+    profile?.full_name?.split(" ")[0] ??
+    user?.user_metadata?.full_name?.split(" ")[0] ??
+    "Professionista";
 
-  useFocusEffect(
-    useCallback(() => {
-      loadBookings();
-    }, [loadBookings])
-  );
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadBookings(true);
-  }, [loadBookings]);
-
-  const handleAction = useCallback(
-    async (bookingId: string, status: string) => {
-      try {
-        await updateBookingStatus(bookingId, status);
-        loadBookings(true);
-      } catch {
-        Alert.alert("Errore", "Impossibile aggiornare la prenotazione");
-      }
-    },
-    [loadBookings]
-  );
-
-  const handleAccept = useCallback(
-    (id: string) => handleAction(id, "accepted"),
-    [handleAction]
-  );
-  const handleDecline = useCallback(
-    (id: string) => handleAction(id, "declined"),
-    [handleAction]
-  );
-
-  const pendingBookings = bookings.filter((b) => b.status === "pending");
-  const activeBookings = bookings.filter((b) =>
-    ["accepted", "work_done"].includes(b.status)
-  );
-  const completedCount = bookings.filter((b) => b.status === "completed").length;
-
-  const firstName = profile?.full_name?.split(" ")[0] ?? "Professionista";
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera";
 
-  const listData: ListItem[] = [
-    { key: "header" },
-    { key: "stats" },
-    ...(pendingBookings.length > 0
-      ? [
-          { key: "section-incoming" } as ListItem,
-          ...pendingBookings.map(
-            (b): ListItem => ({ key: `req-${b.id}`, booking: b })
-          ),
-        ]
-      : []),
-    ...(activeBookings.length > 0
-      ? [
-          { key: "section-upcoming" } as ListItem,
-          ...activeBookings.map(
-            (b): ListItem => ({ key: `apt-${b.id}`, booking: b })
-          ),
-        ]
-      : []),
-    ...(pendingBookings.length === 0 && activeBookings.length === 0 && !loading
-      ? [{ key: "empty" } as ListItem]
-      : []),
-  ];
+  const handleAccept = useCallback(async (id: string) => {
+    try {
+      await updateBookingStatus(id, "accepted");
+      Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
+    } catch {
+      Alert.alert("Errore", "Impossibile accettare la richiesta");
+    }
+  }, []);
 
-  const renderItem = useCallback(
-    ({ item }: { item: ListItem }) => {
-      if (item.key === "header") {
-        return (
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <Text style={styles.brandLogo}>CleanHome</Text>
-              <Pressable
-                style={styles.bellButton}
-                onPress={() => Alert.alert("Notifiche", "Prossimamente")}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={22}
-                  color={Colors.text}
-                />
-              </Pressable>
-            </View>
-            <Text style={styles.greeting}>
-              {greeting}, {firstName}
-            </Text>
-            <Text style={styles.greetingSub}>La tua giornata</Text>
-          </View>
-        );
-      }
-
-      if (item.key === "stats") {
-        return (
-          <View style={styles.statsRow}>
-            <StatCard
-              value={pendingBookings.length}
-              label="OGGI"
-              color={CLEANER_BROWN}
-              bgColor={CLEANER_WASH}
-            />
-            <StatCard
-              value={activeBookings.length}
-              label="ATTIVA"
-              color={Colors.secondary}
-              bgColor={Colors.accentLight}
-            />
-            <StatCard
-              value={completedCount}
-              label="COMPLETATE"
-              color={Colors.success}
-              bgColor={Colors.successLight}
-            />
-          </View>
-        );
-      }
-
-      if (item.key === "section-incoming") {
-        return (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
-            <Pressable
-              onPress={() => router.push("/cleaner/jobs")}
-              style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-            >
-              <Text style={styles.sectionLink}>Vedi tutte &gt;</Text>
-            </Pressable>
-          </View>
-        );
-      }
-
-      if (item.key === "section-upcoming") {
-        return (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
-          </View>
-        );
-      }
-
-      if (item.key === "empty") {
-        return (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons
-                name="briefcase-outline"
-                size={36}
-                color={CLEANER_BROWN}
-              />
-            </View>
-            <Text style={styles.emptyTitle}>Nessuna prenotazione</Text>
-            <Text style={styles.emptySubtitle}>
-              Le richieste dei clienti appariranno qui.{"\n"}Assicurati che il
-              tuo profilo sia attivo!
-            </Text>
-          </View>
-        );
-      }
-
-      if ("booking" in item) {
-        if (item.key.startsWith("req-")) {
-          return (
-            <View style={styles.cardWrapper}>
-              <RequestCard
-                item={item.booking}
-                onAccept={handleAccept}
-                onDecline={handleDecline}
-              />
-            </View>
-          );
-        }
-        if (item.key.startsWith("apt-")) {
-          return (
-            <View style={styles.cardWrapper}>
-              <AppointmentRow item={item.booking} />
-            </View>
-          );
-        }
-      }
-
-      return null;
-    },
-    [
-      pendingBookings,
-      activeBookings,
-      completedCount,
-      handleAccept,
-      handleDecline,
-      firstName,
-      greeting,
-      loading,
-      router,
-    ]
-  );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.root} edges={["top"]}>
-        <StatusBar barStyle="dark-content" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={CLEANER_BROWN} />
-        </View>
-      </SafeAreaView>
+  const handleDecline = useCallback((id: string) => {
+    Alert.alert(
+      "Rifiutare lavoro?",
+      "Il cliente verrà notificato e potrà scegliere un altro professionista.",
+      [
+        { text: "Annulla", style: "cancel" },
+        {
+          text: "Rifiuta",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await updateBookingStatus(id, "rejected");
+            } catch {
+              Alert.alert("Errore", "Impossibile rifiutare la richiesta");
+            }
+          },
+        },
+      ]
     );
-  }
+  }, []);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
-      <FlatList
-        data={listData}
-        keyExtractor={(item) => item.key}
-        renderItem={renderItem}
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        removeClippedSubviews
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={CLEANER_BROWN}
-            colors={[CLEANER_BROWN]}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          {/* Top bar: CleanHome logo + avatar */}
+          <View style={styles.headerTop}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="leaf" size={22} color="#022420" />
+              <Text style={styles.brandLogo}>CleanHome</Text>
+            </View>
+            <View style={styles.avatarPhoto}>
+              <Ionicons name="person" size={18} color={PRIMARY_CONTAINER} />
+            </View>
+          </View>
+          {/* Greeting */}
+          <Text style={styles.greeting}>
+            {greeting}, {firstName}
+          </Text>
+          <Text style={styles.greetingSub}>La tua giornata</Text>
+        </View>
+
+        {/* ── Stats grid ──────────────────────────────────────────────────── */}
+        <View style={styles.statsRow}>
+          <StatCard
+            value={MOCK_STATS.inAttesa}
+            label="In attesa"
+            iconName="alert-circle-outline"
+            iconColor="#006b55"
+            iconBg="#e6f4f1"
           />
-        }
-      />
+          <StatCard
+            value={MOCK_STATS.attive}
+            label="Attive"
+            iconName="calendar-outline"
+            iconColor={PRIMARY}
+            iconBg={CLEANER_LIGHT}
+          />
+          <StatCard
+            value={MOCK_STATS.completate}
+            label="Completate"
+            iconName="checkmark-circle-outline"
+            iconColor="#16a34a"
+            iconBg="#f0fdf4"
+          />
+        </View>
+
+        {/* ── Richieste in arrivo ──────────────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
+          <Pressable
+            onPress={() => router.push("/cleaner/jobs" as never)}
+            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
+          >
+            <View style={styles.sectionLinkRow}>
+              <Text style={styles.sectionLink}>Vedi tutte</Text>
+              <Ionicons name="arrow-forward" size={14} color={PRIMARY} />
+            </View>
+          </Pressable>
+        </View>
+
+        {MOCK_REQUESTS.map((req) => (
+          <View key={req.id} style={styles.cardWrapper}>
+            <RequestCard
+              item={req}
+              onAccept={handleAccept}
+              onDecline={handleDecline}
+            />
+          </View>
+        ))}
+
+        {/* ── Prossimi appuntamenti ────────────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
+        </View>
+
+        {MOCK_APPOINTMENTS.map((apt) => (
+          <View key={apt.id} style={styles.cardWrapper}>
+            <AppointmentRow item={apt} />
+          </View>
+        ))}
+
+        {/* Bottom spacer for tab bar */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: SURFACE,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  scrollContent: {
+    paddingBottom: 0,
   },
-  listContent: {
-    paddingBottom: 40,
+  bottomSpacer: {
+    height: 40,
   },
 
-  // ── Header ────────────────────────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+    backgroundColor: "rgba(246,250,249,0.9)",
   },
   headerTop: {
     flexDirection: "row",
@@ -444,281 +371,290 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   brandLogo: {
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     fontStyle: "italic",
-    color: CLEANER_DARK,
-    letterSpacing: 0.2,
+    color: "#181c1c",
+    letterSpacing: -0.3,
   },
-  bellButton: {
+  avatarPhoto: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: CLEANER_LIGHT,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.primary,
+    borderWidth: 2,
+    borderColor: CLEANER_LIGHT,
+    shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
     elevation: 3,
   },
   greeting: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: Colors.text,
+    color: ON_SURFACE,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   greetingSub: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    fontWeight: "500",
+    color: ON_SURFACE_VARIANT,
+    opacity: 0.7,
   },
 
-  // ── Stats row ─────────────────────────────────────────────────────────────────
+  // ── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
     gap: 10,
+    marginTop: 4,
     marginBottom: 8,
   },
   statCard: {
     flex: 1,
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     alignItems: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: "rgba(0,107,85,0.06)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  statIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
   statValue: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
+    color: ON_SURFACE,
     letterSpacing: -0.8,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 9,
     fontWeight: "700",
-    letterSpacing: 1,
+    color: ON_SURFACE_VARIANT,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    opacity: 0.75,
+    textAlign: "center",
   },
 
-  // ── Section header ────────────────────────────────────────────────────────────
+  // ── Section header ────────────────────────────────────────────────────────
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 12,
+    paddingTop: 28,
+    paddingBottom: 14,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    color: Colors.text,
-    letterSpacing: -0.2,
+    color: ON_SURFACE,
+    letterSpacing: -0.3,
+  },
+  sectionLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   sectionLink: {
     fontSize: 13,
     fontWeight: "600",
-    color: CLEANER_BROWN,
+    color: PRIMARY,
   },
 
-  // ── Card wrapper ──────────────────────────────────────────────────────────────
+  // ── Card wrapper ──────────────────────────────────────────────────────────
   cardWrapper: {
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
 
-  // ── Request card ──────────────────────────────────────────────────────────────
+  // ── Request card ──────────────────────────────────────────────────────────
   requestCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: CLEANER_BROWN,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: PRIMARY_CONTAINER,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 5,
+    gap: 14,
   },
   requestTop: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
+    alignItems: "flex-start",
     gap: 12,
   },
   avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: CLEANER_WASH,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: CLEANER_LIGHT,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   requestInfo: {
     flex: 1,
   },
   requestName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  requestTime: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  serviceBadge: {
-    backgroundColor: CLEANER_WASH,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    maxWidth: 110,
-  },
-  serviceBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: CLEANER_BROWN,
-    letterSpacing: 0.6,
+    color: ON_SURFACE,
+    marginBottom: 3,
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    marginBottom: 4,
+    gap: 4,
+    marginTop: 2,
   },
   locationText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: ON_SURFACE_VARIANT,
     flex: 1,
   },
-  earningsText: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: CLEANER_BROWN,
-    letterSpacing: -0.5,
-    marginTop: 6,
-    marginBottom: 12,
+  requestTimeWrap: {
+    alignItems: "flex-end",
+  },
+  requestDate: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ON_SURFACE,
+    marginBottom: 2,
+  },
+  requestTime: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: ON_SURFACE_VARIANT,
+  },
+  serviceBadgeRow: {
+    flexDirection: "row",
+  },
+  serviceBadge: {
+    backgroundColor: CLEANER_LIGHT,
+    borderRadius: 9999,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  serviceBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: PRIMARY,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   actionRow: {
     flexDirection: "row",
-    gap: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    gap: 12,
+    paddingTop: 4,
   },
   btnDecline: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 9999,
     borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderColor: OUTLINE,
+    backgroundColor: "transparent",
   },
   btnDeclineText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.textSecondary,
+    color: PRIMARY,
   },
   btnAccept: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.secondary,
+    paddingVertical: 13,
+    borderRadius: 9999,
+    // soul-gradient fallback: solid primary-container
+    // (LinearGradient richiederebbe expo-linear-gradient — non installato)
+    backgroundColor: PRIMARY_CONTAINER,
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   btnAcceptText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    color: "#ffffff",
   },
 
-  // ── Appointment row ───────────────────────────────────────────────────────────
+  // ── Appointment row ───────────────────────────────────────────────────────
   appointmentRow: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
-    overflow: "hidden",
-    shadowColor: Colors.primary,
+    backgroundColor: SURFACE_LOW,
+    borderRadius: 20,
+    padding: 16,
+    gap: 16,
+    shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
-  appointmentAccent: {
-    width: 4,
-    alignSelf: "stretch",
-  },
-  appointmentMeta: {
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+  appointmentDateCard: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
     alignItems: "center",
-    minWidth: 60,
+    justifyContent: "center",
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  appointmentTime: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  appointmentDate: {
+  appointmentDayAbbrev: {
     fontSize: 10,
-    color: Colors.textTertiary,
-    marginTop: 2,
+    fontWeight: "700",
+    color: PRIMARY,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  appointmentDayNum: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: ON_SURFACE,
+    lineHeight: 24,
   },
   appointmentBody: {
     flex: 1,
-    paddingVertical: 14,
-    paddingRight: 12,
   },
-  appointmentService: {
+  appointmentTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 14,
-  },
-
-  // ── Empty state ───────────────────────────────────────────────────────────────
-  emptyState: {
-    alignItems: "center",
-    paddingHorizontal: 40,
-    paddingTop: 60,
-  },
-  emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: CLEANER_WASH,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
     fontWeight: "700",
-    color: Colors.text,
-    textAlign: "center",
-    marginBottom: 8,
+    color: ON_SURFACE,
+    marginBottom: 3,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
+  appointmentTime: {
+    fontSize: 12,
+    color: ON_SURFACE_VARIANT,
   },
 });

@@ -1,9 +1,9 @@
 import { Stack } from "expo-router";
 
-export default function BookingLayout() {
+export default function ProfileLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="new" />
+      <Stack.Screen name="edit" />
     </Stack>
   );
 }

@@ -352,6 +352,8 @@ export default function RootLayout() {
               name="review"
               options={{ presentation: "modal" }}
             />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="legal" />
           </Stack>
         </AuthContext.Provider>
       </StripeProvider>

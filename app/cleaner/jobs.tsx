@@ -20,10 +20,16 @@ import { Colors } from "../../lib/theme";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BROWN = "#8B5E3C";
-const AMBER = "#D4A574";
-const WASH = "#F5EBE0";
-const BROWN_DARK = "#5C3D24";
+const PRIMARY = "#022420";
+const PRIMARY_CONTAINER = "#1a3a35";
+const SECONDARY = "#006b55";
+const SECONDARY_CONTAINER = "#82f4d1";
+const SURFACE = "#f6faf9";
+const SURFACE_LOW = "#f0f4f3";
+const ON_SURFACE = "#181c1c";
+const ON_SURFACE_VARIANT = "#414846";
+const OUTLINE = "#717976";
+const OUTLINE_VARIANT = "#c1c8c5";
 
 type FilterTab = "active" | "cancelled" | "history";
 
@@ -163,9 +169,9 @@ export default function CleanerJobsScreen() {
 
   const handleViewDetails = useCallback(
     (id: string) => {
-      Alert.alert("Dettagli lavoro", `ID: ${id}\n\nProssimamente`);
+      router.push(`/chat/${id}`);
     },
-    []
+    [router]
   );
 
   const handleBrowseMarket = useCallback(() => {
@@ -202,7 +208,7 @@ export default function CleanerJobsScreen() {
       <SafeAreaView style={styles.root} edges={["top"]}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BROWN} />
+          <ActivityIndicator size="large" color={SECONDARY} />
         </View>
       </SafeAreaView>
     );
@@ -218,8 +224,8 @@ export default function CleanerJobsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={BROWN}
-            colors={[BROWN]}
+            tintColor={SECONDARY}
+            colors={[SECONDARY]}
           />
         }
       >
@@ -236,7 +242,7 @@ export default function CleanerJobsScreen() {
           </Pressable>
           <Text style={styles.headerTitle}>My Jobs</Text>
           <Pressable style={styles.calendarButton}>
-            <Ionicons name="calendar-outline" size={22} color={BROWN} />
+            <Ionicons name="calendar-outline" size={22} color={SECONDARY} />
           </Pressable>
         </View>
 
@@ -249,7 +255,7 @@ export default function CleanerJobsScreen() {
             </Text>
           </View>
           <View style={styles.motivationIllustration}>
-            <Ionicons name="star" size={32} color={AMBER} />
+            <Ionicons name="star" size={32} color={SECONDARY_CONTAINER} />
           </View>
         </View>
 
@@ -328,7 +334,7 @@ export default function CleanerJobsScreen() {
         {/* ── CTA: Browse market ── */}
         <View style={styles.ctaCard}>
           <View style={styles.ctaIllustration}>
-            <Ionicons name="search" size={40} color={AMBER} />
+            <Ionicons name="search" size={40} color={SECONDARY_CONTAINER} />
           </View>
           <Text style={styles.ctaTitle}>Hai bisogno di più ore?</Text>
           <Text style={styles.ctaSub}>
@@ -389,8 +395,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: "800",
-    fontStyle: "italic",
-    color: BROWN_DARK,
+    color: PRIMARY,
     textAlign: "center",
     letterSpacing: -0.3,
   },
@@ -398,7 +403,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: WASH,
+    backgroundColor: SURFACE_LOW,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -407,12 +412,12 @@ const styles = StyleSheet.create({
   motivationBanner: {
     marginHorizontal: 20,
     marginBottom: 20,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: PRIMARY_CONTAINER,
     borderRadius: 20,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: BROWN,
+    shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -459,8 +464,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   filterPillActive: {
-    backgroundColor: BROWN,
-    borderColor: BROWN,
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
   },
   filterPillText: {
     fontSize: 13,
@@ -491,7 +496,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 14,
-    shadowColor: BROWN,
+    shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -645,7 +650,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: WASH,
+    backgroundColor: SURFACE_LOW,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
@@ -668,7 +673,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: BROWN,
+    backgroundColor: PRIMARY,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 28,

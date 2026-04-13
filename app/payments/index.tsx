@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   Linking,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -76,8 +77,22 @@ export default function PaymentsScreen() {
   const router = useRouter();
 
   const handleUpdatePayment = useCallback(() => {
-    // Navigate to payment details update screen when implemented
+    Alert.alert(
+      "Metodo di pagamento",
+      "Il metodo di pagamento viene richiesto automaticamente al momento della prenotazione tramite Stripe. Non è necessaria una configurazione anticipata."
+    );
   }, []);
+
+  const handleInfoRow = useCallback(
+    (title: string, message: string) => {
+      Alert.alert(title, message);
+    },
+    []
+  );
+
+  const handleSupportContact = useCallback(() => {
+    router.push("/support");
+  }, [router]);
 
   const handleChat = useCallback(() => {
     // Open support chat
@@ -102,7 +117,10 @@ export default function PaymentsScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Supporto</Text>
-          <Text style={styles.headerBrand}>CleanHome</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="leaf" size={20} color="#022420" />
+            <Text style={styles.headerBrand}>CleanHome</Text>
+          </View>
         </View>
         <View style={styles.helpCenterBadge}>
           <Text style={styles.helpCenterText}>HELP CENTER</Text>
@@ -130,23 +148,35 @@ export default function PaymentsScreen() {
               icon="card-outline"
               title="Carte di credito e debito"
               subtitle="Visa, Mastercard, Amex"
-              onPress={() => {}}
+              onPress={() =>
+                handleInfoRow(
+                  "Carte accettate",
+                  "Accettiamo tutte le principali carte di credito e debito: Visa, Mastercard, American Express. Il pagamento è processato in modo sicuro da Stripe."
+                )
+              }
             />
             <View style={styles.cardDivider} />
             <PaymentMethodRow
               icon="wallet-outline"
               title="Portafogli digitali"
               subtitle={Platform.OS === "ios" ? "Apple Pay, Google Pay" : "Google Pay"}
-              onPress={() => {}}
+              onPress={() =>
+                handleInfoRow(
+                  "Portafogli digitali",
+                  Platform.OS === "ios"
+                    ? "Puoi pagare con Apple Pay o Google Pay direttamente dal Payment Sheet al momento della prenotazione."
+                    : "Puoi pagare con Google Pay direttamente dal Payment Sheet al momento della prenotazione."
+                )
+              }
             />
             <View style={styles.cardDivider} />
             <Pressable
               onPress={handleUpdatePayment}
               style={({ pressed }) => [styles.updateLink, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="create-outline" size={16} color={Colors.secondary} />
+              <Ionicons name="create-outline" size={16} color={Colors.textOnDark} />
               <Text style={styles.updateLinkText}>Aggiorna metodo di pagamento</Text>
-              <Ionicons name="arrow-forward" size={14} color={Colors.secondary} />
+              <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} />
             </Pressable>
           </View>
         </View>
@@ -175,13 +205,23 @@ export default function PaymentsScreen() {
             <InfoRow
               icon="checkmark-circle-outline"
               title="Garanzia di soddisfazione"
-              onPress={() => {}}
+              onPress={() =>
+                handleInfoRow(
+                  "Garanzia di soddisfazione",
+                  "Se il servizio non rispetta gli standard promessi, contatta il supporto entro 24 ore. Valuteremo ogni caso e potremo offrire un rimborso totale o parziale."
+                )
+              }
             />
             <View style={styles.cardDivider} />
             <InfoRow
               icon="calendar-outline"
               title="Politica di cancellazione"
-              onPress={() => {}}
+              onPress={() =>
+                handleInfoRow(
+                  "Cancellazioni",
+                  "Cancellazione gratuita fino a 24 ore prima dell'appuntamento. Cancellazioni tardive comportano l'addebito del 50% del servizio."
+                )
+              }
             />
           </View>
         </View>
@@ -198,7 +238,7 @@ export default function PaymentsScreen() {
             <InfoRow
               icon="alert-circle-outline"
               title="Segnala un addebito duplicato"
-              onPress={() => {}}
+              onPress={handleSupportContact}
             />
             <View style={styles.cardDivider} />
             <InfoRow
@@ -278,22 +318,23 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerBrand: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: Colors.primary,
+    fontSize: 20,
+    fontWeight: "700",
+    fontStyle: "italic",
+    color: "#181c1c",
     letterSpacing: -0.3,
   },
   helpCenterBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.full,
   },
   helpCenterText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "800",
     color: Colors.textOnDark,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
 
@@ -306,18 +347,20 @@ const styles = StyleSheet.create({
   // Title block
   titleBlock: {
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   pageTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: Colors.text,
+    fontSize: 30,
+    fontWeight: "700",
+    color: Colors.primary,
     letterSpacing: -0.6,
+    fontFamily: "NotoSerif-Bold",
   },
   pageSubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
-    lineHeight: 21,
+    lineHeight: 22,
+    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Sections
@@ -325,11 +368,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "700",
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    color: Colors.primary,
+    letterSpacing: -0.2,
+    fontFamily: "NotoSerif-Bold",
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -383,33 +426,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.text,
     marginBottom: 2,
+    fontFamily: "PlusJakartaSans-SemiBold",
   },
   methodSub: {
     fontSize: 12,
     color: Colors.textTertiary,
+    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Update link
   updateLink: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.accentLight,
+    marginHorizontal: Spacing.base,
+    marginVertical: Spacing.md,
+    paddingVertical: 14,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
   },
   updateLinkText: {
-    flex: 1,
     fontSize: 14,
-    fontWeight: "600",
-    color: Colors.secondary,
+    fontWeight: "700",
+    color: Colors.textOnDark,
   },
 
   // Security card
   securityCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
     padding: Spacing.base,
     gap: Spacing.md,
@@ -469,6 +516,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: Colors.text,
+    fontFamily: "PlusJakartaSans-Medium",
   },
   activeBadge: {
     paddingHorizontal: Spacing.sm,
@@ -502,10 +550,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   assistanceTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    color: Colors.text,
+    color: Colors.primary,
     textAlign: "center",
+    fontFamily: "NotoSerif-Bold",
   },
   assistanceSub: {
     fontSize: 14,
@@ -526,8 +575,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     height: 50,
-    backgroundColor: Colors.secondary,
-    borderRadius: Radius.md,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
     ...Shadows.sm,
   },
   assistanceBtnPrimaryText: {
@@ -542,10 +591,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     height: 50,
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
     borderWidth: 1.5,
-    borderColor: Colors.secondary,
+    borderColor: Colors.border,
   },
   assistanceBtnSecondaryText: {
     fontSize: 14,

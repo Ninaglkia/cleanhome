@@ -39,3 +39,13 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Claude Code local state (never commit)
+.claude/
+_bmad/
+PROMPT-CLEANHOME.md
+stitch-designs/
+stitch-export/
+stitch-export2/
+build/
+supabase/.temp/

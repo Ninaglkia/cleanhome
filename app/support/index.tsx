@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Linking } from "react-native";
 import {
   View,
   Text,
@@ -113,8 +114,8 @@ export default function SupportScreen() {
             <Ionicons name="arrow-back" size={22} color={Colors.textOnDark} />
           </Pressable>
 
-          <Text style={styles.heroLabel}>CENTRO ASSISTENZA</Text>
-          <Text style={styles.heroTitle}>Come possiamo{"\n"}aiutarti oggi?</Text>
+          <Text style={styles.heroLabel}>Support Center</Text>
+          <Text style={styles.heroTitle}>How can we{"\n"}assist you today?</Text>
 
           {/* Search bar inside hero */}
           <View style={styles.searchBar}>
@@ -172,7 +173,8 @@ export default function SupportScreen() {
 
           {/* ── Topics section ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Argomenti di Assistenza</Text>
+            <Text style={styles.sectionLabel}>BROWSE BY TOPICS</Text>
+            <Text style={styles.sectionTitle}>Booking & Scheduling</Text>
             <View style={styles.topicsCard}>
               {TOPICS.map((topic, index) => (
                 <View key={topic.id}>
@@ -192,7 +194,7 @@ export default function SupportScreen() {
             <View style={styles.stillButtons}>
               <Pressable
                 style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
-                onPress={() => {}}
+                onPress={() => Linking.openURL("mailto:support@cleanhome.app")}
               >
                 <Ionicons name="mail-outline" size={16} color={Colors.secondary} />
                 <Text style={styles.stillBtnText}>Supporto Email</Text>
@@ -209,16 +211,12 @@ export default function SupportScreen() {
 
           {/* ── Footer links ── */}
           <View style={styles.footer}>
-            <Pressable onPress={() => {}}>
+            <Pressable onPress={() => router.push("/legal/terms")}>
               <Text style={styles.footerLink}>Termini di Servizio</Text>
             </Pressable>
             <View style={styles.footerDot} />
-            <Pressable onPress={() => {}}>
+            <Pressable onPress={() => router.push("/legal/privacy")}>
               <Text style={styles.footerLink}>Privacy</Text>
-            </Pressable>
-            <View style={styles.footerDot} />
-            <Pressable onPress={() => {}}>
-              <Text style={styles.footerLink}>Cookie Policy</Text>
             </Pressable>
           </View>
         </View>
@@ -257,6 +255,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
     color: Colors.textOnDarkSecondary,
     marginBottom: Spacing.sm,
+    textTransform: "uppercase",
   },
   heroTitle: {
     fontSize: 28,
@@ -324,7 +323,7 @@ const styles = StyleSheet.create({
     color: Colors.secondary,
   },
   aiTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "700",
     color: Colors.primary,
     letterSpacing: -0.3,
@@ -345,7 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.full,
     paddingVertical: 14,
   },
   btnPrimaryText: {
@@ -377,10 +376,17 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.md,
   },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+    color: Colors.textTertiary,
+    textTransform: "uppercase",
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
-    color: Colors.primary,
+    color: Colors.text,
     letterSpacing: -0.2,
   },
   topicsCard: {
@@ -431,19 +437,21 @@ const styles = StyleSheet.create({
 
   // Still have questions
   stillCard: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   stillTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    color: Colors.textOnDark,
+    color: Colors.text,
     marginBottom: Spacing.xs,
   },
   stillSubtitle: {
     fontSize: 13,
-    color: Colors.textOnDarkTertiary,
+    color: Colors.textSecondary,
     lineHeight: 19,
     marginBottom: Spacing.lg,
   },
@@ -458,13 +466,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    paddingVertical: 12,
+    borderRadius: Radius.full,
+    paddingVertical: 13,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
   stillBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: Colors.text,
   },
 
   // Footer

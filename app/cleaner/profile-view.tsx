@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,28 @@ import {
   StatusBar,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Colors } from "../../lib/theme";
+import { useAuth } from "../../lib/auth";
+import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
+import { CleanerProfile, Review } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BROWN = "#8B5E3C";
-const AMBER = "#D4A574";
-const WASH = "#F5EBE0";
-const BROWN_DARK = "#5C3D24";
+const PRIMARY = "#022420";
+const PRIMARY_CONTAINER = "#1a3a35";
+const SECONDARY = "#006b55";
+const SECONDARY_CONTAINER = "#82f4d1";
+const SURFACE = "#f6faf9";
+const SURFACE_LOW = "#f0f4f3";
+const ON_SURFACE = "#181c1c";
+const ON_SURFACE_VARIANT = "#414846";
+const OUTLINE = "#717976";
+const OUTLINE_VARIANT = "#c1c8c5";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const PHOTO_HEIGHT = 340;
@@ -45,7 +55,7 @@ function StarRow({ rating, reviewCount }: StarRowProps) {
               : "star-outline"
           }
           size={16}
-          color={AMBER}
+          color="#006b55"
         />
       ))}
       <Text style={styles.starRatingText}>{rating}</Text>
@@ -66,7 +76,7 @@ function ServiceRow({ name, price, duration }: ServiceRowProps) {
   return (
     <View style={styles.serviceRow}>
       <View style={styles.serviceIconWrap}>
-        <Ionicons name="sparkles-outline" size={18} color={BROWN} />
+        <Ionicons name="sparkles-outline" size={18} color="#022420" />
       </View>
       <View style={styles.serviceBody}>
         <Text style={styles.serviceName}>{name}</Text>
@@ -84,29 +94,60 @@ interface GalleryThumbProps {
 }
 
 function GalleryThumb({ index }: GalleryThumbProps) {
-  const bgColors = [WASH, "#ede0d4", "#f0e6da", "#fdf3ec", "#f5e6d8", "#ede0d4"];
+  const bgColors = ["#f0f4f3", "#ede0d4", "#f0e6da", "#fdf3ec", "#f5e6d8", "#ede0d4"];
   const bg = bgColors[index % bgColors.length];
 
   return (
     <View style={[styles.galleryThumb, { backgroundColor: bg }]}>
-      <Ionicons name="image-outline" size={24} color={AMBER} />
+      <Ionicons name="image-outline" size={24} color="#006b55" />
     </View>
   );
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-const SERVICES: ServiceRowProps[] = [
-  { name: "Pulizia Standard", price: "25€/ora", duration: "2–3 ore" },
-  { name: "Pulizia Profonda", price: "35€/ora", duration: "4–6 ore" },
-  { name: "Stiratura", price: "20€/ora", duration: "1–2 ore" },
-  { name: "Pulizia Vetri", price: "30€/ora", duration: "2–4 ore" },
-];
+const DEFAULT_SERVICE_DURATIONS: Record<string, string> = {
+  "Pulizia ordinaria": "2–3 ore",
+  "Pulizia profonda": "4–6 ore",
+  "Stiratura": "1–2 ore",
+  "Pulizia vetri": "2–4 ore",
+  "Pulizia post-ristrutturazione": "6–8 ore",
+  "Pulizia uffici": "3–5 ore",
+  "Pulizia condominiale": "2–4 ore",
+};
 
 export default function CleanerProfileViewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id?: string }>();
+
+  // If navigated with an explicit id, show that cleaner; otherwise
+  // fall back to the current logged-in user's own profile.
+  const targetId = id ?? user?.id;
+
+  const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!targetId) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const [profile, revs] = await Promise.all([
+          fetchCleaner(targetId).catch(() => null),
+          fetchReviewsForCleaner(targetId).catch(() => [] as Review[]),
+        ]);
+        setCleaner(profile);
+        setReviews(revs);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [targetId]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -123,6 +164,44 @@ export default function CleanerProfileViewScreen() {
   const handleReviews = useCallback(() => {
     router.push("/cleaner/reviews");
   }, [router]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="large" color={Colors.secondary} />
+      </View>
+    );
+  }
+
+  const displayName = cleaner?.full_name ?? "Il tuo profilo";
+  const displayRating = cleaner?.avg_rating ?? 0;
+  const displayReviewCount = cleaner?.review_count ?? reviews.length;
+  const displayBio =
+    cleaner?.bio ??
+    "Completa il tuo profilo aggiungendo una biografia per farti conoscere dai clienti.";
+  const displayRate = cleaner?.hourly_rate ?? 25;
+  const servicesList: ServiceRowProps[] =
+    cleaner?.services && cleaner.services.length > 0
+      ? cleaner.services.map((name) => ({
+          name,
+          price: `${displayRate}€/ora`,
+          duration: DEFAULT_SERVICE_DURATIONS[name] ?? "Su richiesta",
+        }))
+      : [
+          {
+            name: "Nessun servizio configurato",
+            price: "—",
+            duration: "Aggiungi dalle tue listings",
+          },
+        ];
 
   return (
     <View style={styles.root}>
@@ -178,43 +257,35 @@ export default function CleanerProfileViewScreen() {
               <Text style={styles.onlineBadgeText}>Disponibile</Text>
             </View>
 
-            <Text style={styles.heroName}>Elena Rossi</Text>
+            <Text style={styles.heroName}>{displayName}</Text>
 
             <Pressable onPress={handleReviews}>
-              <StarRow rating={4.9} reviewCount={47} />
+              <StarRow rating={displayRating} reviewCount={displayReviewCount} />
             </Pressable>
           </View>
         </View>
 
-        {/* ── Bio tagline ── */}
+        {/* ── Bio ── */}
         <View style={styles.bioSection}>
-          <Text style={styles.bioTagline}>"The Art of Cleanliness"</Text>
-          <Text style={styles.bioText}>
-            Professionista con 5 anni di esperienza nel settore delle pulizie
-            residenziali e commerciali. Specializzzata in pulizie profonde e
-            cura dei dettagli. Ogni casa merita il massimo.
-          </Text>
+          <Text style={styles.bioText}>{displayBio}</Text>
 
-          {/* Quick stats */}
+          {/* Quick stats — driven by real data */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>5+</Text>
-              <Text style={styles.statLabel}>Anni exp.</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>120+</Text>
-              <Text style={styles.statLabel}>Lavori</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>4.9</Text>
+              <Text style={styles.statValue}>
+                {displayRating > 0 ? displayRating.toFixed(1) : "—"}
+              </Text>
               <Text style={styles.statLabel}>Rating</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>98%</Text>
-              <Text style={styles.statLabel}>Risposta</Text>
+              <Text style={styles.statValue}>{displayReviewCount}</Text>
+              <Text style={styles.statLabel}>Recensioni</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{displayRate}€</Text>
+              <Text style={styles.statLabel}>Ora</Text>
             </View>
           </View>
         </View>
@@ -238,10 +309,10 @@ export default function CleanerProfileViewScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Servizi offerti</Text>
           <View style={styles.servicesCard}>
-            {SERVICES.map((s, i) => (
+            {servicesList.map((s, i) => (
               <View key={s.name}>
                 <ServiceRow {...s} />
-                {i < SERVICES.length - 1 && <View style={styles.serviceDivider} />}
+                {i < servicesList.length - 1 && <View style={styles.serviceDivider} />}
               </View>
             ))}
           </View>
@@ -273,16 +344,27 @@ export default function CleanerProfileViewScreen() {
           onPress={handleReviews}
         >
           <View style={styles.reviewsPreviewLeft}>
-            <Text style={styles.reviewsPreviewRating}>4.9</Text>
+            <Text style={styles.reviewsPreviewRating}>
+              {displayRating > 0 ? displayRating.toFixed(1) : "—"}
+            </Text>
             <View style={styles.reviewsPreviewStars}>
               {[1, 2, 3, 4, 5].map((i) => (
-                <Ionicons key={i} name="star" size={12} color={AMBER} />
+                <Ionicons
+                  key={i}
+                  name={i <= Math.round(displayRating) ? "star" : "star-outline"}
+                  size={12}
+                  color="#006b55"
+                />
               ))}
             </View>
-            <Text style={styles.reviewsPreviewCount}>47 recensioni</Text>
+            <Text style={styles.reviewsPreviewCount}>
+              {displayReviewCount === 0
+                ? "Nessuna recensione"
+                : `${displayReviewCount} recensioni`}
+            </Text>
           </View>
           <Text style={styles.reviewsPreviewCta}>Leggi tutte le recensioni</Text>
-          <Ionicons name="chevron-forward" size={18} color={BROWN} />
+          <Ionicons name="chevron-forward" size={18} color="#022420" />
         </Pressable>
       </ScrollView>
 
@@ -291,7 +373,7 @@ export default function CleanerProfileViewScreen() {
         <View style={styles.floatingBarInner}>
           <View>
             <Text style={styles.floatingRateLabel}>A partire da</Text>
-            <Text style={styles.floatingRate}>25€/ora</Text>
+            <Text style={styles.floatingRate}>{displayRate}€/ora</Text>
           </View>
           <Pressable
             style={({ pressed }) => [
@@ -323,13 +405,13 @@ const styles = StyleSheet.create({
   },
   heroPhoto: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: BROWN_DARK,
+    backgroundColor: "#1a3a35",
     alignItems: "center",
     justifyContent: "center",
   },
   heroPhotoGradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: BROWN,
+    backgroundColor: "#022420",
     opacity: 0.7,
   },
   heroPhotoIcon: {
@@ -436,7 +518,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     fontStyle: "italic",
-    color: BROWN,
+    color: "#022420",
     marginBottom: 10,
     letterSpacing: -0.2,
   },
@@ -461,7 +543,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: "800",
-    color: BROWN,
+    color: "#022420",
     letterSpacing: -0.5,
   },
   statLabel: {
@@ -498,7 +580,7 @@ const styles = StyleSheet.create({
   sectionLink: {
     fontSize: 13,
     fontWeight: "600",
-    color: BROWN,
+    color: "#022420",
   },
 
   // ── Gallery ───────────────────────────────────────────────────────────────────
@@ -536,7 +618,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: WASH,
+    backgroundColor: "#f0f4f3",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -556,7 +638,7 @@ const styles = StyleSheet.create({
   servicePrice: {
     fontSize: 15,
     fontWeight: "700",
-    color: BROWN,
+    color: "#022420",
   },
   serviceDivider: {
     height: 1,
@@ -594,7 +676,7 @@ const styles = StyleSheet.create({
   reviewsPreviewCard: {
     marginHorizontal: 20,
     marginTop: 28,
-    backgroundColor: WASH,
+    backgroundColor: "#f0f4f3",
     borderRadius: 18,
     padding: 18,
     flexDirection: "row",
@@ -608,7 +690,7 @@ const styles = StyleSheet.create({
   reviewsPreviewRating: {
     fontSize: 22,
     fontWeight: "800",
-    color: BROWN,
+    color: "#022420",
     letterSpacing: -0.5,
   },
   reviewsPreviewStars: {
@@ -623,7 +705,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: BROWN_DARK,
+    color: "#1a3a35",
   },
 
   // ── Floating bar ──────────────────────────────────────────────────────────────
@@ -656,7 +738,7 @@ const styles = StyleSheet.create({
   floatingRate: {
     fontSize: 22,
     fontWeight: "800",
-    color: BROWN,
+    color: "#022420",
     letterSpacing: -0.5,
   },
   bookNowBtn: {

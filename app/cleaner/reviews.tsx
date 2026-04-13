@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,19 +6,23 @@ import {
   Pressable,
   StatusBar,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors } from "../../lib/theme";
+import { useAuth } from "../../lib/auth";
+import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
+import { CleanerProfile } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BROWN = "#8B5E3C";
-const AMBER = "#D4A574";
-const WASH = "#F5EBE0";
-const BROWN_DARK = "#5C3D24";
-const DARK_BG = "#1a1a2e";
+const BROWN = "#022420";
+const AMBER = "#006b55";
+const WASH = "#e8fdf7";
+const BROWN_DARK = "#022420";
+const DARK_BG = "#022420";
 
 type ReviewTab = "experience" | "trust";
 
@@ -30,7 +34,7 @@ interface StarRatingProps {
   color?: string;
 }
 
-function StarRating({ rating, size = 16, color = AMBER }: StarRatingProps) {
+function StarRating({ rating, size = 16, color = "#00c896" }: StarRatingProps) {
   return (
     <View style={starStyles.row}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -104,49 +108,71 @@ function EmptyReviews() {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-// Placeholder data — in production this would come from a hook
-const SAMPLE_REVIEWS: ReviewCardData[] = [
-  {
-    id: "1",
-    clientName: "Marco B.",
-    clientInitials: "MB",
-    rating: 5,
-    date: "28 Mar 2026",
-    comment: "Lavoro eccellente, puntuale e molto professionale. Casa impeccabile!",
-    serviceType: "Pulizia Profonda",
-  },
-  {
-    id: "2",
-    clientName: "Sofia R.",
-    clientInitials: "SR",
-    rating: 4.5,
-    date: "20 Mar 2026",
-    comment: "Ottimo servizio, molto attenta ai dettagli. Consiglio vivamente.",
-    serviceType: "Pulizia Ordinaria",
-  },
-  {
-    id: "3",
-    clientName: "Luca M.",
-    clientInitials: "LM",
-    rating: 5,
-    date: "15 Mar 2026",
-    comment: "Fantastica, la migliore che abbia mai avuto. Tornerò sicuramente.",
-    serviceType: "Pulizia Profonda",
-  },
-];
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function CleanerReviewsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ReviewTab>("experience");
 
-  const avgRating = 4.9;
-  const reviewCount = SAMPLE_REVIEWS.length;
+  const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
+  const [displayedReviews, setDisplayedReviews] = useState<ReviewCardData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const [profile, rawReviews] = await Promise.all([
+          fetchCleaner(user.id).catch(() => null),
+          fetchReviewsForCleaner(user.id).catch(() => []),
+        ]);
+        setCleaner(profile);
+        setDisplayedReviews(
+          rawReviews.map((r) => ({
+            id: r.id,
+            clientName: "Cliente verificato",
+            clientInitials: "C",
+            rating: r.rating,
+            date: formatReviewDate(r.created_at),
+            comment: r.comment ?? "",
+            serviceType: "Servizio completato",
+          }))
+        );
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user]);
+
+  const avgRating = cleaner?.avg_rating ?? 0;
+  const reviewCount = cleaner?.review_count ?? displayedReviews.length;
 
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
 
-  const displayedReviews = SAMPLE_REVIEWS;
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: DARK_BG,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#00c896" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -171,7 +197,14 @@ export default function CleanerReviewsScreen() {
           {/* Avatar area */}
           <View style={styles.profileAvatarWrap}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>EV</Text>
+              <Text style={styles.profileAvatarText}>
+                {(cleaner?.full_name ?? "")
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2) || "?"}
+              </Text>
             </View>
             <View style={styles.onlineBadge}>
               <View style={styles.onlineDot} />
@@ -179,16 +212,26 @@ export default function CleanerReviewsScreen() {
             </View>
           </View>
 
-          <Text style={styles.profileName}>Eleanor Vance</Text>
+          <Text style={styles.profileName}>
+            {cleaner?.full_name ?? "Il tuo profilo"}
+          </Text>
           <Text style={styles.profileTagline}>
-            Professionista certificata · Milano
+            {cleaner?.city
+              ? `Professionista · ${cleaner.city}`
+              : "Professionista"}
           </Text>
 
           {/* Overall rating */}
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={20} color={AMBER} />
-            <Text style={styles.ratingNumber}>{avgRating}</Text>
-            <Text style={styles.ratingCount}>({reviewCount} recensioni)</Text>
+            <Ionicons name="star" size={20} color="#00c896" />
+            <Text style={styles.ratingNumber}>
+              {avgRating > 0 ? avgRating.toFixed(1) : "—"}
+            </Text>
+            <Text style={styles.ratingCount}>
+              {reviewCount === 0
+                ? "(nessuna recensione)"
+                : `(${reviewCount} recensioni)`}
+            </Text>
           </View>
         </View>
 
@@ -241,15 +284,17 @@ export default function CleanerReviewsScreen() {
           {/* Summary bar */}
           <View style={styles.summaryBar}>
             <View style={styles.summaryLeft}>
-              <Text style={styles.summaryRatingBig}>{avgRating}</Text>
+              <Text style={styles.summaryRatingBig}>
+                {avgRating > 0 ? avgRating.toFixed(1) : "—"}
+              </Text>
               <StarRating rating={avgRating} size={18} />
               <Text style={styles.summaryCountText}>
-                {reviewCount} recensioni
+                {reviewCount === 0 ? "nessuna" : `${reviewCount} recensioni`}
               </Text>
             </View>
             <View style={styles.summaryBars}>
               {[5, 4, 3, 2, 1].map((star) => {
-                const count = SAMPLE_REVIEWS.filter(
+                const count = displayedReviews.filter(
                   (r) => Math.round(r.rating) === star
                 ).length;
                 const pct = reviewCount > 0 ? count / reviewCount : 0;
@@ -321,17 +366,17 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: BROWN,
+    backgroundColor: "#1a3a35",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: AMBER,
+    borderColor: "#00c896",
     marginBottom: 8,
   },
   profileAvatarText: {
     fontSize: 28,
     fontWeight: "800",
-    color: WASH,
+    color: "#ffffff",
   },
   onlineBadge: {
     flexDirection: "row",
@@ -494,7 +539,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     height: "100%",
-    backgroundColor: AMBER,
+    backgroundColor: "#00c896",
     borderRadius: 3,
   },
   barCount: {
