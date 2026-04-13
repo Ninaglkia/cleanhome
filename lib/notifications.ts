@@ -38,18 +38,35 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     return null;
   }
 
-  // Get push token (FCM for Android, APNs for iOS)
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
-  const pushToken = tokenData.data;
+  // Get push token (FCM for Android, APNs for iOS). Wrapped in try/catch
+  // because token retrieval can fail on simulators, on iOS devices without
+  // provisioned APNs, or when the Expo project isn't linked. We don't want
+  // any of those to crash the app on launch.
+  let pushToken: string | null = null;
+  let nativeToken: string | null = null;
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    pushToken = tokenData.data;
+  } catch {
+    // silent — no token means no push, the app still works
+  }
+  try {
+    const native = await Notifications.getDevicePushTokenAsync();
+    nativeToken = native.data as string;
+  } catch {
+    // silent
+  }
 
-  // Also get native FCM/APNs token
-  const nativeToken = await Notifications.getDevicePushTokenAsync();
+  if (!pushToken) return null;
 
-  // Save token to Supabase
-  await savePushToken(userId, pushToken, nativeToken.data as string);
+  // Save token to Supabase (non-fatal if the profiles table isn't yet
+  // migrated to have the push token columns — see migration 10)
+  try {
+    await savePushToken(userId, pushToken, nativeToken ?? "");
+  } catch {
+    // silent
+  }
 
   // Android: configure notification channel
   if (Platform.OS === "android") {
