@@ -76,6 +76,31 @@ export async function updateBookingStatus(id: string, status: string) {
   if (error) throw error;
 }
 
+// Cleaner accepts or declines a booking. Routed through an Edge Function
+// so that the PaymentIntent is captured (on accept) or cancelled (on
+// decline) atomically with the booking status update. Prevents the
+// situation where the cleaner declines after the money was already
+// transferred and we'd need a refund.
+export async function cleanerBookingAction(
+  bookingId: string,
+  action: "capture" | "cancel"
+): Promise<void> {
+  const { error } = await supabase.functions.invoke("stripe-booking-action", {
+    body: { booking_id: bookingId, action },
+  });
+  if (error) {
+    type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
+    const ctx = (error as EdgeFnError).context;
+    let details = error.message;
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        details = `${error.message}: ${await ctx.text()}`;
+      } catch {}
+    }
+    throw new Error(details);
+  }
+}
+
 export async function markWorkDone(bookingId: string) {
   const { error } = await supabase
     .from("bookings")

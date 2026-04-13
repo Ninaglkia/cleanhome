@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings, updateBookingStatus } from "../../lib/api";
+import { fetchBookings, cleanerBookingAction } from "../../lib/api";
 import {
   NotificationMessages,
   sendPushNotification,
@@ -244,9 +244,8 @@ export default function CleanerHomeScreen() {
   const handleAccept = useCallback(
     async (id: string) => {
       try {
-        await updateBookingStatus(id, "accepted");
+        await cleanerBookingAction(id, "capture");
         Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
-        // Notify the client
         const booking = bookings.find((b) => b.id === id);
         if (booking) {
           const { title, body } = NotificationMessages.bookingAccepted(
@@ -258,8 +257,9 @@ export default function CleanerHomeScreen() {
           }).catch(() => {});
         }
         loadBookings();
-      } catch {
-        Alert.alert("Errore", "Impossibile accettare la richiesta");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Impossibile accettare la richiesta";
+        Alert.alert("Errore", msg);
       }
     },
     [bookings, profile?.full_name, loadBookings]
@@ -269,7 +269,7 @@ export default function CleanerHomeScreen() {
     (id: string) => {
       Alert.alert(
         "Rifiutare lavoro?",
-        "Il cliente verrà notificato e potrà scegliere un altro professionista.",
+        "Il cliente verrà rimborsato automaticamente e potrà scegliere un altro professionista.",
         [
           { text: "Annulla", style: "cancel" },
           {
@@ -277,8 +277,7 @@ export default function CleanerHomeScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await updateBookingStatus(id, "declined");
-                // Notify the client
+                await cleanerBookingAction(id, "cancel");
                 const booking = bookings.find((b) => b.id === id);
                 if (booking) {
                   const { title, body } = NotificationMessages.bookingDeclined();
@@ -288,8 +287,9 @@ export default function CleanerHomeScreen() {
                   }).catch(() => {});
                 }
                 loadBookings();
-              } catch {
-                Alert.alert("Errore", "Impossibile rifiutare la richiesta");
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : "Impossibile rifiutare";
+                Alert.alert("Errore", msg);
               }
             },
           },
