@@ -240,13 +240,16 @@ interface CoverageZone {
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
+// IDs map 1:1 to the canonical labels stored in `cleaner_listings.services`.
+// Keep these strings in sync with lib/types.ts → ALL_SERVICES.
 const INITIAL_SERVICES: ServiceTag[] = [
-  { id: "standard", label: "Pulizia Standard", selected: true },
-  { id: "deep", label: "Pulizia Profonda", selected: true },
-  { id: "ironing", label: "Stiratura", selected: false },
-  { id: "windows", label: "Pulizia Vetri", selected: true },
-  { id: "laundry", label: "Lavanderia", selected: false },
-  { id: "oven", label: "Pulizia Forno", selected: false },
+  { id: "Pulizia ordinaria", label: "Pulizia ordinaria", selected: true },
+  { id: "Pulizia profonda", label: "Pulizia profonda", selected: true },
+  { id: "Stiratura", label: "Stiratura", selected: false },
+  { id: "Pulizia vetri", label: "Pulizia vetri", selected: true },
+  { id: "Pulizia post-ristrutturazione", label: "Pulizia post-ristrutturazione", selected: false },
+  { id: "Pulizia uffici", label: "Pulizia uffici", selected: false },
+  { id: "Pulizia condominiale", label: "Pulizia condominiale", selected: false },
 ];
 
 const INITIAL_DAYS: DayAvailability[] = [
@@ -1640,11 +1643,15 @@ export default function ListingScreen() {
         ? drawnPolygon.map((p) => ({ lat: p.latitude, lng: p.longitude }))
         : null;
 
+    const selectedServices = services.filter((s) => s.selected).map((s) => s.id);
+
     setIsSaving(true);
     try {
       await updateListing(listingId, {
         city: draftCity || null,
         hourly_rate: parseFloat(hourlyRate) || null,
+        description: description.trim() || null,
+        services: selectedServices.length > 0 ? selectedServices : null,
         coverage_mode: isCircle ? "circle" : "polygon",
         coverage_center_lat: centerCoords.latitude,
         coverage_center_lng: centerCoords.longitude,
@@ -1671,6 +1678,8 @@ export default function ListingScreen() {
     centerCoords,
     draftRadiusKm,
     hourlyRate,
+    description,
+    services,
   ]);
 
   // Redirect to the listings hub if the route lacks an ?id=... query.
@@ -1696,6 +1705,13 @@ export default function ListingScreen() {
         if (existing.cover_url) setCoverUrl(existing.cover_url);
         if (existing.hourly_rate != null) {
           setHourlyRate(String(existing.hourly_rate));
+        }
+        if (existing.description) setDescription(existing.description);
+        if (existing.services && existing.services.length > 0) {
+          const persisted = new Set(existing.services);
+          setServices((prev) =>
+            prev.map((s) => ({ ...s, selected: persisted.has(s.id) }))
+          );
         }
         setIsActive(existing.is_active !== false);
 
