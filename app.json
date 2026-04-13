@@ -41,7 +41,13 @@
       "expo-router",
       "expo-location",
       "expo-apple-authentication",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#006b55"
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -58,12 +64,6 @@
       ],
       "@sentry/react-native"
     ],
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#006b55",
-      "androidMode": "default",
-      "androidCollapsedTitle": "CleanHome"
-    },
     "extra": {
       "router": {},
       "eas": {
