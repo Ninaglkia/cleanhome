@@ -164,9 +164,35 @@ export default function RootLayout() {
   // Handle notification taps (open correct screen)
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.screen) {
-        router.push(data.screen as string);
+      const data = response.notification.request.content.data as
+        | { screen?: string; bookingId?: string }
+        | undefined;
+      if (!data?.screen) return;
+
+      // Map screen keys sent from the backend to real Expo Router paths.
+      // Keeping this in one place avoids scattering path strings across
+      // the notification senders.
+      switch (data.screen) {
+        case "bookings":
+          router.push("/(tabs)/bookings");
+          break;
+        case "cleaner-home":
+          router.push("/(tabs)/cleaner-home");
+          break;
+        case "home":
+          router.push("/(tabs)/home");
+          break;
+        case "chat":
+          if (data.bookingId) router.push(`/chat/${data.bookingId}`);
+          break;
+        case "jobs":
+          router.push("/cleaner/jobs");
+          break;
+        case "reviews":
+          router.push("/cleaner/reviews");
+          break;
+        default:
+          break;
       }
     });
     return () => sub.remove();
