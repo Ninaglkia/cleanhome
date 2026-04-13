@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   StatusBar,
   StyleSheet,
-  Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -15,12 +15,32 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings } from "../../lib/api";
 import { Booking } from "../../lib/types";
-import { BookingStatusConfig, Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+
+// ─── Design tokens (Stitch) ───────────────────────────────────────────────────
+
+const C = {
+  background: "#f6faf9",
+  surface: "#ffffff",
+  surfaceLow: "#f0f4f3",
+  primary: "#022420",
+  primaryContainer: "#1a3a35",
+  secondary: "#006b55",
+  secondaryContainer: "#82f4d1",
+  onSurface: "#181c1c",
+  onSurfaceVariant: "#414846",
+  outlineVariant: "#c1c8c5",
+  outline: "#717976",
+  amber50: "#fffbeb",
+  amber700: "#b45309",
+  green100: "#dcfce7",
+  green700: "#15803d",
+  error: "#ba1a1a",
+} as const;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ITEM_HEIGHT = 190;
-const SEPARATOR_HEIGHT = 14;
+const ITEM_HEIGHT = 220;
+const SEPARATOR_HEIGHT = 16;
 
 const FILTERS = [
   { key: "all", label: "Tutte" },
@@ -31,6 +51,33 @@ const FILTERS = [
 
 type FilterKey = (typeof FILTERS)[number]["key"];
 
+// ─── Status config ────────────────────────────────────────────────────────────
+
+interface StatusConfig {
+  label: string;
+  textColor: string;
+  bgColor: string;
+}
+
+function getStatusConfig(status: string): StatusConfig {
+  switch (status) {
+    case "pending":
+      return { label: "In attesa", textColor: C.amber700, bgColor: C.amber50 };
+    case "accepted":
+    case "work_done":
+      return { label: "ACCETTATA", textColor: C.secondary, bgColor: "#e6f9f4" };
+    case "completed":
+      return { label: "COMPLETATA", textColor: C.green700, bgColor: C.green100 };
+    default:
+      return { label: status.toUpperCase(), textColor: C.outline, bgColor: C.surfaceLow };
+  }
+}
+
+function getServiceLabel(serviceType: string): string {
+  const upper = serviceType.toUpperCase();
+  return upper.length > 20 ? upper.slice(0, 18) + "…" : upper;
+}
+
 // ─── Booking card ─────────────────────────────────────────────────────────────
 
 interface BookingCardProps {
@@ -40,126 +87,94 @@ interface BookingCardProps {
 }
 
 const BookingCard = ({ item, onPress, onReview }: BookingCardProps) => {
-  const cfg = BookingStatusConfig[item.status] ?? {
-    color: Colors.textTertiary,
-    bgColor: Colors.backgroundAlt,
-    label: item.status,
-    icon: "help-outline",
-  };
+  const statusCfg = getStatusConfig(item.status);
+  const isCompleted = item.status === "completed";
 
-  // Derive cleaner initials from service type as fallback
-  const avatarInitials = item.service_type
+  // Derive initials from service_type as avatar fallback
+  const initials = item.service_type
     ? item.service_type.slice(0, 2).toUpperCase()
     : "CL";
 
-  const isCompleted = item.status === "completed";
-  const isPending = item.status === "pending";
-  const isAccepted = item.status === "accepted" || item.status === "work_done";
-
-  // Service type badge abbreviation
-  const serviceBadge = item.service_type.length > 16
-    ? item.service_type.slice(0, 14).toUpperCase() + "…"
-    : item.service_type.toUpperCase();
+  const cardStyle = isCompleted
+    ? [styles.card, styles.cardCompleted]
+    : styles.card;
 
   return (
     <Pressable
       onPress={() => onPress(item.id)}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [cardStyle, pressed && styles.cardPressed]}
     >
-      {/* ── Top stripe based on status ── */}
-      <View style={[styles.cardStripe, { backgroundColor: cfg.color }]} />
-
-      <View style={styles.cardBody}>
-        {/* ── Cleaner row ── */}
-        <View style={styles.cleanerRow}>
-          {/* Avatar circle */}
-          <View style={[styles.avatar, isCompleted && styles.avatarCompleted]}>
-            <Text style={styles.avatarText}>{avatarInitials}</Text>
-          </View>
-
-          {/* Name + service badge */}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cleanerName} numberOfLines={1}>
-              {/* cleanerName would come from joined data; use service type as fallback */}
-              {item.service_type}
-            </Text>
-            <View style={styles.serviceBadgeWrap}>
-              <Text style={styles.serviceBadgeText}>{serviceBadge}</Text>
-            </View>
-          </View>
-
-          {/* Status badge */}
-          <View style={[styles.statusBadge, { backgroundColor: cfg.bgColor }]}>
-            <Ionicons
-              name={cfg.icon as React.ComponentProps<typeof Ionicons>["name"]}
-              size={11}
-              color={cfg.color}
-            />
-            <Text style={[styles.statusBadgeText, { color: cfg.color }]}>
-              {cfg.label.toUpperCase()}
-            </Text>
+      {/* ── Top row: avatar + name/rate + status badge ── */}
+      <View style={styles.cardTopRow}>
+        <View style={styles.avatarWrap}>
+          {/* Avatar placeholder — real image would come from joined cleaner data */}
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>{initials}</Text>
           </View>
         </View>
 
-        {/* ── Divider ── */}
-        <View style={styles.divider} />
+        <View style={styles.cleanerInfo}>
+          <Text style={styles.cleanerName} numberOfLines={1}>
+            {item.service_type}
+          </Text>
+          <Text style={styles.cleanerRate}>
+            {item.total_price > 0
+              ? `${(item.total_price / 3).toFixed(0)}€/HR`
+              : "—"}
+          </Text>
+        </View>
 
-        {/* ── Meta rows ── */}
-        <View style={styles.metaBlock}>
+        <View style={[styles.statusBadge, { backgroundColor: statusCfg.bgColor }]}>
+          <Text style={[styles.statusBadgeText, { color: statusCfg.textColor }]}>
+            {statusCfg.label}
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Service type badge ── */}
+      <View style={styles.serviceTagWrap}>
+        <Text style={styles.serviceTagText}>{getServiceLabel(item.service_type)}</Text>
+      </View>
+
+      {/* ── Meta rows ── */}
+      <View style={styles.metaBlock}>
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={14} color={C.onSurfaceVariant} />
+          <Text style={[styles.metaText, isCompleted && styles.metaTextDim]}>
+            {item.date}
+            {item.time_slot ? ` · ${item.time_slot}` : ""}
+          </Text>
+        </View>
+
+        {item.address ? (
           <View style={styles.metaRow}>
-            <View style={styles.metaIconWrap}>
-              <Ionicons name="calendar-outline" size={13} color={Colors.secondary} />
-            </View>
-            <Text style={styles.metaText}>
-              {item.date}
-              {item.time_slot ? ` · ${item.time_slot}` : ""}
+            <Ionicons name="location-outline" size={14} color={C.onSurfaceVariant} />
+            <Text style={[styles.metaText, isCompleted && styles.metaTextDim]} numberOfLines={1}>
+              {item.address}
             </Text>
           </View>
+        ) : null}
+      </View>
 
-          {item.address ? (
-            <View style={styles.metaRow}>
-              <View style={styles.metaIconWrap}>
-                <Ionicons name="location-outline" size={13} color={Colors.secondary} />
-              </View>
-              <Text style={styles.metaText} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+      {/* ── Footer: price + action ── */}
+      <View style={styles.cardFooter}>
+        <Text style={[styles.priceText, isCompleted && styles.priceTextDim]}>
+          €{item.total_price.toFixed(2)}
+        </Text>
 
-        {/* ── Footer row ── */}
-        <View style={styles.cardFooter}>
-          {/* Price */}
-          <View>
-            <Text style={styles.priceLabel}>TOTALE</Text>
-            <Text style={styles.priceValue}>€{item.total_price.toFixed(2)}</Text>
-          </View>
-
-          {/* Action button */}
-          {isCompleted ? (
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); onReview(item.id); }}
-              style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.8 }]}
-            >
-              <Ionicons name="star-outline" size={14} color={Colors.textOnDark} />
-              <Text style={styles.reviewBtnText}>Lascia recensione</Text>
-            </Pressable>
-          ) : isPending ? (
-            <View style={styles.pendingChip}>
-              <Ionicons name="time-outline" size={13} color={Colors.warning} />
-              <Text style={styles.pendingChipText}>Risposta entro 24h</Text>
-            </View>
-          ) : isAccepted ? (
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); onPress(item.id); }}
-              style={({ pressed }) => [styles.chatBtn, pressed && { opacity: 0.8 }]}
-            >
-              <Ionicons name="chatbubble-outline" size={14} color={Colors.secondary} />
-              <Text style={styles.chatBtnText}>Chat</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {isCompleted ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onReview(item.id);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.reviewLink}>Lascia Recensione</Text>
+          </Pressable>
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color={C.primary} />
+        )}
       </View>
     </Pressable>
   );
@@ -187,23 +202,23 @@ export default function BookingsScreen() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, profile]);
 
   const handleBookingPress = useCallback(
-    (bookingId: string) => { router.push(`/chat/${bookingId}`); },
+    (bookingId: string) => {
+      router.push(`/chat/${bookingId}`);
+    },
     [router]
   );
 
   const handleReview = useCallback(
     (bookingId: string) => {
-      Alert.alert(
-        "Lascia una recensione",
-        "La funzionalità di recensione sarà disponibile a breve.",
-        [{ text: "OK" }]
-      );
+      router.push(`/review/${bookingId}`);
     },
-    []
+    [router]
   );
 
   const filteredBookings =
@@ -237,74 +252,57 @@ export default function BookingsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
-      {/* ── Header ── */}
+      {/* ── Header: "Le tue prenotazioni" centered, Noto Serif ── */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerLabel}>I TUOI SERVIZI</Text>
-          <Text style={styles.headerTitle}>Prenotazioni</Text>
-        </View>
-        {!loading && bookings.length > 0 && (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{bookings.length}</Text>
-          </View>
-        )}
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Le tue prenotazioni</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      {/* ── Filter pills ── */}
-      <View style={styles.filtersWrap}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={FILTERS}
-          keyExtractor={(f) => f.key}
-          contentContainerStyle={styles.filtersList}
-          renderItem={({ item: filter }) => {
-            const isActive = activeFilter === filter.key;
-            // Count for each filter
-            const count =
-              filter.key === "all"
-                ? bookings.length
-                : filter.key === "accepted"
-                ? bookings.filter((b) => ["accepted", "work_done"].includes(b.status)).length
-                : bookings.filter((b) => b.status === filter.key).length;
-
-            return (
-              <Pressable
-                onPress={() => setActiveFilter(filter.key)}
-                style={({ pressed }) => [
-                  styles.filterPill,
-                  isActive && styles.filterPillActive,
-                  pressed && !isActive && { opacity: 0.75 },
+      {/* ── Filter chips ── */}
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={FILTERS}
+        keyExtractor={(f) => f.key}
+        contentContainerStyle={styles.filtersList}
+        style={styles.filtersWrap}
+        renderItem={({ item: filter }) => {
+          const isActive = activeFilter === filter.key;
+          return (
+            <Pressable
+              onPress={() => setActiveFilter(filter.key)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                isActive && styles.filterChipActive,
+                pressed && !isActive && { opacity: 0.7 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  isActive && styles.filterChipTextActive,
                 ]}
               >
-                <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
-                  {filter.label}
-                </Text>
-                {count > 0 && (
-                  <View style={[styles.filterCount, isActive && styles.filterCountActive]}>
-                    <Text style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
-                      {count}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          }}
-        />
-      </View>
+                {filter.label}
+              </Text>
+            </Pressable>
+          );
+        }}
+      />
 
       {/* ── Content ── */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.secondary} />
+          <ActivityIndicator size="large" color={C.secondary} />
           <Text style={styles.loadingText}>Caricamento prenotazioni…</Text>
         </View>
       ) : filteredBookings.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
-            <Ionicons name="calendar-outline" size={36} color={Colors.textTertiary} />
+            <Ionicons name="calendar-outline" size={36} color={C.outlineVariant} />
           </View>
           <Text style={styles.emptyTitle}>Nessuna prenotazione</Text>
           <Text style={styles.emptySubtitle}>
@@ -315,9 +313,12 @@ export default function BookingsScreen() {
           {profile?.active_role === "client" && (
             <Pressable
               onPress={() => router.push("/(tabs)/home" as never)}
-              style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.emptyBtn,
+                pressed && { opacity: 0.85 },
+              ]}
             >
-              <Ionicons name="search-outline" size={16} color={Colors.textOnDark} />
+              <Ionicons name="search-outline" size={16} color="#fff" />
               <Text style={styles.emptyBtnText}>Cerca professionisti</Text>
             </Pressable>
           )}
@@ -329,7 +330,9 @@ export default function BookingsScreen() {
           renderItem={renderBooking}
           getItemLayout={getItemLayout}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ height: SEPARATOR_HEIGHT }} />}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: SEPARATOR_HEIGHT }} />
+          )}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           maxToRenderPerBatch={8}
@@ -345,290 +348,220 @@ export default function BookingsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: C.background,
   },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.md,
+    gap: 12,
   },
   loadingText: {
     fontSize: 14,
-    color: Colors.textTertiary,
+    color: C.outline,
     fontWeight: "500",
   },
 
-  // Header
+  // ── Header ────────────────────────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
-  headerLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.secondary,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: 4,
+  headerSpacer: {
+    width: 24,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: Colors.primary,
-    letterSpacing: -0.6,
-  },
-  countBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  countBadgeText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: Colors.secondary,
+    // Noto Serif, centered, text-2xl bold
+    fontFamily: "NotoSerif_700Bold",
+    fontSize: 22,
+    fontWeight: "700",
+    color: C.primary,
+    letterSpacing: -0.3,
+    flex: 1,
+    textAlign: "center",
   },
 
-  // Filters
+  // ── Filter chips ──────────────────────────────────────────────────────────────
   filtersWrap: {
-    marginBottom: Spacing.base,
+    maxHeight: 56,
+    marginBottom: 8,
   },
   filtersList: {
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.sm,
+    paddingHorizontal: 24,
+    gap: 10,
+    paddingBottom: 8,
   },
-  filterPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: 9,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.surface,
-    ...Shadows.sm,
+  filterChip: {
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: `${C.outlineVariant}33`,
   },
-  filterPillActive: {
-    backgroundColor: Colors.primary,
-    ...Shadows.sm,
+  filterChipActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  filterPillText: {
+  filterChipText: {
     fontSize: 13,
+    fontWeight: "500",
+    color: C.onSurfaceVariant,
+  },
+  filterChipTextActive: {
+    color: "#ffffff",
     fontWeight: "600",
-    color: Colors.textSecondary,
-  },
-  filterPillTextActive: {
-    color: Colors.textOnDark,
-  },
-  filterCount: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.backgroundAlt,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-  },
-  filterCountActive: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  filterCountText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-  },
-  filterCountTextActive: {
-    color: Colors.textOnDark,
   },
 
-  // Card
+  // ── Card ──────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    overflow: "hidden",
-    ...Shadows.md,
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: `${C.outlineVariant}1A`,
+    gap: 14,
+  },
+  cardCompleted: {
+    backgroundColor: `${C.surfaceLow}80`,
+    opacity: 0.9,
   },
   cardPressed: {
-    opacity: 0.94,
-    transform: [{ scale: 0.995 }],
-  },
-  cardStripe: {
-    height: 4,
-  },
-  cardBody: {
-    padding: Spacing.base,
-    gap: Spacing.md,
+    opacity: 0.92,
+    transform: [{ scale: 0.998 }],
   },
 
-  // Cleaner row
-  cleanerRow: {
+  // Card top row
+  cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: 14,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+  avatarWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
     flexShrink: 0,
   },
-  avatarCompleted: {
-    backgroundColor: Colors.secondary,
+  avatarFallback: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 16,
+  avatarFallbackText: {
+    fontSize: 18,
     fontWeight: "800",
-    color: Colors.accent,
+    color: "#abcec6",
     letterSpacing: 0.5,
   },
+  cleanerInfo: {
+    flex: 1,
+  },
   cleanerName: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
-    color: Colors.text,
-    marginBottom: 4,
+    color: C.primary,
+    marginBottom: 2,
   },
-  serviceBadgeWrap: {
-    alignSelf: "flex-start",
-    backgroundColor: Colors.backgroundAlt,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  serviceBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: Colors.textSecondary,
-    letterSpacing: 0.8,
+  cleanerRate: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.secondary,
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: Radius.full,
-    paddingHorizontal: 9,
+    borderRadius: 9999,
+    paddingHorizontal: 10,
     paddingVertical: 5,
-    gap: 4,
     flexShrink: 0,
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 
-  // Divider
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
+  // Service type badge
+  serviceTagWrap: {
+    alignSelf: "flex-start",
+    backgroundColor: `${C.secondaryContainer}4D`,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  serviceTagText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.secondary,
+    letterSpacing: 1.2,
   },
 
-  // Meta
+  // Meta rows
   metaBlock: {
-    gap: 6,
+    gap: 7,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-  },
-  metaIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
   },
   metaText: {
     fontSize: 13,
-    color: Colors.textSecondary,
-    fontWeight: "500",
+    color: C.onSurfaceVariant,
+    fontWeight: "400",
     flex: 1,
   },
+  metaTextDim: {
+    opacity: 0.7,
+  },
 
-  // Footer
+  // Card footer
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: `${C.outlineVariant}1A`,
   },
-  priceLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: Colors.textTertiary,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  priceValue: {
+  priceText: {
     fontSize: 20,
-    fontWeight: "800",
-    color: Colors.secondary,
-    letterSpacing: -0.4,
-  },
-
-  // Review button
-  reviewBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    ...Shadows.sm,
-  },
-  reviewBtnText: {
-    fontSize: 13,
     fontWeight: "700",
-    color: Colors.textOnDark,
+    color: C.primary,
+    letterSpacing: -0.3,
   },
-
-  // Pending chip
-  pendingChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.warningLight,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+  priceTextDim: {
+    opacity: 0.6,
   },
-  pendingChipText: {
+  reviewLink: {
     fontSize: 12,
-    fontWeight: "600",
-    color: Colors.warning,
-  },
-
-  // Chat button
-  chatBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.secondary,
-  },
-  chatBtnText: {
-    fontSize: 13,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: C.secondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 
   // List
   listContent: {
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
 
@@ -638,43 +571,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 40,
-    gap: Spacing.md,
+    gap: 12,
   },
   emptyIconWrap: {
     width: 84,
     height: 84,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.backgroundAlt,
+    borderRadius: 20,
+    backgroundColor: C.surfaceLow,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: 4,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.onSurface,
     textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: C.onSurfaceVariant,
     textAlign: "center",
     lineHeight: 21,
   },
   emptyBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    marginTop: Spacing.base,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.base,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    ...Shadows.md,
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
   },
   emptyBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.textOnDark,
+    color: "#ffffff",
   },
 });

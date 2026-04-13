@@ -11,22 +11,40 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { fetchCleaner } from "../../lib/api";
-import { CleanerProfile } from "../../lib/types";
+import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
+import { CleanerProfile, Review } from "../../lib/types";
 import { Colors } from "../../lib/theme";
+
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 1) return "Oggi";
+  if (diffDays < 2) return "Ieri";
+  if (diffDays < 7) return `${diffDays} giorni fa`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} sett. fa`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} mesi fa`;
+  return `${Math.floor(diffDays / 365)} anni fa`;
+}
 
 export default function CleanerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
       try {
-        const data = await fetchCleaner(id);
-        setCleaner(data);
+        const [cleanerData, reviewsData] = await Promise.all([
+          fetchCleaner(id),
+          fetchReviewsForCleaner(id).catch(() => [] as Review[]),
+        ]);
+        setCleaner(cleanerData);
+        setReviews(reviewsData);
       } catch {
         Alert.alert("Errore", "Professionista non trovato");
         router.back();
@@ -381,6 +399,177 @@ export default function CleanerDetailScreen() {
             </View>
           </View>
         )}
+
+        {/* Reviews */}
+        <View style={{ paddingHorizontal: 20, marginTop: 28 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: Colors.textTertiary,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Recensioni
+            </Text>
+            {reviews.length > 0 && (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="star" size={13} color={Colors.warning} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: Colors.text,
+                    marginLeft: 4,
+                  }}
+                >
+                  {cleaner.avg_rating.toFixed(1)}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: Colors.textTertiary,
+                    marginLeft: 4,
+                  }}
+                >
+                  · {reviews.length}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {reviews.length === 0 ? (
+            <View
+              style={{
+                backgroundColor: Colors.surface,
+                borderRadius: 18,
+                padding: 22,
+                alignItems: "center",
+                shadowColor: Colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <Ionicons
+                name="star-outline"
+                size={28}
+                color={Colors.textTertiary}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: Colors.textSecondary,
+                  marginTop: 8,
+                  textAlign: "center",
+                }}
+              >
+                Nessuna recensione ancora
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {reviews.map((review) => (
+                <View
+                  key={review.id}
+                  style={{
+                    backgroundColor: Colors.surface,
+                    borderRadius: 18,
+                    padding: 16,
+                    shadowColor: Colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 12,
+                        backgroundColor: Colors.accentLight,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={18}
+                        color={Colors.secondary}
+                      />
+                    </View>
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "700",
+                          color: Colors.text,
+                        }}
+                      >
+                        Cliente verificato
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginTop: 2,
+                        }}
+                      >
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <Ionicons
+                            key={n}
+                            name={n <= review.rating ? "star" : "star-outline"}
+                            size={12}
+                            color={Colors.warning}
+                            style={{ marginRight: 2 }}
+                          />
+                        ))}
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: Colors.textTertiary,
+                            marginLeft: 6,
+                          }}
+                        >
+                          {formatReviewDate(review.created_at)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {review.comment && (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: Colors.textSecondary,
+                        lineHeight: 20,
+                      }}
+                    >
+                      {review.comment}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* CTA */}

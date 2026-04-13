@@ -1,11 +1,26 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert, View, ActivityIndicator } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { StripeProvider } from "@stripe/stripe-react-native";
+import ErrorBoundary from "../components/ErrorBoundary";
+import * as Sentry from "@sentry/react-native";
+
+// Initialize Sentry — replace the DSN with your project's DSN from
+// https://sentry.io when you create a project. Until then crash
+// reports are only logged to console.
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
+  // Disable in dev to avoid noise during development
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+});
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Session, User } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 import { supabase } from "../lib/supabase";
 import { AuthContext } from "../lib/auth";
 import { UserProfile } from "../lib/types";
@@ -20,10 +35,13 @@ export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const router = useRouter();
 
   const refreshProfile = useCallback(async () => {
     if (!user) return null;
+    setIsProfileLoading(true);
     try {
       const p = await fetchProfile(user.id);
       setProfile(p);
@@ -31,17 +49,22 @@ export default function RootLayout() {
     } catch {
       setProfile(null);
       return null;
+    } finally {
+      setIsProfileLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        fetchProfile(s.user.id)
-          .then(setProfile)
-          .catch(() => setProfile(null));
+        try {
+          const p = await fetchProfile(s.user.id);
+          setProfile(p);
+        } catch {
+          setProfile(null);
+        }
       }
       setIsLoading(false);
     });
@@ -52,11 +75,14 @@ export default function RootLayout() {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        setIsProfileLoading(true);
         fetchProfile(s.user.id)
           .then(setProfile)
-          .catch(() => setProfile(null));
+          .catch(() => setProfile(null))
+          .finally(() => setIsProfileLoading(false));
       } else {
         setProfile(null);
+        setIsProfileLoading(false);
       }
     });
 
@@ -69,6 +95,71 @@ export default function RootLayout() {
       registerForPushNotifications(user.id).catch(() => {});
     }
   }, [user]);
+
+  // Redirect to correct dashboard only on first load (not on role switch)
+  const hasRedirected = useRef(false);
+  const prevUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || isProfileLoading) return;
+
+    // Reset redirect flag when user changes (login/logout)
+    const currentUserId = user?.id ?? null;
+    if (currentUserId !== prevUser.current) {
+      hasRedirected.current = false;
+      prevUser.current = currentUserId;
+    }
+
+    if (hasRedirected.current) return;
+
+    if (user) {
+      hasRedirected.current = true;
+      if (!profile) {
+        // Profilo non ancora creato dal trigger — vai a role-selection
+        router.replace("/(auth)/role-selection");
+      } else if (!profile.cleaner_onboarded) {
+        // Primo accesso: l'utente non ha completato l'onboarding
+        router.replace("/onboarding/welcome");
+      } else if (profile.active_role === "cleaner") {
+        router.replace("/(tabs)/cleaner-home");
+      } else {
+        router.replace("/(tabs)/home");
+      }
+    }
+  }, [user, isLoading, isProfileLoading, profile?.active_role]);
+
+  // Handle OAuth deep link callback (cleanhome://auth/callback?code=...)
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+      if (!url.includes("auth/callback")) return;
+
+      try {
+        const parsed = new URL(url);
+        const code = parsed.searchParams.get("code");
+        const hashParams = new URLSearchParams(parsed.hash.substring(1));
+        const accessToken = hashParams.get("access_token") ?? parsed.searchParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token") ?? parsed.searchParams.get("refresh_token");
+
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+        } else if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        }
+      } catch (err) {
+        console.error("Deep link auth error:", err);
+      }
+    };
+
+    // Listen for incoming deep links
+    const sub = Linking.addEventListener("url", handleDeepLink);
+
+    // Also check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => sub.remove();
+  }, []);
 
   // Handle notification taps (open correct screen)
   useEffect(() => {
@@ -96,42 +187,61 @@ export default function RootLayout() {
   };
 
   const signInWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: "cleanhome://auth/callback",
-        skipBrowserRedirect: true,
-      },
-    });
-    if (error) throw error;
-    if (data?.url) {
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        "cleanhome://auth/callback"
-      );
-      if (result.type === "success" && result.url) {
-        const url = new URL(result.url);
+    const redirectUrl = Linking.createURL("auth/callback");
+    setIsAuthenticating(true); // Blocco lo schermo subito!
 
-        // Try hash fragment first (implicit flow), then fall back to query params (PKCE flow)
-        const hashParams = new URLSearchParams(url.hash.substring(1));
-        const searchParams = new URLSearchParams(url.search);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
 
-        const accessToken =
-          hashParams.get("access_token") ?? searchParams.get("access_token");
-        const refreshToken =
-          hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
+      if (error) throw error;
 
-        if (!accessToken || !refreshToken) {
-          throw new Error(
-            "Google OAuth: no access_token or refresh_token found in callback URL (checked both hash and search params)"
-          );
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl,
+          { preferEphemeralSession: false }
+        );
+
+        // Se l'utente annulla il browser, sblocchiamo lo schermo
+        if (result.type !== "success") {
+          setIsAuthenticating(false);
+          return;
         }
 
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        if (result.type === "success" && result.url) {
+          const url = new URL(result.url);
+          const hashParams = new URLSearchParams(url.hash.substring(1));
+          const searchParams = new URLSearchParams(url.search);
+
+          const accessToken = hashParams.get("access_token") ?? searchParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
+          const code = searchParams.get("code");
+
+          if (code) {
+            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exErr) throw exErr;
+          } else if (accessToken && refreshToken) {
+            const { error: sErr } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (sErr) throw sErr;
+          }
+          // NOTA: isAuthenticating rimarrà true finché il redirect automatico non ci sposta!
+        }
+      } else {
+        setIsAuthenticating(false);
       }
+    } catch (e) {
+      setIsAuthenticating(false);
+      const message = e instanceof Error ? e.message : "Errore imprevisto";
+      Alert.alert("Errore Google", message);
     }
   };
 
@@ -184,40 +294,68 @@ export default function RootLayout() {
 
   const setActiveRole = async (role: string) => {
     if (!user) return;
+    // Aggiorna subito localmente per reattività istantanea
+    setProfile((prev) => prev ? { ...prev, active_role: role } : null);
+    // Poi sincronizza col DB in background
     const fullName = user.user_metadata?.full_name ?? user.user_metadata?.name;
-    const p = await upsertActiveRole(user.id, role, fullName);
-    setProfile(p);
+    upsertActiveRole(user.id, role, fullName).catch(() => {});
   };
 
+  if (isLoading || (user && isProfileLoading && !profile)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#f0f4f3", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#006b55" />
+      </View>
+    );
+  }
+
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        profile,
-        isLoading,
-        signInWithEmail,
-        signUpWithEmail,
-        signInWithGoogle,
-        signInWithApple,
-        signOut,
-        setActiveRole,
-        refreshProfile,
-      }}
-    >
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="cleaner" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="support" />
-        <Stack.Screen name="documents" />
-        <Stack.Screen name="payments" />
-        <Stack.Screen name="booking" />
-        <Stack.Screen name="chat" />
-      </Stack>
-    </AuthContext.Provider>
+    <ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StripeProvider
+        publishableKey={
+          process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+        }
+        merchantIdentifier="merchant.com.cleanhome.app"
+        urlScheme="cleanhome"
+      >
+        <AuthContext.Provider
+          value={{
+            session,
+            user,
+            profile,
+            isLoading,
+            signInWithEmail,
+            signUpWithEmail,
+            signInWithGoogle,
+            signInWithApple,
+            signOut,
+            setActiveRole,
+            refreshProfile,
+          }}
+        >
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="cleaner" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="support" />
+            <Stack.Screen name="documents" />
+            <Stack.Screen name="payments" />
+            <Stack.Screen name="booking" />
+            <Stack.Screen name="chat" />
+            <Stack.Screen name="listing" />
+            <Stack.Screen name="listings" />
+            <Stack.Screen
+              name="review"
+              options={{ presentation: "modal" }}
+            />
+          </Stack>
+        </AuthContext.Provider>
+      </StripeProvider>
+    </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
