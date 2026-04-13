@@ -129,24 +129,44 @@ export default function RootLayout() {
 
   // Handle OAuth deep link callback (cleanhome://auth/callback?code=...)
   useEffect(() => {
+    let mounted = true;
+
     const handleDeepLink = async (event: { url: string }) => {
       const url = event.url;
-      if (!url.includes("auth/callback")) return;
+      // Only process our own scheme to prevent open-redirect / fixation
+      // attacks via crafted external links.
+      if (!url || !url.startsWith("cleanhome://") || !url.includes("auth/callback")) {
+        return;
+      }
 
       try {
-        const parsed = new URL(url);
+        // new URL() can throw on malformed URLs even when our prefix
+        // checks pass — wrap defensively.
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          if (__DEV__) console.warn("Deep link: malformed URL", url);
+          return;
+        }
+
         const code = parsed.searchParams.get("code");
         const hashParams = new URLSearchParams(parsed.hash.substring(1));
-        const accessToken = hashParams.get("access_token") ?? parsed.searchParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token") ?? parsed.searchParams.get("refresh_token");
+        const accessToken =
+          hashParams.get("access_token") ?? parsed.searchParams.get("access_token");
+        const refreshToken =
+          hashParams.get("refresh_token") ?? parsed.searchParams.get("refresh_token");
 
         if (code) {
           await supabase.auth.exchangeCodeForSession(code);
         } else if (accessToken && refreshToken) {
-          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
         }
       } catch (err) {
-        console.error("Deep link auth error:", err);
+        if (__DEV__) console.error("Deep link auth error:", err);
       }
     };
 
@@ -154,11 +174,16 @@ export default function RootLayout() {
     const sub = Linking.addEventListener("url", handleDeepLink);
 
     // Also check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink({ url });
-    });
+    Linking.getInitialURL()
+      .then((url) => {
+        if (mounted && url) handleDeepLink({ url });
+      })
+      .catch(() => {});
 
-    return () => sub.remove();
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
   }, []);
 
   // Handle notification taps (open correct screen)

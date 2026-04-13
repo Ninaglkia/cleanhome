@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import LottieView from "lottie-react-native";
 import {
   View,
@@ -746,6 +746,15 @@ export default function ProfileScreen() {
   const isCleaner = profile?.active_role === "cleaner";
 
   const [showLogoutAnim, setShowLogoutAnim] = useState(false);
+  // Track the logout setTimeout so it can be cleared on unmount and
+  // avoid setState-after-unmount + stuck animation if user navigates away.
+  const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    };
+  }, []);
 
   const { uploading: avatarUploading, previewVisible, setPreviewVisible, showOptions: handleAvatarPress } =
     useAvatarActions(user?.id, profile?.avatar_url, refreshProfile);
@@ -768,7 +777,8 @@ export default function ProfileScreen() {
         onPress: () => {
           // Show the bye-bye animation, then sign out after it plays
           setShowLogoutAnim(true);
-          setTimeout(async () => {
+          logoutTimerRef.current = setTimeout(async () => {
+            logoutTimerRef.current = null;
             await signOut();
             setShowLogoutAnim(false);
             router.replace("/(auth)/login");
