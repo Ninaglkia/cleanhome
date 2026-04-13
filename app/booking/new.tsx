@@ -14,7 +14,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useStripe } from "@stripe/stripe-react-native";
 import { useAuth } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
 
@@ -31,6 +33,14 @@ type TimeWindow = (typeof TIME_WINDOW_OPTIONS)[number]["key"];
 const ROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
 const FEE_RATE = 0.09;
 const TOTAL_STEPS = 4;
+
+const SERVICE_OPTIONS: ReadonlyArray<{ key: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: "Pulizia ordinaria", label: "Pulizia ordinaria", icon: "sparkles-outline" },
+  { key: "Pulizia profonda", label: "Pulizia profonda", icon: "water-outline" },
+  { key: "Stiratura", label: "Stiratura", icon: "shirt-outline" },
+  { key: "Pulizia vetri", label: "Pulizia vetri", icon: "square-outline" },
+  { key: "Pulizia uffici", label: "Pulizia uffici", icon: "business-outline" },
+] as const;
 
 const MONTH_NAMES_IT = [
   "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -279,10 +289,14 @@ export default function NewBookingScreen() {
   }>();
   const { user } = useAuth();
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   // Booking state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedWindow, setSelectedWindow] = useState<TimeWindow | null>(null);
+  const [selectedService, setSelectedService] = useState<string>(
+    SERVICE_OPTIONS[0].key
+  );
   const [numRooms, setNumRooms] = useState(2);
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
@@ -319,34 +333,73 @@ export default function NewBookingScreen() {
     if (!user || !cleanerId || !selectedDate || !selectedWindow) return;
     setLoading(true);
     try {
-      const response = await fetch("https://cleanhome-web.vercel.app/api/stripe/payment-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: user.id,
-          cleanerId,
-          serviceType: "Pulizia profonda",
-          date: selectedDate,
-          timeSlot: timeSlotString,
-          numRooms,
-          estimatedHours,
-          basePrice,
-          clientFee,
-          cleanerFee,
-          totalPrice,
-          address,
-          notes,
-        }),
+      // 1) Call Edge Function to create PaymentIntent with destination
+      //    charge (platform fee split). The server recalculates fees
+      //    so the client can't tamper with amounts.
+      const { data: invokeData, error: invokeError } =
+        await supabase.functions.invoke("stripe-booking-payment", {
+          body: {
+            cleaner_id: cleanerId,
+            service_type: selectedService,
+            date: selectedDate,
+            time_slot: timeSlotString,
+            num_rooms: numRooms,
+            estimated_hours: estimatedHours,
+            base_price: basePrice,
+            address,
+            notes,
+          },
+        });
+
+      if (invokeError) {
+        const ctx = (invokeError as any).context;
+        let details = invokeError.message;
+        if (ctx && typeof ctx === "object" && "text" in ctx) {
+          try { details = await (ctx as any).text(); } catch {}
+        }
+        throw new Error(details);
+      }
+
+      const payload = (invokeData ?? {}) as {
+        customer?: string;
+        ephemeralKey?: string;
+        paymentIntent?: string;
+        error?: string;
+      };
+
+      if (!payload.paymentIntent) {
+        throw new Error(
+          payload.error || "Impossibile avviare il pagamento"
+        );
+      }
+
+      // 2) Present Stripe Payment Sheet
+      const { error: initErr } = await initPaymentSheet({
+        merchantDisplayName: "CleanHome",
+        customerId: payload.customer,
+        customerEphemeralKeySecret: payload.ephemeralKey,
+        paymentIntentClientSecret: payload.paymentIntent,
+        allowsDelayedPaymentMethods: false,
+        returnURL: "cleanhome://stripe-redirect",
       });
+      if (initErr) throw new Error(initErr.message);
 
-      if (!response.ok) throw new Error("Errore nella creazione della prenotazione");
+      const { error: presentErr } = await presentPaymentSheet();
+      if (presentErr) {
+        if (presentErr.code !== "Canceled") {
+          Alert.alert("Pagamento non riuscito", presentErr.message);
+        }
+        return; // User cancelled — no booking created
+      }
 
-      const { title, body } = NotificationMessages.newBooking("Pulizia profonda");
+      // 3) Payment succeeded — the webhook will create the booking
+      //    row in the DB. Send push notification to the cleaner.
+      const { title, body } = NotificationMessages.newBooking(selectedService);
       await sendPushNotification(cleanerId, title, body, { screen: "cleaner-home" }).catch(() => {});
 
       Alert.alert(
-        "Prenotazione inviata!",
-        `La tua richiesta è stata inviata a ${displayName}. Riceverai una risposta entro 24 ore.`,
+        "Prenotazione confermata!",
+        `Il pagamento è andato a buon fine. ${displayName} riceverà la tua richiesta.`,
         [{ text: "OK", onPress: () => router.replace("/(tabs)/bookings") }]
       );
     } catch (err: unknown) {
@@ -357,8 +410,9 @@ export default function NewBookingScreen() {
     }
   }, [
     user, cleanerId, selectedDate, selectedWindow, timeSlotString,
-    numRooms, estimatedHours, basePrice, clientFee, cleanerFee,
-    totalPrice, address, notes, displayName, router,
+    numRooms, estimatedHours, basePrice, selectedService,
+    address, notes, displayName, router,
+    initPaymentSheet, presentPaymentSheet,
   ]);
 
   const handleContinue = useCallback(() => {
@@ -430,6 +484,54 @@ export default function NewBookingScreen() {
   // ── Step 1: Details ───────────────────────────────────────────────────────────
   const renderDetailsStep = () => (
     <View style={{ gap: Spacing.xl }}>
+      <View>
+        <Text style={s.sectionLabel}>Tipo di servizio</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+        >
+          {SERVICE_OPTIONS.map((svc) => {
+            const selected = selectedService === svc.key;
+            return (
+              <TouchableOpacity
+                key={svc.key}
+                onPress={() => setSelectedService(svc.key)}
+                activeOpacity={0.8}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: selected
+                    ? Colors.secondary
+                    : Colors.backgroundAlt,
+                  borderWidth: 1,
+                  borderColor: selected ? Colors.secondary : Colors.border,
+                }}
+              >
+                <Ionicons
+                  name={svc.icon}
+                  size={16}
+                  color={selected ? Colors.textOnDark : Colors.secondary}
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: selected ? Colors.textOnDark : Colors.text,
+                  }}
+                >
+                  {svc.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <View>
         <Text style={s.sectionLabel}>Numero di stanze</Text>
         <View style={s.roomRow}>
@@ -504,7 +606,7 @@ export default function NewBookingScreen() {
           </View>
           <View>
             <Text style={s.summaryCleanerName}>{displayName}</Text>
-            <Text style={s.summaryCleanerSub}>Pulizia profonda</Text>
+            <Text style={s.summaryCleanerSub}>{selectedService}</Text>
           </View>
         </View>
 

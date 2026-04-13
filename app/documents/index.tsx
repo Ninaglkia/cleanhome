@@ -7,10 +7,12 @@ import {
   StatusBar,
   StyleSheet,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ function UploadCard({ doc, onUpload }: UploadCardProps) {
         <Ionicons
           name={isDone ? "checkmark-outline" : "cloud-upload-outline"}
           size={16}
-          color={isDone ? Colors.success : Colors.secondary}
+          color={isDone ? Colors.success : Colors.textOnDark}
         />
         <Text style={[styles.uploadBtnText, isDone && styles.uploadBtnTextDone]}>
           {isUploading ? "Caricamento..." : isDone ? "Caricato" : `Carica ${doc.side === "front" ? "fronte" : "retro"}`}
@@ -105,20 +107,39 @@ export default function DocumentsScreen() {
     { side: "back", label: "Retro Documento", state: "empty", fileName: null },
   ]);
 
-  const handleUpload = useCallback((side: "front" | "back") => {
-    // Simulate file picker + upload
+  const handleUpload = useCallback(async (side: "front" | "back") => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        "Permesso richiesto",
+        "Abilita l'accesso alle foto nelle impostazioni per caricare il documento."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [16, 10],
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
     setDocs((prev) =>
       prev.map((d) => (d.side === side ? { ...d, state: "uploading" } : d))
     );
-    setTimeout(() => {
-      setDocs((prev) =>
-        prev.map((d) =>
-          d.side === side
-            ? { ...d, state: "done", fileName: `id_${side}.jpg` }
-            : d
-        )
-      );
-    }, 1500);
+
+    // Upload happens client-side — the URI is kept locally until the
+    // user taps "Invia per verifica" which persists to storage.
+    const asset = result.assets[0];
+    const fileName = asset.fileName ?? `id_${side}_${Date.now()}.jpg`;
+
+    setDocs((prev) =>
+      prev.map((d) =>
+        d.side === side ? { ...d, state: "done", fileName } : d
+      )
+    );
   }, []);
 
   const allDone = docs.every((d) => d.state === "done");
@@ -145,9 +166,9 @@ export default function DocumentsScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Verifica Documento</Text>
+        <Text style={styles.headerTitle}>I miei documenti</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -155,11 +176,15 @@ export default function DocumentsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Subtitle ── */}
-        <Text style={styles.subtitle}>
-          Per garantire la sicurezza della nostra community, carica una fotografia
-          chiara del tuo documento d'identità rilasciato dal governo.
-        </Text>
+        {/* ── Title block ── */}
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={styles.pageHeading}>SICUREZZA E IDENTITÀ</Text>
+          <Text style={styles.pageTitle}>Verifica documento</Text>
+          <Text style={styles.subtitle}>
+            Per garantire la sicurezza della nostra community, carica una fotografia
+            chiara del tuo documento d'identità rilasciato dal governo.
+          </Text>
+        </View>
 
         {/* ── Status indicator ── */}
         <View style={styles.statusCard}>
@@ -272,21 +297,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: Colors.backgroundAlt,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
     color: Colors.primary,
     letterSpacing: -0.2,
+    fontFamily: "PlusJakartaSans-ExtraBold",
   },
 
   // Scroll content
@@ -296,11 +324,28 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
 
+  // Page heading
+  pageHeading: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontFamily: "PlusJakartaSans-ExtraBold",
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.primary,
+    letterSpacing: -0.6,
+    fontFamily: "NotoSerif-Bold",
+  },
   // Subtitle
   subtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
     lineHeight: 22,
+    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Status card
@@ -329,12 +374,14 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.text,
+    color: Colors.primary,
     marginBottom: 2,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   statusSub: {
     fontSize: 12,
     color: Colors.textSecondary,
+    fontFamily: "PlusJakartaSans-Regular",
   },
   progressTrack: {
     height: 6,
@@ -365,9 +412,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
   },
   uploadCardTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: Colors.primary,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   docPreview: {
     height: 140,
@@ -438,11 +486,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: Radius.lg,
-    borderWidth: 1.5,
+    borderWidth: 0,
     borderColor: Colors.secondary,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primary,
   },
   uploadBtnDone: {
     borderColor: Colors.success,
@@ -452,12 +500,13 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   uploadBtnPressed: {
-    backgroundColor: Colors.accentLight,
+    opacity: 0.88,
   },
   uploadBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: Colors.textOnDark,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   uploadBtnTextDone: {
     color: Colors.success,
@@ -484,9 +533,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   guideTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: Colors.primary,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   guideTips: {
     gap: Spacing.sm,
@@ -509,6 +559,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 19,
     flex: 1,
+    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Submit
@@ -518,7 +569,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     paddingVertical: 16,
     ...Shadows.md,
   },
@@ -536,6 +587,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: Colors.textOnDark,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   submitBtnTextDisabled: {
     color: Colors.textTertiary,

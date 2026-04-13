@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,6 +166,17 @@ export default function CleanerProfileViewScreen() {
     router.push("/cleaner/reviews");
   }, [router]);
 
+  const handleShare = useCallback(async () => {
+    if (!cleaner) return;
+    try {
+      await Share.share({
+        message: `Guarda il profilo di ${cleaner.full_name} su CleanHome: https://cleanhome.app/cleaner/${cleaner.id}`,
+      });
+    } catch {
+      // user cancelled or share unavailable — silent
+    }
+  }, [cleaner]);
+
   if (loading) {
     return (
       <View
@@ -243,7 +255,7 @@ export default function CleanerProfileViewScreen() {
                 styles.shareButton,
                 pressed && { opacity: 0.7 },
               ]}
-              onPress={() => {}}
+              onPress={handleShare}
             >
               <Ionicons name="share-outline" size={20} color="#fff" />
             </Pressable>
