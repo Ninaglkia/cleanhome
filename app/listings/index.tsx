@@ -58,25 +58,28 @@ export default function MyListingsScreen() {
   const [stripeVerified, setStripeVerified] = useState(true); // assume true until loaded
   const [verifying, setVerifying] = useState(false);
 
-  // Check Stripe Connect onboarding status
-  useEffect(() => {
+  // Re-check Stripe Connect onboarding status. Called on mount and again
+  // every time the screen is focused (e.g. when the user comes back from
+  // Stripe's hosted KYC flow in an external browser).
+  const refreshStripeStatus = useCallback(async () => {
     if (!user?.id) return;
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from("cleaner_profiles")
-          .select("stripe_onboarding_complete, stripe_charges_enabled")
-          .eq("id", user.id)
-          .maybeSingle();
-        setStripeVerified(
-          !!data?.stripe_onboarding_complete && !!data?.stripe_charges_enabled
-        );
-      } catch {
-        // If we can't check, assume not verified to be safe
-        setStripeVerified(false);
-      }
-    })();
+    try {
+      const { data } = await supabase
+        .from("cleaner_profiles")
+        .select("stripe_onboarding_complete, stripe_charges_enabled")
+        .eq("id", user.id)
+        .maybeSingle();
+      setStripeVerified(
+        !!data?.stripe_onboarding_complete && !!data?.stripe_charges_enabled
+      );
+    } catch {
+      setStripeVerified(false);
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    refreshStripeStatus();
+  }, [refreshStripeStatus]);
 
   // Open Stripe Connect onboarding in browser
   const handleStartVerification = useCallback(async () => {
@@ -133,11 +136,13 @@ export default function MyListingsScreen() {
     load();
   }, [load]);
 
-  // Reload every time the screen is focused again (after edit)
+  // Reload every time the screen is focused again (after edit OR
+  // after returning from Stripe's hosted KYC flow in the browser)
   useFocusEffect(
     useCallback(() => {
       load(false);
-    }, [load])
+      refreshStripeStatus();
+    }, [load, refreshStripeStatus])
   );
 
   const onRefresh = useCallback(async () => {
