@@ -101,20 +101,24 @@ export default function OnboardingScreen() {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  // Salva ruolo scelto + segna onboarding completato su Supabase, poi vai alla home
+  // Persist the chosen role then route to the right next step. Clients
+  // are done onboarding (mark cleaner_onboarded=true → splash sends them
+  // straight to /(tabs)/home next time). Cleaners still need to fill the
+  // profile wizard (bio, services, hourly rate) followed by the setup
+  // checklist — the wizard screen itself calls markCleanerOnboarded once
+  // the profile data is persisted, so we intentionally skip it here.
   const finishOnboarding = useCallback(async () => {
+    const isCleaner = selectedRole === "cleaner";
     try {
-      const roleArg = selectedRole === "both" ? "client" : selectedRole;
+      const roleArg = isCleaner ? "cleaner" : "client";
       await setActiveRole(roleArg);
-      if (user?.id) await markCleanerOnboarded(user.id);
+      if (!isCleaner && user?.id) {
+        await markCleanerOnboarded(user.id);
+      }
     } catch {
-      // Non bloccare il flusso se fallisce — l'utente può correggere dal profilo
+      // Non-fatal — the user can always reconfigure from the profile tab.
     }
-    const dest =
-      selectedRole === "cleaner"
-        ? "/(tabs)/cleaner-home"
-        : "/(tabs)/home";
-    router.replace(dest);
+    router.replace(isCleaner ? "/onboarding/cleaner" : "/(tabs)/home");
   }, [selectedRole, setActiveRole, user?.id, router]);
 
   const handleNext = useCallback(() => {
