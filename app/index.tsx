@@ -94,12 +94,10 @@ export default function SplashScreenView() {
           seen = false;
         }
         router.replace(seen ? "/(auth)/login" : "/onboarding/features");
-      } else if (!profile) {
-        // Profilo non ancora creato (trigger in corso) — aspetta
-        router.replace("/(auth)/role-selection");
-      } else if (!profile.cleaner_onboarded) {
-        // Primo accesso: profilo esiste ma onboarding non completato
-        // → mostra le slides di benvenuto + scelta ruolo
+      } else if (!profile || !profile.cleaner_onboarded) {
+        // First login OR profile row not yet created by the DB trigger.
+        // Both go to /onboarding/welcome which collects the role AND
+        // marks the profile as onboarded in a single unified flow.
         router.replace("/onboarding/welcome");
       } else if (profile.active_role === "cleaner") {
         router.replace("/(tabs)/cleaner-home");

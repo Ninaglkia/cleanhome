@@ -113,11 +113,12 @@ export default function RootLayout() {
 
     if (user) {
       hasRedirected.current = true;
-      if (!profile) {
-        // Profilo non ancora creato dal trigger — vai a role-selection
-        router.replace("/(auth)/role-selection");
-      } else if (!profile.cleaner_onboarded) {
-        // Primo accesso: l'utente non ha completato l'onboarding
+      if (!profile || !profile.cleaner_onboarded) {
+        // First login OR profile row not yet created by the DB trigger.
+        // Both cases go to /onboarding/welcome, which is the unified entry
+        // point: it shows Lottie slides AND collects the user's role via
+        // radio cards on the first slide, then persists both the role and
+        // `cleaner_onboarded=true` before forwarding to the right home.
         router.replace("/onboarding/welcome");
       } else if (profile.active_role === "cleaner") {
         router.replace("/(tabs)/cleaner-home");
