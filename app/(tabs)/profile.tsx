@@ -556,6 +556,7 @@ interface ClientViewProps {
   onDocuments: () => void;
   onPrivacy: () => void;
   onBookings: () => void;
+  onProperties: () => void;
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
@@ -573,6 +574,7 @@ function ClientView({
   onEditProfile,
   onBankData,
   onDocuments,
+  onProperties,
   onPrivacy,
   onBookings,
   onSwitchRole,
@@ -652,6 +654,15 @@ function ClientView({
           label="Le mie prenotazioni"
           sublabel="Vedi lo stato delle tue richieste di pulizia"
           onPress={onBookings}
+          iconBgColor={C.cleanerIconBg}
+          iconColor={C.cleanerPrimary}
+          cardStyle
+        />
+        <MenuRow
+          icon="home-outline"
+          label="Le mie case"
+          sublabel="Salva gli indirizzi che usi più spesso"
+          onPress={onProperties}
           iconBgColor={C.cleanerIconBg}
           iconColor={C.cleanerPrimary}
           cardStyle
@@ -942,6 +953,7 @@ export default function ProfileScreen() {
               onDocuments={handleDocuments}
               onPrivacy={handlePrivacy}
               onBookings={() => router.push("/(tabs)/bookings")}
+              onProperties={() => router.push("/properties")}
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}

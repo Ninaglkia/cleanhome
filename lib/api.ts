@@ -3,13 +3,75 @@ import {
   Booking,
   CleanerListing,
   CleanerProfile,
+  ClientProperty,
   CoverageMode,
   ListingSearchResult,
   Message,
+  NewClientProperty,
   PolygonPoint,
   Review,
   UserProfile,
 } from "./types";
+
+// --- Client Properties (saved houses) ---
+
+// Fetch all properties for a client, default first, then newest first.
+export async function fetchClientProperties(
+  clientId: string
+): Promise<ClientProperty[]> {
+  const { data, error } = await supabase
+    .from("client_properties")
+    .select()
+    .eq("client_id", clientId)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as ClientProperty[]) ?? [];
+}
+
+export async function createClientProperty(
+  clientId: string,
+  input: NewClientProperty
+): Promise<ClientProperty> {
+  const { data, error } = await supabase
+    .from("client_properties")
+    .insert({ client_id: clientId, ...input })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ClientProperty;
+}
+
+export async function updateClientProperty(
+  id: string,
+  patch: Partial<NewClientProperty>
+): Promise<ClientProperty> {
+  const { data, error } = await supabase
+    .from("client_properties")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ClientProperty;
+}
+
+export async function deleteClientProperty(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("client_properties")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Flip the default flag on a single property. The DB trigger
+// `enforce_single_default_property` will automatically unset the
+// previously-default row for the same client.
+export async function setDefaultProperty(
+  id: string
+): Promise<ClientProperty> {
+  return updateClientProperty(id, { is_default: true } as Partial<NewClientProperty>);
+}
 
 // --- Reviews ---
 

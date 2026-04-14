@@ -32,6 +32,72 @@ export interface Booking {
 
 export type CleanerType = "privato" | "azienda";
 
+export type CoverageMode = "circle" | "polygon";
+
+export interface PolygonPoint {
+  lat: number;
+  lng: number;
+}
+
+export type SubscriptionStatus =
+  | "none"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete";
+
+// A single listing published by a cleaner. Each cleaner can have many
+// listings — the first is free, the rest require an active Stripe
+// subscription (see subscription_status).
+export interface CleanerListing {
+  id: string;
+  cleaner_id: string;
+  title: string;
+  cover_url?: string | null;
+  hourly_rate?: number | null;
+  services?: string[] | null;
+  description?: string | null;
+  is_active: boolean;
+
+  // Coverage zone
+  city?: string | null;
+  coverage_mode?: CoverageMode | null;
+  coverage_center_lat?: number | null;
+  coverage_center_lng?: number | null;
+  coverage_radius_km?: number | null;
+  coverage_polygon?: PolygonPoint[] | null;
+
+  // Subscription
+  is_first_listing: boolean;
+  stripe_subscription_id?: string | null;
+  subscription_status: SubscriptionStatus;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Row shape returned by the `search_listings_by_point` RPC — a listing
+// JOINed with the cleaner's public profile fields.
+export interface ListingSearchResult {
+  listing_id: string;
+  cleaner_id: string;
+  title: string;
+  cover_url: string | null;
+  hourly_rate: number | null;
+  services: string[] | null;
+  description: string | null;
+  city: string | null;
+  coverage_center_lat: number | null;
+  coverage_center_lng: number | null;
+  cleaner_name: string;
+  cleaner_bio: string | null;
+  cleaner_type: CleanerType | null;
+  avg_rating: number;
+  review_count: number;
+}
+
 export interface CleanerProfile {
   id: string;
   full_name: string;
@@ -45,6 +111,13 @@ export interface CleanerProfile {
   avg_rating: number;
   review_count: number;
   distance_km: number;
+  // Coverage zone the cleaner declared they serve. Clients match against
+  // this via the `search_cleaners_by_point` RPC (PostGIS ST_Contains).
+  coverage_mode?: CoverageMode | null;
+  coverage_center_lat?: number | null;
+  coverage_center_lng?: number | null;
+  coverage_radius_km?: number | null;
+  coverage_polygon?: PolygonPoint[] | null;
 }
 
 export interface Message {
@@ -63,6 +136,39 @@ export interface UserProfile {
   active_role: string;
   cleaner_onboarded: boolean;
 }
+
+export interface Review {
+  id: string;
+  booking_id: string;
+  client_id: string;
+  cleaner_id: string;
+  rating: number;
+  comment?: string | null;
+  created_at: string;
+}
+
+// A saved property/house that a client can reuse when booking a cleaning.
+// Clients with multiple homes (Airbnb hosts, property managers, people with
+// a second house) can add each one once and pick it from a dropdown in the
+// booking flow instead of retyping the address every time.
+export interface ClientProperty {
+  id: string;
+  client_id: string;
+  name: string;
+  address: string;
+  num_rooms: number;
+  sqm?: number | null;
+  notes?: string | null;
+  photo_url?: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewClientProperty = Omit<
+  ClientProperty,
+  "id" | "client_id" | "created_at" | "updated_at"
+>;
 
 export const ALL_SERVICES = [
   "Pulizia ordinaria",

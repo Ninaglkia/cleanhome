@@ -19,6 +19,8 @@ import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
+import { fetchClientProperties } from "../../lib/api";
+import type { ClientProperty } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -303,6 +305,61 @@ export default function NewBookingScreen() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
 
+  // Saved properties ("Le mie case") — lets the client pick a pre-filled
+  // address/rooms/notes instead of retyping everything. `propertyId` is
+  // null when the user chose to enter a new address manually.
+  const [properties, setProperties] = useState<ClientProperty[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
+    null
+  );
+  const [propertiesLoaded, setPropertiesLoaded] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchClientProperties(user.id);
+        if (cancelled) return;
+        setProperties(data);
+        // Auto-select the default property, or the first one if there's
+        // only one saved — lets the user zip through the form.
+        const preferred =
+          data.find((p) => p.is_default) ?? (data.length === 1 ? data[0] : null);
+        if (preferred) {
+          setSelectedPropertyId(preferred.id);
+          setAddress(preferred.address);
+          setNumRooms(preferred.num_rooms);
+          if (preferred.notes) setNotes(preferred.notes);
+        }
+      } catch (err) {
+        console.error("[booking] properties load", err);
+      } finally {
+        if (!cancelled) setPropertiesLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const handleSelectProperty = useCallback(
+    (id: string | null) => {
+      setSelectedPropertyId(id);
+      if (id === null) {
+        // "Nuovo indirizzo" — clear pre-filled values so the user can type
+        setAddress("");
+        setNotes("");
+        return;
+      }
+      const p = properties.find((pp) => pp.id === id);
+      if (!p) return;
+      setAddress(p.address);
+      setNumRooms(p.num_rooms);
+      if (p.notes) setNotes(p.notes);
+    },
+    [properties]
+  );
+
   // Block the booking flow up-front if the cleaner doesn't have an
   // active Stripe Connect account. Without it the payment intent
   // can't have a transfer destination and the edge function fails
@@ -518,6 +575,154 @@ export default function NewBookingScreen() {
   // ── Step 1: Details ───────────────────────────────────────────────────────────
   const renderDetailsStep = () => (
     <View style={{ gap: Spacing.xl }}>
+      {/* ── Property picker — only shown when the client has saved houses ── */}
+      {propertiesLoaded && properties.length > 0 && (
+        <View>
+          <Text style={s.sectionLabel}>Quale casa vuoi far pulire?</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingRight: 4 }}
+          >
+            {properties.map((p) => {
+              const selected = selectedPropertyId === p.id;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => handleSelectProperty(p.id)}
+                  activeOpacity={0.85}
+                  style={{
+                    minWidth: 170,
+                    maxWidth: 220,
+                    padding: 14,
+                    borderRadius: Radius.lg,
+                    backgroundColor: selected ? Colors.secondary : Colors.surface,
+                    borderWidth: 1.5,
+                    borderColor: selected ? Colors.secondary : Colors.border,
+                    ...Shadows.sm,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Ionicons
+                      name="home"
+                      size={16}
+                      color={selected ? "#fff" : Colors.secondary}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "800",
+                        color: selected ? "#fff" : Colors.text,
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {p.name}
+                    </Text>
+                    {p.is_default && !selected && (
+                      <Ionicons name="star" size={11} color={Colors.secondary} />
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: selected ? "#d7fff1" : Colors.textSecondary,
+                      lineHeight: 16,
+                    }}
+                    numberOfLines={2}
+                  >
+                    {p.address}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* "Nuovo indirizzo" card — lets the user skip saved properties */}
+            <TouchableOpacity
+              onPress={() => handleSelectProperty(null)}
+              activeOpacity={0.85}
+              style={{
+                width: 130,
+                padding: 14,
+                borderRadius: Radius.lg,
+                backgroundColor:
+                  selectedPropertyId === null ? Colors.accentLight : "transparent",
+                borderWidth: 1.5,
+                borderColor:
+                  selectedPropertyId === null ? Colors.secondary : Colors.border,
+                borderStyle: "dashed",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={22}
+                color={Colors.secondary}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "800",
+                  color: Colors.secondary,
+                  textAlign: "center",
+                }}
+              >
+                Nuovo indirizzo
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Empty-state hint — invites clients with zero saved houses to use
+          the new Le mie case feature without forcing them. */}
+      {propertiesLoaded && properties.length === 0 && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/properties/edit")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            padding: 14,
+            borderRadius: Radius.lg,
+            backgroundColor: Colors.accentLight,
+            borderWidth: 1,
+            borderColor: Colors.accent,
+          }}
+        >
+          <Ionicons name="bulb-outline" size={20} color={Colors.secondary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.text }}>
+              Hai più di una casa?
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: Colors.textSecondary,
+                marginTop: 2,
+              }}
+            >
+              Salvale una volta e prenota in un tocco la prossima volta.
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={Colors.textTertiary}
+          />
+        </TouchableOpacity>
+      )}
+
       <View>
         <Text style={s.sectionLabel}>Tipo di servizio</Text>
         <ScrollView
