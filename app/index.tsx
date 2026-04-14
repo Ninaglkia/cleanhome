@@ -73,10 +73,12 @@ export default function SplashScreenView() {
   useEffect(() => {
     if (isLoading) return;
 
-    // Data loaded — fill progress to 100% then navigate
+    // Data loaded — fill the progress bar a bit more slowly so the splash
+    // doesn't feel rushed. Users barely see the brand at 600ms: 1.6s of
+    // fill + 200ms pause reads as intentional branding without being slow.
     progressWidth.value = withTiming(
       PROGRESS_BAR_WIDTH,
-      { duration: 400, easing: Easing.out(Easing.cubic) }
+      { duration: 1600, easing: Easing.out(Easing.cubic) }
     );
 
     const timer = setTimeout(async () => {
@@ -104,7 +106,7 @@ export default function SplashScreenView() {
       } else {
         router.replace("/(tabs)/home");
       }
-    }, 600);
+    }, 1800);
 
     return () => clearTimeout(timer);
   }, [isLoading, user, profile]);
