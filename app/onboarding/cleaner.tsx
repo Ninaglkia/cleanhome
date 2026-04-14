@@ -67,11 +67,11 @@ export default function CleanerOnboardingScreen() {
       await setActiveRole("cleaner");
       await refreshProfile();
 
-      Alert.alert(
-        "Benvenuto!",
-        "Il tuo profilo professionista è attivo. Inizierai a ricevere richieste.",
-        [{ text: "Inizia", onPress: () => router.replace("/(tabs)/cleaner-home") }]
-      );
+      // Forward to the post-wizard checklist instead of dropping the user
+      // straight on /(tabs)/cleaner-home. The checklist walks them through
+      // the remaining setup (photo, Stripe KYC, first listing) with an
+      // animated "next step" pulse so they don't miss anything critical.
+      router.replace("/onboarding/cleaner-setup-checklist");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Impossibile creare il profilo";
       Alert.alert("Errore", message);
