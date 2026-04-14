@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../lib/auth";
+import { markCleanerOnboarded } from "../../lib/api";
 import { Ionicons } from "@expo/vector-icons";
 
 // ─── Design tokens — dal Stitch HTML selezione_ruolo_onboarding_step_1 ─────────
@@ -107,7 +108,7 @@ function RadioCard({ label, sublabel, iconName, selected, onPress }: RadioCardPr
 
 // ─── Screen ─────────────────────────────────────────────────────────────────────
 export default function RoleSelectionScreen() {
-  const { setActiveRole } = useAuth();
+  const { user, setActiveRole, refreshProfile } = useAuth();
   const router = useRouter();
   const [selected, setSelected] = useState<RoleOption>("client");
   const [loading, setLoading] = useState(false);
@@ -118,6 +119,23 @@ export default function RoleSelectionScreen() {
       // "both" maps to "client" as active role — user can switch later
       const roleArg = selected === "both" ? "client" : selected;
       await setActiveRole(roleArg);
+
+      // Mark the profile as onboarded BEFORE navigating. Without this,
+      // the splash-screen redirect in app/index.tsx sees
+      // `profile.cleaner_onboarded === false` on the next cold start and
+      // bounces the user back into /onboarding/welcome, creating a loop
+      // where client users re-see the welcome slides every time they
+      // reopen the app. Marking it here closes the loop for clients;
+      // cleaners go through /onboarding/cleaner which sets it at its end.
+      if (user?.id && (selected === "client" || selected === "both")) {
+        try {
+          await markCleanerOnboarded(user.id);
+          await refreshProfile();
+        } catch {
+          // Non-fatal — worst case they see welcome once more.
+        }
+      }
+
       if (selected === "client" || selected === "both") {
         router.replace("/(tabs)/home");
       } else {
@@ -126,7 +144,7 @@ export default function RoleSelectionScreen() {
     } catch {
       setLoading(false);
     }
-  }, [selected, setActiveRole, router]);
+  }, [selected, setActiveRole, router, user?.id, refreshProfile]);
 
   if (loading) {
     return (

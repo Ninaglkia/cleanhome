@@ -10,7 +10,13 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../lib/auth";
+
+// AsyncStorage key that records whether the user has seen the pre-login
+// marketing onboarding. Set when the user taps the CTA on the last slide
+// of the tour. Guards against re-showing the tour on every cold start.
+const ONBOARDING_SEEN_KEY = "cleanhome.onboarding_seen";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const PROGRESS_BAR_WIDTH = 48;
@@ -75,8 +81,19 @@ export default function SplashScreenView() {
 
     const timer = setTimeout(async () => {
       if (!user) {
-        // Non loggato → sempre login prima di tutto
-        router.replace("/(auth)/login");
+        // Not authenticated. First-time visitors see the marketing tour
+        // (features → security → login) while returning visitors skip
+        // straight to the login screen. The AsyncStorage flag is set
+        // when the user completes the tour, so it only shows once.
+        let seen = false;
+        try {
+          seen = (await AsyncStorage.getItem(ONBOARDING_SEEN_KEY)) === "true";
+        } catch {
+          // Storage failure is non-fatal — treat as "not seen" so the
+          // user at least sees the tour in the worst case.
+          seen = false;
+        }
+        router.replace(seen ? "/(auth)/login" : "/onboarding/features");
       } else if (!profile) {
         // Profilo non ancora creato (trigger in corso) — aspetta
         router.replace("/(auth)/role-selection");
