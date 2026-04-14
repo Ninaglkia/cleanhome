@@ -112,10 +112,6 @@ export default function RoleSelectionScreen() {
   const [selected, setSelected] = useState<RoleOption>("client");
   const [loading, setLoading] = useState(false);
 
-  const handleSkip = useCallback(() => {
-    router.replace("/(tabs)/home");
-  }, [router]);
-
   const handleNext = useCallback(async () => {
     setLoading(true);
     try {
@@ -152,14 +148,13 @@ export default function RoleSelectionScreen() {
       >
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Text style={styles.brandName}>CleanHome</Text>
-          <Pressable
-            onPress={handleSkip}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={({ pressed }) => pressed && { opacity: 0.6 }}
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="leaf" size={22} color="#022420" />
+            <Text style={styles.brandName}>CleanHome</Text>
+          </View>
+          {/* No skip button here — the user MUST pick a role before entering
+              the app, otherwise they land on a default client home with the
+              wrong tab config and no way back other than from the profile. */}
         </View>
 
         {/* ── Hero image placeholder ── */}

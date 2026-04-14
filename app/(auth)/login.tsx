@@ -40,6 +40,18 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Prefer router.back() so the user returns to whichever onboarding step
+  // pushed them here (features, security, deep link, etc.). Fall back to
+  // the marketing onboarding root when there's no history — e.g. the app
+  // was cold-started directly on /login via a deep link.
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/onboarding/features");
+    }
+  }, [router]);
+
   const handleLogin = useCallback(async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
@@ -126,7 +138,7 @@ export default function LoginScreen() {
         >
           {/* Back + Brand */}
           <View style={styles.topBar}>
-            <Pressable onPress={() => router.replace("/onboarding/welcome")} style={styles.backBtn} hitSlop={10}>
+            <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={10}>
               <Ionicons name="arrow-back" size={20} color={C.primary} />
               <Text style={styles.backText}>Indietro</Text>
             </Pressable>

@@ -31,7 +31,11 @@ const C = {
   surfaceLow: "#f0f4f3",          // surface-container-low
   primary: "#022420",
   primaryContainer: "#1a3a35",    // bg del CTA
-  onPrimaryContainer: "#83a49d",  // testo del CTA
+  // CTA label color — the previous "#83a49d" was pulled from a Material
+  // design token but rendered as washed-out grey-green on the dark CTA,
+  // failing WCAG contrast against #1a3a35. White is legible and matches
+  // the rest of the app's primary CTAs (login, booking confirm, etc.)
+  onPrimaryContainer: "#ffffff",
   secondary: "#006b55",           // dot attivo step 3 = bg-secondary
   onSurface: "#181c1c",
   onSurfaceVariant: "#414846",
@@ -221,19 +225,20 @@ export default function SecurityScreen() {
             <Text style={styles.backText}>Indietro</Text>
           </Pressable>
 
-          {/* CTA "Get Started" — bg primary-container (#1a3a35), testo on-primary-container (#83a49d) */}
+          {/* CTA "Inizia ora" — italian copy + white label for WCAG contrast */}
           <View style={styles.ctaBtnOuter}>
             <Pressable
               onPress={handleGetStarted}
               style={styles.ctaBtnTap}
             >
-              <Text style={styles.ctaText}>Get Started</Text>
+              <Text style={styles.ctaText}>Inizia ora</Text>
               <Ionicons name="arrow-forward" size={20} color={C.onPrimaryContainer} />
             </Pressable>
           </View>
 
-          {/* Terms link */}
+          {/* Terms link — now opens the actual Terms screen */}
           <Pressable
+            onPress={() => router.push("/legal/terms")}
             hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
             style={styles.termsWrapper}
           >

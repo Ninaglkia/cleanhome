@@ -1,432 +1,438 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  Platform,
+  Dimensions,
   StatusBar,
+  FlatList,
+  ViewToken,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../lib/auth";
+import { markCleanerOnboarded } from "../../lib/api";
+import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
   withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
   Easing,
 } from "react-native-reanimated";
-import { Colors, Spacing, Radius, Shadows, SpringConfig } from "../../lib/theme";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-type UserRole = "client" | "cleaner" | "both";
+const C = {
+  bg: "#f0f4f3",
+  surface: "#ffffff",
+  primary: "#022420",
+  secondary: "#006b55",
+  mint: "#4fc4a3",
+  mintDark: "#1a3a35",
+  onSurface: "#181c1c",
+  onSurfaceVariant: "#414846",
+  outlineVariant: "#c1c8c5",
+} as const;
 
-interface RoleOption {
-  id: UserRole;
-  title: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  bgColor: string;
-}
+const ROLES = [
+  { id: "client" as const, title: "Cliente", desc: "Cerco servizi di pulizia professionali" },
+  { id: "cleaner" as const, title: "Pulitore", desc: "Voglio offrire i miei servizi" },
+  { id: "both" as const, title: "Entrambi", desc: "Entrambe le opzioni" },
+];
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// Lottie animations per ruolo (slide 0)
+const ROLE_ANIMATIONS = {
+  client: require("../../assets/lottie/cleaning.json"),
+  cleaner: require("../../assets/lottie/money.json"),
+  both: require("../../assets/lottie/rocket.json"),
+};
 
-const ROLE_OPTIONS: RoleOption[] = [
+// Lottie animations
+const SLIDES = [
   {
-    id: "client",
-    title: "Cliente",
-    description: "Cerco servizi di pulizia professionali",
-    icon: "home-outline",
-    color: Colors.secondary,
-    bgColor: Colors.accentLight,
+    id: "1",
+    animation: null, // dynamic — set by role selection
+    eyebrow: "BENVENUTO",
+    title: "Come ti piacerebbe\nusare CleanHome?",
+    description:
+      "Trova i migliori professionisti della pulizia o offri i tuoi servizi. Un'app, infinite possibilità.",
   },
   {
-    id: "cleaner",
-    title: "Pulitore",
-    description: "Voglio offrire i miei servizi",
-    icon: "briefcase-outline",
-    color: Colors.cleanerPrimary,
-    bgColor: Colors.cleanerAccentLight,
+    id: "2",
+    animation: require("../../assets/lottie/booking.json"),
+    eyebrow: "L'ARTE DELLA CURA",
+    title: "Prenotazione\nSemplice",
+    description:
+      "Dimentica le lunghe attese. Trova i migliori professionisti certificati e prenota in pochi tocchi.",
   },
   {
-    id: "both",
-    title: "Entrambi",
-    description: "Esplora le opzioni",
-    icon: "swap-horizontal-outline",
-    color: Colors.primary,
-    bgColor: Colors.backgroundAlt,
+    id: "3",
+    animation: require("../../assets/lottie/security.json"),
+    eyebrow: "SECURITY FIRST",
+    title: "Pagamenti\nSicuri",
+    description:
+      "Ogni transazione è protetta da crittografia end-to-end di livello bancario. I tuoi dati sono al sicuro.",
   },
 ];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+type Slide = (typeof SLIDES)[number];
 
-interface RoleCardProps {
-  option: RoleOption;
-  isSelected: boolean;
-  onPress: (id: UserRole) => void;
-}
+export default function OnboardingScreen() {
+  const router = useRouter();
+  const { user, setActiveRole } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedRole, setSelectedRole] = useState<"client" | "cleaner" | "both">("client");
+  const flatListRef = useRef<FlatList>(null);
+  const scrollX = useSharedValue(0);
 
-function RoleCard({ option, isSelected, onPress }: RoleCardProps) {
-  const scale = useSharedValue(1);
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setActiveIndex(viewableItems[0].index);
+      }
+    }
+  ).current;
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, SpringConfig.press);
-  }, []);
+  // Salva ruolo scelto + segna onboarding completato su Supabase, poi vai alla home
+  const finishOnboarding = useCallback(async () => {
+    try {
+      const roleArg = selectedRole === "both" ? "client" : selectedRole;
+      await setActiveRole(roleArg);
+      if (user?.id) await markCleanerOnboarded(user.id);
+    } catch {
+      // Non bloccare il flusso se fallisce — l'utente può correggere dal profilo
+    }
+    const dest =
+      selectedRole === "cleaner"
+        ? "/(tabs)/cleaner-home"
+        : "/(tabs)/home";
+    router.replace(dest);
+  }, [selectedRole, setActiveRole, user?.id, router]);
 
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, SpringConfig.press);
-  }, []);
+  const handleNext = useCallback(() => {
+    if (activeIndex < SLIDES.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+    } else {
+      // Ultima slide — salva e vai alla home
+      finishOnboarding();
+    }
+  }, [activeIndex, finishOnboarding]);
 
-  const handlePress = useCallback(() => {
-    onPress(option.id);
-  }, [option.id, onPress]);
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <Pressable
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={handlePress}
-        style={[
-          styles.roleCard,
-          isSelected && styles.roleCardSelected,
-          isSelected && { borderColor: option.color },
-        ]}
-      >
-        {/* Icon */}
-        <View
-          style={[
-            styles.roleIconWrapper,
-            { backgroundColor: isSelected ? option.bgColor : Colors.backgroundAlt },
-          ]}
-        >
-          <Ionicons
-            name={option.icon}
-            size={22}
-            color={isSelected ? option.color : Colors.textSecondary}
+  const renderSlide = useCallback(
+    ({ item, index }: { item: Slide; index: number }) => (
+      <View style={styles.slide}>
+        {/* Lottie animation — slide 0 changes based on role */}
+        <View style={styles.animationWrap}>
+          <LottieView
+            source={index === 0 ? ROLE_ANIMATIONS[selectedRole] : item.animation}
+            autoPlay
+            loop
+            style={styles.lottie}
+            key={index === 0 ? selectedRole : item.id}
           />
         </View>
 
-        {/* Text */}
-        <View style={styles.roleTextBlock}>
-          <Text
-            style={[
-              styles.roleTitle,
-              isSelected && { color: option.color },
-            ]}
-          >
-            {option.title}
-          </Text>
-          <Text style={styles.roleDescription}>{option.description}</Text>
-        </View>
+        {/* Text content */}
+        <View style={styles.textContent}>
+          <Text style={styles.eyebrow}>{item.eyebrow}</Text>
+          <Text style={styles.title}>{item.title}</Text>
 
-        {/* Selected indicator */}
-        <View
-          style={[
-            styles.roleRadio,
-            isSelected && { backgroundColor: option.color, borderColor: option.color },
-          ]}
-        >
-          {isSelected && (
-            <Ionicons name="checkmark" size={12} color="#ffffff" />
+          {/* Slide 0: role selection options */}
+          {index === 0 ? (
+            <View style={styles.rolesContainer}>
+              {ROLES.map((r) => {
+                const active = selectedRole === r.id;
+                return (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => setSelectedRole(r.id)}
+                    style={[styles.option, active && styles.optionActive]}
+                  >
+                    <View style={styles.optionText}>
+                      <Text style={[styles.optionTitle, active && { color: C.primary }]}>{r.title}</Text>
+                      <Text style={styles.optionDesc}>{r.desc}</Text>
+                    </View>
+                    <View style={[styles.radio, active && styles.radioActive]}>
+                      {active && <View style={styles.radioDot} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.description}>{item.description}</Text>
           )}
         </View>
-      </Pressable>
-    </Animated.View>
+      </View>
+    ),
+    [selectedRole]
   );
-}
 
-// ─── Page Dots ────────────────────────────────────────────────────────────────
+  const isLastSlide = activeIndex === SLIDES.length - 1;
 
-interface PageDotsProps {
-  total: number;
-  active: number;
-}
-
-function PageDots({ total, active }: PageDotsProps) {
-  return (
-    <View style={styles.dotsRow}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            i === active ? styles.dotActive : styles.dotInactive,
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
-export default function WelcomeScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const [selectedRole, setSelectedRole] = useState<UserRole>("client");
-
-  // Entrance animations
-  const imageOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(30);
-  const contentOpacity = useSharedValue(0);
-
-  const imageStyle = useAnimatedStyle(() => ({
-    opacity: imageOpacity.value,
-  }));
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
-  }));
+  // Button pulse animation
+  const btnScale = useSharedValue(1);
+  const btnGlow = useSharedValue(0.3);
 
   useEffect(() => {
-    imageOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
-    contentOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
-    contentTranslateY.value = withSpring(0, SpringConfig.entrance);
+    // Gentle pulse loop
+    btnScale.value = withRepeat(
+      withSequence(
+        withTiming(1.03, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1, // infinite
+      true
+    );
+    btnGlow.value = withRepeat(
+      withSequence(
+        withTiming(0.5, { duration: 1200 }),
+        withTiming(0.25, { duration: 1200 })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  const handleSelectRole = useCallback((id: UserRole) => {
-    setSelectedRole(id);
+  const btnAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: btnScale.value }],
+    shadowOpacity: btnGlow.value,
+  }));
+
+  const handleBtnPressIn = useCallback(() => {
+    btnScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
   }, []);
 
-  const handleNext = useCallback(() => {
-    router.push("/onboarding/features");
-  }, [router]);
-
-  const handleSkip = useCallback(() => {
-    router.replace("/(auth)/login");
-  }, [router]);
+  const handleBtnPressOut = useCallback(() => {
+    btnScale.value = withSpring(1.03, { damping: 15, stiffness: 300 });
+  }, []);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + 8 }]}>
+      <StatusBar barStyle="dark-content" />
 
-      {/* Skip button */}
-      <Pressable
-        onPress={handleSkip}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        style={[styles.skipButton, { top: insets.top + 12 }]}
-      >
-        <Text style={styles.skipText}>SALTA</Text>
-      </Pressable>
-
-      {/* Hero image area */}
-      <Animated.View style={[styles.heroArea, imageStyle]}>
-        <View style={styles.heroGradient}>
-          <View style={styles.heroInner}>
-            <Ionicons name="home" size={56} color={Colors.accent} />
-            <Text style={styles.heroLabel}>CleanHome</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        {activeIndex > 0 ? (
+          <Pressable
+            onPress={() => {
+              flatListRef.current?.scrollToIndex({ index: activeIndex - 1, animated: true });
+            }}
+            style={styles.backBtn}
+            hitSlop={12}
+          >
+            <Ionicons name="arrow-back" size={20} color={C.primary} />
+            <Text style={styles.backText}>Indietro</Text>
+          </Pressable>
+        ) : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="leaf" size={20} color="#022420" />
+            <Text style={styles.brand}>CleanHome</Text>
           </View>
-        </View>
-      </Animated.View>
+        )}
+        {/* No skip button — this onboarding finalizes the user's role choice
+            and marks cleaner_onboarded on the profile. Allowing skip silently
+            defaults everyone to "client" which breaks cleaners' first-run
+            experience. Keep the flow explicit. */}
+        <View style={{ width: 40 }} />
+      </View>
 
-      {/* Content card */}
-      <Animated.View style={[styles.contentCard, contentStyle]}>
-        {/* Title */}
-        <Text style={styles.title}>
-          Come ti piacerebbe{"\n"}usare CleanHome?
-        </Text>
+      {/* Horizontal paging FlatList */}
+      <FlatList
+        ref={flatListRef}
+        data={SLIDES}
+        renderItem={renderSlide}
+        keyExtractor={(item) => item.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        onScroll={(e) => {
+          scrollX.value = e.nativeEvent.contentOffset.x;
+        }}
+        scrollEventThrottle={16}
+        style={styles.flatList}
+      />
 
-        {/* Role options */}
-        <View style={styles.rolesContainer}>
-          {ROLE_OPTIONS.map((option) => (
-            <RoleCard
-              key={option.id}
-              option={option}
-              isSelected={selectedRole === option.id}
-              onPress={handleSelectRole}
+      {/* Bottom: dots + button */}
+      <View style={styles.bottom}>
+        {/* Dots */}
+        <View style={styles.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                i === activeIndex ? styles.dotOn : styles.dotOff,
+              ]}
             />
           ))}
         </View>
 
-        {/* Page dots */}
-        <PageDots total={3} active={0} />
-
-        {/* Next button */}
-        <Pressable
-          onPress={handleNext}
-          style={({ pressed }) => [
-            styles.nextButton,
-            pressed && styles.nextButtonPressed,
-          ]}
-        >
-          <Text style={styles.nextButtonText}>Avanti</Text>
-          <Ionicons name="arrow-forward" size={18} color="#ffffff" />
-        </Pressable>
-      </Animated.View>
+        {/* CTA button — animated pulse + scale on press */}
+        <Animated.View style={[styles.ctaOuter, isLastSlide && styles.ctaOuterLast, btnAnimStyle]}>
+          <Pressable
+            onPress={handleNext}
+            onPressIn={handleBtnPressIn}
+            onPressOut={handleBtnPressOut}
+            style={styles.ctaTap}
+          >
+            <Text style={[styles.ctaText, isLastSlide && styles.ctaTextLast]}>
+              {isLastSlide ? "Inizia" : "Next"}
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={isLastSlide ? "#ffffff" : C.mintDark}
+            />
+          </Pressable>
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: C.bg,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    height: 48,
+  },
+  brand: { fontSize: 22, fontWeight: "900", color: C.primary },
+  skip: { fontSize: 13, fontWeight: "700", color: C.secondary, letterSpacing: 1 },
+  backBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  backText: { fontSize: 15, fontWeight: "600", color: C.primary },
+
+  flatList: { flex: 1 },
+
+  // Each slide = full screen width
+  slide: {
+    width: SCREEN_W,
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 32,
   },
 
-  // Skip
-  skipButton: {
-    position: "absolute",
-    right: 20,
-    zIndex: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: Radius.full,
+  // Lottie animation area — smaller to leave room for options
+  animationWrap: {
+    flex: 3,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  skipText: {
-    color: Colors.textOnDark,
+  lottie: {
+    width: SCREEN_W * 0.55,
+    height: SCREEN_W * 0.55,
+  },
+
+  // Text + options content
+  textContent: {
+    flex: 4,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 4,
+  },
+  eyebrow: {
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 1.5,
-  },
-
-  // Hero
-  heroArea: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 200,
-    maxHeight: 280,
-  },
-  heroGradient: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroInner: {
-    alignItems: "center",
-    gap: 12,
-  },
-  heroLabel: {
-    color: Colors.textOnDark,
-    fontSize: 20,
-    fontWeight: "700",
-    fontStyle: "italic",
-    letterSpacing: 0.5,
-  },
-
-  // Content card
-  contentCard: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: 32,
-    paddingBottom: Platform.OS === "ios" ? 0 : Spacing.xl,
-    flex: 1.4,
-    ...Shadows.lg,
+    color: C.secondary,
+    letterSpacing: 3,
+    textTransform: "uppercase",
+    marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.text,
-    marginBottom: Spacing.xl,
-    lineHeight: 32,
+    fontSize: 32,
+    fontWeight: "900",
+    color: C.primary,
+    textAlign: "center",
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    marginBottom: 16,
   },
-
-  // Role cards
-  rolesContainer: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  roleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.base,
-    borderWidth: 1.5,
-    borderColor: Colors.borderLight,
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  roleCardSelected: {
-    backgroundColor: Colors.surface,
-    ...Shadows.md,
-  },
-  roleIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  roleTextBlock: {
-    flex: 1,
-  },
-  roleTitle: {
+  description: {
     fontSize: 15,
-    fontWeight: "700",
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  roleDescription: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  roleRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.full,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+    fontWeight: "500",
+    color: C.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 23,
+    paddingHorizontal: 8,
   },
 
-  // Dots
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
-    marginBottom: Spacing.xl,
+  // Role options (slide 0)
+  rolesContainer: { width: "100%", gap: 8, marginTop: 8 },
+  option: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12,
+    borderWidth: 2, borderColor: `${C.outlineVariant}4D`, backgroundColor: C.surface,
   },
-  dot: {
-    height: 8,
-    borderRadius: Radius.full,
+  optionActive: { borderColor: C.primary, backgroundColor: `${C.primary}08` },
+  optionText: { flex: 1, marginRight: 12 },
+  optionTitle: { fontSize: 15, fontWeight: "700", color: C.onSurface, marginBottom: 1 },
+  optionDesc: { fontSize: 11, color: C.onSurfaceVariant },
+  radio: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: C.outlineVariant,
+    alignItems: "center", justifyContent: "center",
   },
-  dotActive: {
-    width: 24,
-    backgroundColor: Colors.accent,
-  },
-  dotInactive: {
-    width: 8,
-    backgroundColor: Colors.outlineVariant,
-  },
+  radioActive: { borderColor: C.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary },
 
-  // Next button
-  nextButton: {
-    backgroundColor: Colors.secondary,
-    borderRadius: Radius.lg,
-    height: 56,
-    flexDirection: "row",
+  // Bottom section
+  bottom: {
+    paddingHorizontal: 24,
     alignItems: "center",
+    gap: 16,
+  },
+  dots: {
+    flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginBottom: Spacing.base,
-    ...Shadows.md,
   },
-  nextButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
+  dot: { height: 6, borderRadius: 3 },
+  dotOn: { width: 28, backgroundColor: C.secondary },
+  dotOff: { width: 6, backgroundColor: C.outlineVariant },
+
+  // CTA — mint green default, dark green on last slide
+  ctaOuter: {
+    width: "100%",
+    height: 56,
+    backgroundColor: C.mint,
+    borderRadius: 14,
+    overflow: "hidden",
   },
-  nextButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
+  ctaOuterLast: {
+    backgroundColor: C.primary,
+  },
+  ctaTap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  ctaText: {
+    fontSize: 18,
     fontWeight: "700",
-    letterSpacing: 0.2,
+    color: C.mintDark,
+  },
+  ctaTextLast: {
+    color: "#ffffff",
   },
 });
