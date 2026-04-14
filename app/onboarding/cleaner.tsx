@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,26 @@ import { Colors } from "../../lib/theme";
 
 const TOTAL_STEPS = 3;
 
+// Services we pre-select when the cleaner picks their profile type. The
+// intent is to make step 1 of the wizard feel responsive: tapping
+// "Privato" vs "Azienda" on step 0 actually changes what the user sees
+// next. These are sensible defaults — the user can freely add or remove
+// any service at step 1 regardless of type.
+const DEFAULT_SERVICES_BY_TYPE: Record<"privato" | "azienda", string[]> = {
+  privato: [
+    "Pulizia ordinaria",
+    "Pulizia profonda",
+    "Stiratura",
+    "Pulizia vetri",
+  ],
+  azienda: [
+    "Pulizia uffici",
+    "Pulizia condominiale",
+    "Pulizia post-ristrutturazione",
+    "Pulizia profonda",
+  ],
+};
+
 export default function CleanerOnboardingScreen() {
   const { user, setActiveRole, refreshProfile } = useAuth();
   const router = useRouter();
@@ -28,9 +48,24 @@ export default function CleanerOnboardingScreen() {
   const [city, setCity] = useState("");
   const [hourlyRate, setHourlyRate] = useState("15");
   const [cleanerType, setCleanerType] = useState<"privato" | "azienda">("privato");
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  // Initialize with the defaults for the initial type so the user sees
+  // a pre-filled list the first time they land on step 1.
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    DEFAULT_SERVICES_BY_TYPE.privato
+  );
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // When the user flips between Privato / Azienda, swap the selected
+  // services to the typical set for the new type. This is intentional:
+  // if the user is changing their profile type on step 0 it means they
+  // haven't made final service choices yet, so resetting to the new
+  // defaults is the right behavior. They can still freely toggle
+  // individual services on step 1.
+  const handleTypeChange = useCallback((newType: "privato" | "azienda") => {
+    setCleanerType(newType);
+    setSelectedServices(DEFAULT_SERVICES_BY_TYPE[newType]);
+  }, []);
 
   const toggleService = (s: string) => {
     setSelectedServices((prev) =>
@@ -111,7 +146,7 @@ export default function CleanerOnboardingScreen() {
                 return (
                   <TouchableOpacity
                     key={t}
-                    onPress={() => setCleanerType(t)}
+                    onPress={() => handleTypeChange(t)}
                     activeOpacity={0.8}
                     style={{
                       flex: 1,
@@ -238,6 +273,47 @@ export default function CleanerOnboardingScreen() {
       case 1:
         return (
           <View style={{ gap: 10 }}>
+            {/* ── Type-aware hint banner ── */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: Colors.accentLight,
+                borderRadius: 12,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: Colors.accent,
+                marginBottom: 6,
+              }}
+            >
+              <Ionicons name="sparkles" size={18} color={Colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "800",
+                    color: Colors.secondary,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Consigliati per {cleanerType}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: Colors.textSecondary,
+                    marginTop: 2,
+                    lineHeight: 16,
+                  }}
+                >
+                  Abbiamo pre-selezionato i servizi più richiesti per il tuo
+                  profilo. Aggiungi o togli come preferisci.
+                </Text>
+              </View>
+            </View>
+
             {ALL_SERVICES.map((s) => {
               const selected = selectedServices.includes(s);
               return (
