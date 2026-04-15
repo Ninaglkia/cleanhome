@@ -8,23 +8,30 @@
     "userInterfaceStyle": "light",
     "scheme": "cleanhome",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#1a3a35"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleanhome.app",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "CleanHome usa la tua posizione per trovare i professionisti vicino a te.",
-        "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e i documenti di verifica.",
-        "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità.",
+        "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e le foto delle case da pulire.",
+        "NSPhotoLibraryAddUsageDescription": "CleanHome può salvare ricevute e conferme nella tua libreria foto quando glielo chiedi.",
+        "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità e per le pulizie.",
+        "NSUserTrackingUsageDescription": "CleanHome non traccia la tua attività tra app di terze parti.",
         "UIBackgroundModes": ["remote-notification"],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["tel", "mailto", "https"]
       }
     },
     "android": {
       "package": "com.cleanhome.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#022420",
         "foregroundImage": "./assets/android-icon-foreground.png"
@@ -33,9 +40,18 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "READ_EXTERNAL_STORAGE",
-        "CAMERA"
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
       ],
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "cleanhome" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "expo-router",

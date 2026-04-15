@@ -10,6 +10,7 @@ import {
   StatusBar,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -970,38 +971,48 @@ export default function NewBookingScreen() {
         </View>
       )}
 
-      <ScrollView
+      {/* KeyboardAvoidingView lifts the scroll + CTA above the software
+          keyboard when the user focuses the address or notes fields on
+          step 1. Without this the keyboard covers those inputs on
+          notched iPhones and the user can't see what they're typing. */}
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        contentContainerStyle={s.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {(stepContent[step] ?? renderSummaryStep)()}
-        <View style={{ height: 32 }} />
-      </ScrollView>
-
-      {/* ── CTA ── */}
-      <View style={s.ctaWrap}>
-        <TouchableOpacity
-          onPress={handleContinue}
-          disabled={!canProceed() || loading}
-          activeOpacity={0.85}
-          style={[s.ctaBtn, (!canProceed() || loading) && s.ctaBtnDisabled]}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={s.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color={Colors.textOnDark} />
-          ) : (
-            <>
-              <Text style={s.ctaBtnText}>{ctaLabel}</Text>
-              <Ionicons
-                name={step === TOTAL_STEPS - 2 ? "card-outline" : "arrow-forward"}
-                size={18}
-                color={Colors.textOnDark}
-              />
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+          {(stepContent[step] ?? renderSummaryStep)()}
+          <View style={{ height: 32 }} />
+        </ScrollView>
+
+        {/* ── CTA ── */}
+        <View style={s.ctaWrap}>
+          <TouchableOpacity
+            onPress={handleContinue}
+            disabled={!canProceed() || loading}
+            activeOpacity={0.85}
+            style={[s.ctaBtn, (!canProceed() || loading) && s.ctaBtnDisabled]}
+          >
+            {loading ? (
+              <ActivityIndicator color={Colors.textOnDark} />
+            ) : (
+              <>
+                <Text style={s.ctaBtnText}>{ctaLabel}</Text>
+                <Ionicons
+                  name={step === TOTAL_STEPS - 2 ? "card-outline" : "arrow-forward"}
+                  size={18}
+                  color={Colors.textOnDark}
+                />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

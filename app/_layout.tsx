@@ -21,6 +21,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
+import * as Crypto from "expo-crypto";
 import { supabase } from "../lib/supabase";
 import { AuthContext } from "../lib/auth";
 import { UserProfile } from "../lib/types";
@@ -300,26 +301,20 @@ export default function RootLayout() {
   const signInWithApple = async () => {
     if (Platform.OS !== "ios") return;
 
-    // Generate a cryptographic nonce to prevent replay attacks.
-    // We use a UUID built from Math.random since expo-crypto is not installed.
-    // NOTE: expo-crypto must be installed (`npx expo install expo-crypto`) and this
-    // replaced with Crypto.getRandomValues for production-grade randomness.
-    const rawNonce = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      (c) => {
-        const r = (Math.random() * 16) | 0;
-        return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-      }
-    );
-
-    // SHA-256 hash of the nonce sent to Apple; Apple embeds it in the identity token.
-    const encoder = new TextEncoder();
-    const data = encoder.encode(rawNonce);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashedNonce = hashArray
+    // Cryptographically secure nonce — mandatory to prevent replay attacks
+    // on the Apple ID token. The previous implementation used Math.random
+    // which is predictable and would be flagged by a security review.
+    // We generate 32 random bytes and hex-encode them to get a 64-char
+    // nonce, then hash it with SHA-256 before sending to Apple.
+    const randomBytes = await Crypto.getRandomBytesAsync(32);
+    const rawNonce = Array.from(randomBytes)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
+
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      rawNonce
+    );
 
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [

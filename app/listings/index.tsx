@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -95,7 +96,6 @@ export default function MyListingsScreen() {
       if (!url) throw new Error("Nessun URL ricevuto");
 
       // Open in external browser — Stripe handles the KYC flow
-      const { Linking } = require("react-native");
       await Linking.openURL(url);
     } catch (err) {
       Alert.alert(

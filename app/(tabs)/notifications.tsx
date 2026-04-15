@@ -52,10 +52,10 @@ const ITEM_HEIGHT = 120;
 const SEPARATOR_HEIGHT = 12;
 
 const FILTERS: { key: NotificationFilter; label: string }[] = [
-  { key: "all", label: "All Updates" },
-  { key: "bookings", label: "Bookings" },
-  { key: "messages", label: "Messages" },
-  { key: "system", label: "System" },
+  { key: "all", label: "Tutte" },
+  { key: "bookings", label: "Prenotazioni" },
+  { key: "messages", label: "Messaggi" },
+  { key: "system", label: "Sistema" },
 ];
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
