@@ -502,7 +502,18 @@ export default function CleanerOnboardingScreen() {
         }}
       >
         <TouchableOpacity
-          onPress={() => (step > 0 ? setStep(step - 1) : router.back())}
+          onPress={() => {
+            if (step > 0) {
+              setStep((prev) => prev - 1);
+            } else if (router.canGoBack()) {
+              router.back();
+            } else {
+              // Wizard was opened via router.replace() from welcome.tsx,
+              // so the back stack is empty. Fall back to the welcome
+              // screen which is the logical parent of this flow.
+              router.replace("/onboarding/welcome");
+            }
+          }}
           activeOpacity={0.8}
           style={{
             width: 40,

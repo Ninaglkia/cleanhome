@@ -130,7 +130,13 @@ export default function SecurityScreen() {
   }, [router]);
 
   const handleBack = useCallback(() => {
-    router.back();
+    // Guard against an empty back stack — security.tsx can be entered
+    // directly via deep link or after a hot reload with state reset.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/onboarding/features");
+    }
   }, [router]);
 
   const handleAlreadyHaveAccount = useCallback(() => {
