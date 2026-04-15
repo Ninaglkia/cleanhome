@@ -52,6 +52,7 @@ export default function MyListingsScreen() {
 
   const [listings, setListings] = useState<CleanerListing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -116,14 +117,18 @@ export default function MyListingsScreen() {
         return;
       }
       if (showSpinner) setLoading(true);
+      setLoadError(null);
       try {
         const rows = await fetchMyListings(user.id);
         setListings(rows);
       } catch (err) {
-        Alert.alert(
-          "Errore",
-          err instanceof Error ? err.message : "Impossibile caricare gli annunci."
-        );
+        // Persist the error into state so the UI can render a proper
+        // error view with a retry button, instead of a silent blank list.
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Impossibile caricare gli annunci.";
+        setLoadError(msg);
       } finally {
         setLoading(false);
       }
@@ -383,6 +388,8 @@ export default function MyListingsScreen() {
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color={C.secondary} />
           </View>
+        ) : loadError ? (
+          <ErrorState message={loadError} onRetry={() => load(true)} />
         ) : listings.length === 0 ? (
           <EmptyState onCreate={handleCreate} creating={creating} />
         ) : (
@@ -702,6 +709,83 @@ function ListingCard({
         </Pressable>
       </View>
     </Pressable>
+  );
+}
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+        borderRadius: 22,
+        padding: 28,
+        marginTop: 20,
+        borderWidth: 1,
+        borderColor: "#fee2e2",
+      }}
+    >
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: "#fee2e2",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 16,
+        }}
+      >
+        <Ionicons name="alert-circle-outline" size={32} color="#dc2626" />
+      </View>
+      <Text
+        style={{
+          fontSize: 17,
+          fontWeight: "800",
+          color: C.primary,
+          marginBottom: 6,
+          textAlign: "center",
+        }}
+      >
+        Caricamento fallito
+      </Text>
+      <Text
+        style={{
+          fontSize: 13,
+          color: "#6b7280",
+          textAlign: "center",
+          lineHeight: 18,
+          marginBottom: 18,
+          paddingHorizontal: 8,
+        }}
+      >
+        {message}
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingHorizontal: 22,
+          paddingVertical: 12,
+          borderRadius: 999,
+          backgroundColor: C.secondary,
+          opacity: pressed ? 0.9 : 1,
+        })}
+      >
+        <Ionicons name="refresh" size={18} color="#ffffff" />
+        <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>
+          Riprova
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 

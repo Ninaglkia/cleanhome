@@ -93,22 +93,55 @@ export default function PropertyEditScreen() {
   }, [isEdit, id, user, router]);
 
   // ── Validation ────────────────────────────────────────────
-  const isValid = useMemo(() => {
-    if (name.trim().length === 0 || name.trim().length > NAME_MAX) return false;
-    if (address.trim().length === 0 || address.trim().length > ADDRESS_MAX)
-      return false;
-    if (numRooms < 1 || numRooms > 50) return false;
+  // Per-field error messages so the user can see exactly what's wrong
+  // instead of just a disabled save button with no explanation.
+  const fieldErrors = useMemo(() => {
+    const errors: { name?: string; address?: string; sqm?: string; notes?: string } = {};
+    if (name.trim().length === 0) {
+      errors.name = "Dai un nome alla casa";
+    } else if (name.trim().length > NAME_MAX) {
+      errors.name = `Massimo ${NAME_MAX} caratteri`;
+    }
+    if (address.trim().length === 0) {
+      errors.address = "L'indirizzo è obbligatorio";
+    } else if (address.trim().length > ADDRESS_MAX) {
+      errors.address = `Massimo ${ADDRESS_MAX} caratteri`;
+    }
     if (sqm) {
       const n = Number(sqm);
-      if (!Number.isFinite(n) || n < 10 || n > 2000) return false;
+      if (!Number.isFinite(n)) {
+        errors.sqm = "Inserisci un numero";
+      } else if (n < 10) {
+        errors.sqm = "Minimo 10 m²";
+      } else if (n > 2000) {
+        errors.sqm = "Massimo 2000 m²";
+      }
     }
-    if (notes.length > NOTES_MAX) return false;
-    return true;
-  }, [name, address, numRooms, sqm, notes]);
+    if (notes.length > NOTES_MAX) {
+      errors.notes = `Massimo ${NOTES_MAX} caratteri`;
+    }
+    return errors;
+  }, [name, address, sqm, notes]);
+
+  const isValid = useMemo(
+    () => Object.keys(fieldErrors).length === 0 && numRooms >= 1 && numRooms <= 50,
+    [fieldErrors, numRooms]
+  );
+
+  // Only show errors AFTER the user has attempted to save at least once.
+  // Showing validation errors on the very first render (when the form is
+  // empty) would be noisy and confusing for the user.
+  const [showErrors, setShowErrors] = useState(false);
 
   // ── Save ──────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!user || !isValid || saving) return;
+    if (!user || saving) return;
+    if (!isValid) {
+      // Reveal inline errors and scroll to the first invalid field via
+      // a re-render — better than a blocking alert.
+      setShowErrors(true);
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -223,7 +256,12 @@ export default function PropertyEditScreen() {
           >
             {/* ── Nome ── */}
             <FieldGroup label="Dai un nome alla casa">
-              <View style={styles.inputWrap}>
+              <View
+                style={[
+                  styles.inputWrap,
+                  showErrors && fieldErrors.name && styles.inputWrapError,
+                ]}
+              >
                 <Ionicons
                   name="pricetag-outline"
                   size={18}
@@ -239,9 +277,13 @@ export default function PropertyEditScreen() {
                   returnKeyType="next"
                 />
               </View>
-              <Text style={styles.fieldHint}>
-                Un nome che ti aiuta a riconoscerla al volo.
-              </Text>
+              {showErrors && fieldErrors.name ? (
+                <Text style={styles.fieldError}>{fieldErrors.name}</Text>
+              ) : (
+                <Text style={styles.fieldHint}>
+                  Un nome che ti aiuta a riconoscerla al volo.
+                </Text>
+              )}
             </FieldGroup>
 
             {/* ── Indirizzo ── */}
@@ -250,6 +292,7 @@ export default function PropertyEditScreen() {
                 style={[
                   styles.inputWrap,
                   { alignItems: "flex-start", minHeight: 80, paddingTop: 14 },
+                  showErrors && fieldErrors.address && styles.inputWrapError,
                 ]}
               >
                 <Ionicons
@@ -268,6 +311,9 @@ export default function PropertyEditScreen() {
                   maxLength={ADDRESS_MAX}
                 />
               </View>
+              {showErrors && fieldErrors.address ? (
+                <Text style={styles.fieldError}>{fieldErrors.address}</Text>
+              ) : null}
             </FieldGroup>
 
             {/* ── Stanze ── */}
@@ -301,7 +347,12 @@ export default function PropertyEditScreen() {
 
             {/* ── Metri quadri (opzionale) ── */}
             <FieldGroup label="Metri quadri (opzionale)">
-              <View style={styles.inputWrap}>
+              <View
+                style={[
+                  styles.inputWrap,
+                  showErrors && fieldErrors.sqm && styles.inputWrapError,
+                ]}
+              >
                 <Ionicons
                   name="resize-outline"
                   size={18}
@@ -320,6 +371,9 @@ export default function PropertyEditScreen() {
                   m²
                 </Text>
               </View>
+              {showErrors && fieldErrors.sqm ? (
+                <Text style={styles.fieldError}>{fieldErrors.sqm}</Text>
+              ) : null}
             </FieldGroup>
 
             {/* ── Note per il pulitore ── */}
@@ -393,11 +447,11 @@ export default function PropertyEditScreen() {
           <View style={styles.saveBar}>
             <Pressable
               onPress={handleSave}
-              disabled={!isValid || saving}
+              disabled={saving}
               style={({ pressed }) => [
                 styles.saveBtn,
-                (!isValid || saving) && styles.saveBtnDisabled,
-                pressed && isValid && { transform: [{ scale: 0.98 }] },
+                saving && styles.saveBtnDisabled,
+                pressed && !saving && { transform: [{ scale: 0.98 }] },
               ]}
             >
               {saving ? (
@@ -476,6 +530,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     color: Colors.textTertiary,
+  },
+  fieldError: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.error,
+  },
+  inputWrapError: {
+    borderColor: Colors.error,
   },
 
   inputWrap: {
