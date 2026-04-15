@@ -70,6 +70,20 @@ export default function PropertyEditScreen() {
   // ── Form state ────────────────────────────────────────────
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  // Address autocomplete state — mirrors the cleaner wizard city
+  // picker but filtered to full Italian addresses instead of cities.
+  // addressLatLng is only set when the user taps a real Google Places
+  // suggestion, so free-typed junk can never pass validation.
+  const [addressLatLng, setAddressLatLng] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    Array<{ placeId: string; mainText: string; secondaryText: string }>
+  >([]);
+  const [addressSearching, setAddressSearching] = useState(false);
+  const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addressAbortRef = useRef<AbortController | null>(null);
   const [numRooms, setNumRooms] = useState<number>(2);
   const [sqm, setSqm] = useState<string>("");
   const [notes, setNotes] = useState("");
@@ -77,6 +91,127 @@ export default function PropertyEditScreen() {
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [roomPhotos, setRoomPhotos] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+
+  const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
+
+  // ── Google Places address autocomplete ────────────────────
+  const handleAddressChange = useCallback(
+    (text: string) => {
+      setAddress(text);
+      // Invalidate the previous latlng pick on any edit — force the
+      // user to re-pick from the dropdown before they can save.
+      setAddressLatLng(null);
+
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+      if (addressAbortRef.current) addressAbortRef.current.abort();
+
+      const trimmed = text.trim();
+      if (trimmed.length < 3 || !GOOGLE_PLACES_KEY) {
+        setAddressSuggestions([]);
+        setAddressSearching(false);
+        return;
+      }
+
+      setAddressSearching(true);
+      addressDebounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        addressAbortRef.current = controller;
+        try {
+          const res = await fetch(
+            "https://places.googleapis.com/v1/places:autocomplete",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+              },
+              body: JSON.stringify({
+                input: trimmed,
+                languageCode: "it",
+                regionCode: "it",
+                includedRegionCodes: ["it"],
+                // Street addresses, not cities or POIs.
+                includedPrimaryTypes: ["street_address", "premise", "route"],
+              }),
+              signal: controller.signal,
+            }
+          );
+          const data = (await res.json()) as {
+            suggestions?: Array<{
+              placePrediction?: {
+                placeId: string;
+                structuredFormat?: {
+                  mainText?: { text: string };
+                  secondaryText?: { text: string };
+                };
+                text?: { text: string };
+              };
+            }>;
+          };
+
+          const mapped = (data.suggestions || [])
+            .map((s) => s.placePrediction)
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .map((p) => ({
+              placeId: p.placeId,
+              mainText: p.structuredFormat?.mainText?.text || p.text?.text || "",
+              secondaryText: p.structuredFormat?.secondaryText?.text || "",
+            }))
+            .filter((p) => p.mainText.length > 0)
+            .slice(0, 5);
+
+          setAddressSuggestions(mapped);
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") {
+            setAddressSuggestions([]);
+          }
+        } finally {
+          setAddressSearching(false);
+        }
+      }, 300);
+    },
+    [GOOGLE_PLACES_KEY]
+  );
+
+  const handleSelectAddress = useCallback(
+    async (suggestion: { placeId: string; mainText: string; secondaryText: string }) => {
+      // Lock the text to the full formatted address so saving captures
+      // the canonical form from Google rather than whatever the user typed.
+      const fullText = suggestion.secondaryText
+        ? `${suggestion.mainText}, ${suggestion.secondaryText}`
+        : suggestion.mainText;
+      setAddress(fullText);
+      setAddressSuggestions([]);
+
+      // Fetch the place details to get coordinates. Using the Location-only
+      // field mask keeps the Place Details billing tier at its minimum.
+      if (!GOOGLE_PLACES_KEY) return;
+      try {
+        const res = await fetch(
+          `https://places.googleapis.com/v1/places/${suggestion.placeId}`,
+          {
+            headers: {
+              "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+              "X-Goog-FieldMask": "location",
+            },
+          }
+        );
+        const data = (await res.json()) as {
+          location?: { latitude: number; longitude: number };
+        };
+        if (data.location) {
+          setAddressLatLng({
+            latitude: data.location.latitude,
+            longitude: data.location.longitude,
+          });
+        }
+      } catch {
+        // Non-fatal: the address is set, just no coordinates. Save will
+        // still fail validation until the user picks again.
+      }
+    },
+    [GOOGLE_PLACES_KEY]
+  );
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -115,6 +250,16 @@ export default function PropertyEditScreen() {
         }
         setName(row.name);
         setAddress(row.address);
+        // When editing, trust the coordinates already stored on DB —
+        // they were previously validated when first picked. The address
+        // field is still editable, but editing clears the latlng so the
+        // user has to re-pick if they change it.
+        if (row.latitude != null && row.longitude != null) {
+          setAddressLatLng({
+            latitude: row.latitude,
+            longitude: row.longitude,
+          });
+        }
         setNumRooms(row.num_rooms);
         setSqm(row.sqm ? String(row.sqm) : "");
         setNotes(row.notes ?? "");
@@ -225,6 +370,11 @@ export default function PropertyEditScreen() {
       errors.address = "L'indirizzo è obbligatorio";
     } else if (address.trim().length > ADDRESS_MAX) {
       errors.address = `Massimo ${ADDRESS_MAX} caratteri`;
+    } else if (!addressLatLng) {
+      // Address was typed free-hand but never picked from the Google
+      // autocomplete dropdown — it might be fake. Force the user to
+      // pick a verified address.
+      errors.address = "Seleziona un indirizzo dalla lista suggerita";
     }
     if (sqm) {
       const n = Number(sqm);
@@ -239,7 +389,7 @@ export default function PropertyEditScreen() {
       errors.cover = "La foto di copertina è obbligatoria";
     }
     return errors;
-  }, [name, address, sqm, notes, coverPhoto]);
+  }, [name, address, addressLatLng, sqm, notes, coverPhoto]);
 
   const isValid = useMemo(
     () => Object.keys(fieldErrors).length === 0 && numRooms >= 1 && numRooms <= 50,
@@ -265,6 +415,10 @@ export default function PropertyEditScreen() {
         cover_photo_url: coverPhoto,
         room_photo_urls: roomPhotos,
         is_default: isDefault,
+        // lat/lng persisted so the home map can render a pin for this
+        // property without having to re-geocode the address.
+        latitude: addressLatLng?.latitude ?? null,
+        longitude: addressLatLng?.longitude ?? null,
       };
 
       if (isEdit && id) {
@@ -286,6 +440,7 @@ export default function PropertyEditScreen() {
     isValid,
     name,
     address,
+    addressLatLng,
     numRooms,
     sqm,
     notes,
@@ -296,6 +451,14 @@ export default function PropertyEditScreen() {
     id,
     router,
   ]);
+
+  // Cleanup debounce + abort on unmount
+  useEffect(() => {
+    return () => {
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+      if (addressAbortRef.current) addressAbortRef.current.abort();
+    };
+  }, []);
 
   const handleDelete = useCallback(() => {
     if (!isEdit || !id) return;
@@ -456,16 +619,72 @@ export default function PropertyEditScreen() {
             </FieldBlock>
 
             <FieldBlock label="Indirizzo">
-              <InputRow
-                icon="location-outline"
-                value={address}
-                onChangeText={(t) => setAddress(t.slice(0, ADDRESS_MAX))}
-                placeholder="Via, numero civico, città, CAP"
-                error={showErrors ? fieldErrors.address : undefined}
-                maxLength={ADDRESS_MAX}
-                multiline
-                minHeight={72}
-              />
+              <View>
+                <InputRow
+                  icon="location-outline"
+                  value={address}
+                  onChangeText={(t) => handleAddressChange(t.slice(0, ADDRESS_MAX))}
+                  placeholder="Inizia a scrivere (es. Via Roma 12)"
+                  error={showErrors ? fieldErrors.address : undefined}
+                  maxLength={ADDRESS_MAX}
+                  trailing={
+                    addressSearching ? (
+                      <ActivityIndicator size="small" color={Colors.secondary} />
+                    ) : addressLatLng ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={Colors.success}
+                      />
+                    ) : undefined
+                  }
+                />
+                {addressSuggestions.length > 0 && (
+                  <View style={styles.suggestionsList}>
+                    {addressSuggestions.map((s, idx) => (
+                      <Pressable
+                        key={s.placeId}
+                        onPress={() => handleSelectAddress(s)}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          idx > 0 && styles.suggestionRowBordered,
+                          pressed && { backgroundColor: Colors.backgroundAlt },
+                        ]}
+                      >
+                        <Ionicons
+                          name="location"
+                          size={16}
+                          color={Colors.secondary}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={styles.suggestionMain}
+                            numberOfLines={1}
+                          >
+                            {s.mainText}
+                          </Text>
+                          {s.secondaryText ? (
+                            <Text
+                              style={styles.suggestionSecondary}
+                              numberOfLines={1}
+                            >
+                              {s.secondaryText}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {address.trim().length >= 3 &&
+                  !addressSearching &&
+                  addressSuggestions.length === 0 &&
+                  !addressLatLng && (
+                    <Text style={styles.fieldHint}>
+                      Nessun indirizzo trovato — prova ad aggiungere la città
+                    </Text>
+                  )}
+              </View>
             </FieldBlock>
           </View>
 
@@ -1030,6 +1249,37 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     fontSize: 14,
     fontWeight: "700",
+  },
+
+  // --- Suggestions dropdown ---
+  suggestionsList: {
+    marginTop: 6,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    overflow: "hidden",
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  suggestionRowBordered: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  suggestionMain: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  suggestionSecondary: {
+    marginTop: 2,
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
 
   // ── Room chips ──

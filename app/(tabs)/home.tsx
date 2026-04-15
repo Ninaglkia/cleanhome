@@ -9,9 +9,10 @@ import {
   Dimensions,
   Image,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -24,11 +25,12 @@ import Animated, {
   Extrapolation,
 } from "react-native-reanimated";
 import {
+  fetchClientProperties,
   searchCleaners,
   searchCleanersNearPoint,
   searchListingsNearPoint,
 } from "../../lib/api";
-import { CleanerProfile } from "../../lib/types";
+import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, Shadows, SpringConfig } from "../../lib/theme";
 
@@ -389,10 +391,79 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
   );
 }
 
+// ─── Property Marker (client's saved houses) ─────────────────────────────
+// Amber/gold house pin that visually distinguishes the client's saved
+// properties from the cleaner price markers. Default property gets a
+// thicker gold glow so it stands out. Only the owning client ever sees
+// these pins (enforced by RLS on client_properties).
+
+function PropertyMarker({ isDefault }: { isDefault: boolean }) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#ffffff",
+          borderWidth: 3,
+          borderColor: isDefault ? "#f59e0b" : "#d97706",
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: "#d97706",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDefault ? 0.45 : 0.28,
+          shadowRadius: 10,
+          elevation: 8,
+        }}
+      >
+        <Ionicons name="home" size={20} color="#d97706" />
+        {isDefault && (
+          <View
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -4,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: "#f59e0b",
+              borderWidth: 2,
+              borderColor: "#ffffff",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="star" size={8} color="#ffffff" />
+          </View>
+        )}
+      </View>
+      {/* Pointer triangle */}
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          borderLeftWidth: 6,
+          borderRightWidth: 6,
+          borderTopWidth: 8,
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
+          borderTopColor: isDefault ? "#f59e0b" : "#d97706",
+          marginTop: -2,
+        }}
+      />
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
@@ -405,6 +476,26 @@ export default function HomeScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
+
+  // The client's saved houses rendered as distinct pins on the map.
+  // Only shown to the owning client (RLS on client_properties enforces
+  // this server-side). Refreshed on screen focus so a house added from
+  // /properties immediately appears here without a manual reload.
+  const [properties, setProperties] = useState<ClientProperty[]>([]);
+  const loadProperties = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const rows = await fetchClientProperties(user.id);
+      setProperties(rows.filter((p) => p.latitude != null && p.longitude != null));
+    } catch {
+      setProperties([]);
+    }
+  }, [user?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      loadProperties();
+    }, [loadProperties])
+  );
 
   // Animated value for search bar expansion
   const searchExpanded = useSharedValue(0);
@@ -661,6 +752,42 @@ export default function HomeScreen() {
               selected={selectedIndex === index}
               onPress={() => handleMarkerPress(index)}
             />
+          </Marker>
+        ))}
+
+        {/* ── Client-owned property markers ── */}
+        {/* Rendered AFTER the cleaner pins so they draw on top and are
+            tappable even when overlapping. Private to the owning client
+            via RLS. Tapping shows a quick action sheet that lets them
+            either open the booking flow pre-filled or edit the house. */}
+        {properties.map((p) => (
+          <Marker
+            key={`prop-${p.id}`}
+            coordinate={{
+              latitude: p.latitude as number,
+              longitude: p.longitude as number,
+            }}
+            tracksViewChanges={false}
+            onPress={() => {
+              Alert.alert(
+                p.name,
+                p.address,
+                [
+                  { text: "Chiudi", style: "cancel" },
+                  {
+                    text: "Modifica casa",
+                    onPress: () =>
+                      router.push({
+                        pathname: "/properties/edit",
+                        params: { id: p.id },
+                      }),
+                  },
+                ],
+                { cancelable: true }
+              );
+            }}
+          >
+            <PropertyMarker isDefault={p.is_default} />
           </Marker>
         ))}
       </MapView>
