@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   StatusBar,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -46,6 +47,16 @@ export default function CleanerOnboardingScreen() {
   const [step, setStep] = useState(0);
   const [bio, setBio] = useState("");
   const [city, setCity] = useState("");
+  // Tracks whether `city` came from the Google Places dropdown (validated
+  // real Italian city) vs. free-typed text. "Continua" requires a verified
+  // selection so users can't proceed with junk like "Mi" or "asdfgh".
+  const [cityPlaceId, setCityPlaceId] = useState<string | null>(null);
+  const [citySuggestions, setCitySuggestions] = useState<
+    Array<{ placeId: string; mainText: string; secondaryText: string }>
+  >([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cityAbortRef = useRef<AbortController | null>(null);
   const [hourlyRate, setHourlyRate] = useState("15");
   const [cleanerType, setCleanerType] = useState<"privato" | "azienda">("privato");
   // Initialize with the defaults for the initial type so the user sees
@@ -55,6 +66,109 @@ export default function CleanerOnboardingScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
+
+  // City autocomplete — hits Google Places (New) restricted to Italian
+  // localities (comuni). Debounced 300ms to avoid burning API quota on
+  // every keystroke. Abort controller cancels in-flight requests when the
+  // user keeps typing so we never render stale results.
+  const handleCityChange = useCallback(
+    (text: string) => {
+      setCity(text);
+      // Typing after a selection invalidates the previous pick —
+      // reset the placeId so the user must pick again from the list.
+      setCityPlaceId(null);
+
+      if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+      if (cityAbortRef.current) cityAbortRef.current.abort();
+
+      const trimmed = text.trim();
+      if (trimmed.length < 2 || !GOOGLE_PLACES_KEY) {
+        setCitySuggestions([]);
+        setCitySearching(false);
+        return;
+      }
+
+      setCitySearching(true);
+      cityDebounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        cityAbortRef.current = controller;
+        try {
+          const res = await fetch(
+            "https://places.googleapis.com/v1/places:autocomplete",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+              },
+              body: JSON.stringify({
+                input: trimmed,
+                languageCode: "it",
+                regionCode: "it",
+                includedRegionCodes: ["it"],
+                // Restrict to cities/comuni only — no streets or POIs.
+                includedPrimaryTypes: ["locality", "administrative_area_level_3"],
+              }),
+              signal: controller.signal,
+            }
+          );
+          const data = (await res.json()) as {
+            suggestions?: Array<{
+              placePrediction?: {
+                placeId: string;
+                structuredFormat?: {
+                  mainText?: { text: string };
+                  secondaryText?: { text: string };
+                };
+                text?: { text: string };
+              };
+            }>;
+          };
+
+          const mapped = (data.suggestions || [])
+            .map((s) => s.placePrediction)
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .map((p) => ({
+              placeId: p.placeId,
+              mainText: p.structuredFormat?.mainText?.text || p.text?.text || "",
+              secondaryText: p.structuredFormat?.secondaryText?.text || "",
+            }))
+            .filter((p) => p.mainText.length > 0)
+            .slice(0, 5);
+
+          setCitySuggestions(mapped);
+        } catch (err) {
+          // Aborted requests are expected on rapid typing — swallow.
+          if ((err as Error).name !== "AbortError") {
+            setCitySuggestions([]);
+          }
+        } finally {
+          setCitySearching(false);
+        }
+      }, 300);
+    },
+    [GOOGLE_PLACES_KEY]
+  );
+
+  const handleSelectCity = useCallback(
+    (suggestion: { placeId: string; mainText: string }) => {
+      setCity(suggestion.mainText);
+      setCityPlaceId(suggestion.placeId);
+      setCitySuggestions([]);
+      setFocusedField(null);
+    },
+    []
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+      if (cityAbortRef.current) cityAbortRef.current.abort();
+    };
+  }, []);
 
   // When the user flips between Privato / Azienda, swap the selected
   // services to the typical set for the new type. This is intentional:
@@ -74,7 +188,10 @@ export default function CleanerOnboardingScreen() {
   };
 
   const canProceed = () => {
-    if (step === 0) return !!bio.trim() && !!city.trim();
+    // Step 0 requires a bio AND a city that was picked from the Google
+    // Places dropdown (cityPlaceId is only set after a valid selection).
+    // Free-typed text like "Mi" or "asdfgh" must not pass validation.
+    if (step === 0) return !!bio.trim() && !!city.trim() && !!cityPlaceId;
     if (step === 1) return selectedServices.length > 0;
     if (step === 2) return parseFloat(hourlyRate) > 0;
     return true;
@@ -221,7 +338,7 @@ export default function CleanerOnboardingScreen() {
               />
             </View>
 
-            {/* City */}
+            {/* City — Google Places autocomplete (Italian cities only) */}
             <Text
               style={{
                 fontSize: 12,
@@ -232,14 +349,15 @@ export default function CleanerOnboardingScreen() {
                 marginBottom: 10,
               }}
             >
-              Citta
+              Città
             </Text>
             <View
               style={{
                 backgroundColor: Colors.surface,
                 borderRadius: 14,
                 borderWidth: 1.5,
-                borderColor: focusedField === "city" ? Colors.secondary : Colors.border,
+                borderColor:
+                  focusedField === "city" ? Colors.secondary : Colors.border,
                 paddingHorizontal: 16,
                 height: 52,
                 justifyContent: "center",
@@ -250,7 +368,13 @@ export default function CleanerOnboardingScreen() {
               <Ionicons
                 name="location-outline"
                 size={18}
-                color={focusedField === "city" ? Colors.secondary : Colors.textTertiary}
+                color={
+                  cityPlaceId
+                    ? Colors.secondary
+                    : focusedField === "city"
+                    ? Colors.secondary
+                    : Colors.textTertiary
+                }
               />
               <TextInput
                 style={{
@@ -259,14 +383,108 @@ export default function CleanerOnboardingScreen() {
                   fontSize: 15,
                   color: Colors.text,
                 }}
-                placeholder="es. Milano"
+                placeholder="Inizia a scrivere (es. Mila...)"
                 placeholderTextColor={Colors.textTertiary}
                 value={city}
-                onChangeText={setCity}
+                onChangeText={handleCityChange}
                 onFocus={() => setFocusedField("city")}
-                onBlur={() => setFocusedField(null)}
+                onBlur={() => {
+                  // Small delay so tapping a suggestion still works
+                  setTimeout(() => setFocusedField(null), 150);
+                }}
+                autoCorrect={false}
+                autoCapitalize="words"
               />
+              {citySearching ? (
+                <ActivityIndicator size="small" color={Colors.secondary} />
+              ) : cityPlaceId ? (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={Colors.success}
+                />
+              ) : null}
             </View>
+
+            {/* Suggestion dropdown — visible only while typing and with
+                results. Tapping a row locks the city in state. */}
+            {citySuggestions.length > 0 && (
+              <View
+                style={{
+                  marginTop: 8,
+                  backgroundColor: Colors.surface,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: Colors.border,
+                  overflow: "hidden",
+                }}
+              >
+                {citySuggestions.map((s, idx) => (
+                  <Pressable
+                    key={s.placeId}
+                    onPress={() => handleSelectCity(s)}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      backgroundColor: pressed
+                        ? Colors.backgroundAlt
+                        : "transparent",
+                      borderTopWidth: idx === 0 ? 0 : 1,
+                      borderTopColor: Colors.borderLight,
+                    })}
+                  >
+                    <Ionicons
+                      name="location"
+                      size={16}
+                      color={Colors.secondary}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "700",
+                          color: Colors.text,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {s.mainText}
+                      </Text>
+                      {s.secondaryText ? (
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: Colors.textSecondary,
+                            marginTop: 2,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {s.secondaryText}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {/* Helpful hint when no suggestions yet */}
+            {city.trim().length >= 2 &&
+              !citySearching &&
+              citySuggestions.length === 0 &&
+              !cityPlaceId && (
+                <Text
+                  style={{
+                    marginTop: 6,
+                    fontSize: 12,
+                    color: Colors.textTertiary,
+                  }}
+                >
+                  Nessuna città trovata — controlla lo spelling
+                </Text>
+              )}
           </View>
         );
 
