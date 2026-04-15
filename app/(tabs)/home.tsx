@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,11 @@ import {
   Image,
   Platform,
   Alert,
+  Modal,
+  Pressable,
+  ScrollView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -482,6 +486,11 @@ export default function HomeScreen() {
   // this server-side). Refreshed on screen focus so a house added from
   // /properties immediately appears here without a manual reload.
   const [properties, setProperties] = useState<ClientProperty[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
+    null
+  );
+  const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
+
   const loadProperties = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -495,6 +504,60 @@ export default function HomeScreen() {
     useCallback(() => {
       loadProperties();
     }, [loadProperties])
+  );
+
+  // Restore the last picked property from AsyncStorage on mount so the
+  // client doesn't have to re-pick every cold start.
+  useEffect(() => {
+    AsyncStorage.getItem("cleanhome.selected_property_id")
+      .then((id) => {
+        if (id) setSelectedPropertyId(id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-select a property when the list loads. Preference order:
+  // 1. Already-selected id (from AsyncStorage) if still present in list
+  // 2. The default property (is_default=true)
+  // 3. The first property in the list
+  useEffect(() => {
+    if (properties.length === 0) {
+      if (selectedPropertyId !== null) setSelectedPropertyId(null);
+      return;
+    }
+    const stillExists = properties.some((p) => p.id === selectedPropertyId);
+    if (stillExists) return;
+    const defaultP = properties.find((p) => p.is_default) ?? properties[0];
+    setSelectedPropertyId(defaultP.id);
+  }, [properties, selectedPropertyId]);
+
+  const selectedProperty = useMemo(
+    () => properties.find((p) => p.id === selectedPropertyId) ?? null,
+    [properties, selectedPropertyId]
+  );
+
+  const handleSelectProperty = useCallback(
+    async (property: ClientProperty) => {
+      setSelectedPropertyId(property.id);
+      setPropertyPickerOpen(false);
+      try {
+        await AsyncStorage.setItem(
+          "cleanhome.selected_property_id",
+          property.id
+        );
+      } catch {}
+      // Recenter the map + re-query cleaners for this property's zone.
+      if (property.latitude != null && property.longitude != null) {
+        setRegion({
+          latitude: property.latitude,
+          longitude: property.longitude,
+          latitudeDelta: 0.06,
+          longitudeDelta: 0.06,
+        });
+        await loadCleanersAtPoint(property.latitude, property.longitude);
+      }
+    },
+    []
   );
 
   // Animated value for search bar expansion
@@ -893,6 +956,309 @@ export default function HomeScreen() {
           )}
         </View>
       </Animated.View>
+
+      {/* ── Amazon-style property picker pill ── */}
+      {/* Sits right under the search bar. Only shows when the client
+          has at least one saved house with coordinates. Tapping opens
+          a sheet with the full property list. The currently-selected
+          house drives which zone we query for cleaners and which
+          property gets pre-filled in the booking flow. */}
+      {properties.length > 0 && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setPropertyPickerOpen(true)}
+          style={{
+            position: "absolute",
+            top: insets.top + 72,
+            left: 16,
+            right: 16,
+            zIndex: 19,
+            backgroundColor: "#ffffff",
+            borderRadius: 16,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            shadowColor: "#022420",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 10,
+            borderWidth: 1,
+            borderColor: "rgba(0, 107, 85, 0.10)",
+          }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              backgroundColor: "#fef3c7",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="home" size={18} color="#d97706" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: "800",
+                color: "rgba(2,36,32,0.45)",
+                letterSpacing: 1.3,
+                textTransform: "uppercase",
+                marginBottom: 1,
+              }}
+            >
+              Pulisci a
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: "800",
+                color: "#022420",
+                letterSpacing: -0.2,
+              }}
+              numberOfLines={1}
+            >
+              {selectedProperty?.name ?? "Scegli una casa"}
+            </Text>
+            {selectedProperty?.address && (
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: "rgba(2,36,32,0.55)",
+                  marginTop: 1,
+                }}
+                numberOfLines={1}
+              >
+                {selectedProperty.address}
+              </Text>
+            )}
+          </View>
+          <Ionicons name="chevron-down" size={18} color="#022420" />
+        </TouchableOpacity>
+      )}
+
+      {/* ── Property picker modal sheet ── */}
+      <Modal
+        visible={propertyPickerOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPropertyPickerOpen(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(2, 36, 32, 0.4)",
+            justifyContent: "flex-end",
+          }}
+          onPress={() => setPropertyPickerOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 12,
+              paddingBottom: 32 + insets.bottom,
+              maxHeight: "80%",
+            }}
+          >
+            {/* drag handle */}
+            <View
+              style={{
+                alignSelf: "center",
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: "#d4e4e0",
+                marginBottom: 12,
+              }}
+            />
+            <View
+              style={{
+                paddingHorizontal: 24,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "900",
+                  color: "#022420",
+                  letterSpacing: -0.4,
+                }}
+              >
+                Dove vuoi pulire?
+              </Text>
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 13,
+                  color: "rgba(2,36,32,0.6)",
+                  lineHeight: 18,
+                }}
+              >
+                Scegli una delle tue case. La mappa cerca i pulitori vicini
+                e la prenotazione si aggancia a questa proprietà.
+              </Text>
+            </View>
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {properties.map((p) => {
+                const selected = p.id === selectedPropertyId;
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => handleSelectProperty(p)}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: 14,
+                      borderRadius: 18,
+                      marginBottom: 10,
+                      backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
+                      borderWidth: 2,
+                      borderColor: selected
+                        ? "#006b55"
+                        : "rgba(193,200,197,0.3)",
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <View
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 14,
+                        backgroundColor: "#fef3c7",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="home" size={22} color="#d97706" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "800",
+                            color: "#022420",
+                          }}
+                        >
+                          {p.name}
+                        </Text>
+                        {p.is_default && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 3,
+                              paddingHorizontal: 7,
+                              paddingVertical: 2,
+                              borderRadius: 999,
+                              backgroundColor: "#fef3c7",
+                            }}
+                          >
+                            <Ionicons name="star" size={9} color="#d97706" />
+                            <Text
+                              style={{
+                                fontSize: 9,
+                                fontWeight: "900",
+                                color: "#d97706",
+                                letterSpacing: 0.4,
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              Predefinita
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={{
+                          marginTop: 3,
+                          fontSize: 12,
+                          color: "rgba(2,36,32,0.6)",
+                          lineHeight: 16,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {p.address}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 4,
+                          fontSize: 11,
+                          color: "rgba(2,36,32,0.45)",
+                        }}
+                      >
+                        {p.num_rooms} {p.num_rooms === 1 ? "stanza" : "stanze"}
+                        {p.sqm ? `  ·  ${p.sqm} m²` : ""}
+                      </Text>
+                    </View>
+                    {selected && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color="#006b55"
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Add new house button */}
+            <Pressable
+              onPress={() => {
+                setPropertyPickerOpen(false);
+                router.push("/properties/edit");
+              }}
+              style={({ pressed }) => ({
+                marginHorizontal: 20,
+                marginTop: 8,
+                paddingVertical: 14,
+                borderRadius: 14,
+                borderWidth: 2,
+                borderColor: "#d4e4e0",
+                borderStyle: "dashed",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 8,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#006b55" />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "800",
+                  color: "#006b55",
+                }}
+              >
+                Aggiungi una casa
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ── My location button ── */}
       <TouchableOpacity

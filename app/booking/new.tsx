@@ -20,6 +20,7 @@ import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchClientProperties } from "../../lib/api";
 import type { ClientProperty } from "../../lib/types";
 
@@ -319,13 +320,29 @@ export default function NewBookingScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchClientProperties(user.id);
+        // Load the properties list and — in parallel — read the house
+        // the client last picked on the home map from AsyncStorage.
+        // Priority order for auto-selection:
+        //   1. The property the user explicitly picked on the map (the
+        //      Amazon-style picker in home.tsx). This is usually what
+        //      they just booked for.
+        //   2. The default property (is_default=true).
+        //   3. The only property in the list if there's exactly one.
+        const [data, storedId] = await Promise.all([
+          fetchClientProperties(user.id),
+          AsyncStorage.getItem("cleanhome.selected_property_id").catch(() => null),
+        ]);
         if (cancelled) return;
         setProperties(data);
-        // Auto-select the default property, or the first one if there's
-        // only one saved — lets the user zip through the form.
+
+        const fromStorage = storedId
+          ? data.find((p) => p.id === storedId)
+          : null;
         const preferred =
-          data.find((p) => p.is_default) ?? (data.length === 1 ? data[0] : null);
+          fromStorage ??
+          data.find((p) => p.is_default) ??
+          (data.length === 1 ? data[0] : null);
+
         if (preferred) {
           setSelectedPropertyId(preferred.id);
           setAddress(preferred.address);
