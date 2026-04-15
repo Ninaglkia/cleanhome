@@ -105,6 +105,182 @@ export async function uploadPropertyPhoto(
   return urlData.publicUrl;
 }
 
+// ----------------------------------------------------------------------------
+// Address autocomplete helper — tries Google Places API (New) first and
+// silently falls back to OpenStreetMap Nominatim when Places is not
+// enabled on the GCP project. This is what actually made the app's
+// address fields stop working: the user had never enabled Places (New),
+// so every Places call returned 403 and we never showed suggestions.
+// Nominatim is free, has no API key, supports italian addresses, and
+// handles the usage policy via a sensible User-Agent + ~1 req/s rate
+// (debouncing in the UI already keeps us well under that limit).
+// ----------------------------------------------------------------------------
+
+export interface AddressSuggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function searchAddresses(
+  query: string,
+  signal?: AbortSignal
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+
+  const googleKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+
+  // Prefer Google Places when enabled — richer structured results.
+  if (googleKey) {
+    try {
+      const res = await fetch(
+        "https://places.googleapis.com/v1/places:autocomplete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": googleKey,
+          },
+          body: JSON.stringify({
+            input: trimmed,
+            languageCode: "it",
+            regionCode: "it",
+            includedRegionCodes: ["it"],
+          }),
+          signal,
+        }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          suggestions?: Array<{
+            placePrediction?: {
+              placeId: string;
+              structuredFormat?: {
+                mainText?: { text: string };
+                secondaryText?: { text: string };
+              };
+              text?: { text: string };
+            };
+          }>;
+        };
+        const mapped = (data.suggestions ?? [])
+          .map((s) => s.placePrediction)
+          .filter((p): p is NonNullable<typeof p> => !!p);
+        if (mapped.length > 0) {
+          // We still need coordinates — Places autocomplete doesn't
+          // include them. Instead of making a second call per suggestion
+          // we return placeholder 0/0 and expect the UI to call
+          // fetchAddressDetails(placeId) when the user taps a row.
+          return mapped.map((p) => ({
+            placeId: p.placeId,
+            mainText: p.structuredFormat?.mainText?.text || p.text?.text || "",
+            secondaryText: p.structuredFormat?.secondaryText?.text || "",
+            latitude: 0,
+            longitude: 0,
+          }));
+        }
+      }
+      // Fall through to Nominatim if Places returned an error or no rows
+    } catch {
+      // Fall through
+    }
+  }
+
+  // Nominatim fallback. No API key needed, but the usage policy requires
+  // a descriptive User-Agent header identifying the app.
+  try {
+    const params = new URLSearchParams({
+      q: trimmed,
+      format: "json",
+      addressdetails: "1",
+      limit: "6",
+      countrycodes: "it",
+      "accept-language": "it",
+    });
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+      {
+        headers: {
+          "User-Agent": "CleanHome/1.0 (https://cleanhome.app)",
+          Accept: "application/json",
+        },
+        signal,
+      }
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as Array<{
+      place_id: number;
+      lat: string;
+      lon: string;
+      display_name: string;
+      address?: Record<string, string>;
+      type?: string;
+    }>;
+    return data.map((row) => {
+      const a = row.address ?? {};
+      // Main = street + civic number if available, else first token
+      const street = a.road || a.pedestrian || a.footway || "";
+      const house = a.house_number ? ` ${a.house_number}` : "";
+      const main =
+        street + house ||
+        row.display_name.split(",").slice(0, 1).join("") ||
+        row.display_name.slice(0, 60);
+      // Secondary = city + postcode + province
+      const cityParts = [a.postcode, a.city || a.town || a.village, a.state]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        placeId: String(row.place_id),
+        mainText: main.trim(),
+        secondaryText: cityParts,
+        latitude: parseFloat(row.lat),
+        longitude: parseFloat(row.lon),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Resolve a Google Places placeId to coordinates. Not needed when the
+// suggestion came from Nominatim (the lat/lng is already included), but
+// essential for the Google Places branch because the autocomplete API
+// doesn't return coordinates. Falls through silently if Places is
+// disabled — the caller already has the suggestion's mainText to save.
+export async function fetchAddressDetails(
+  placeId: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  const googleKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+  if (!googleKey) return null;
+  // Nominatim place_ids are numeric — skip
+  if (/^\d+$/.test(placeId)) return null;
+  try {
+    const res = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}`,
+      {
+        headers: {
+          "X-Goog-Api-Key": googleKey,
+          "X-Goog-FieldMask": "location",
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      location?: { latitude: number; longitude: number };
+    };
+    if (!data.location) return null;
+    return {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Call Google Cloud Vision API to classify an image and return whether it
 // looks like a house/room interior. Uses the same API key already in env
 // (must be enabled for Vision API in Google Cloud Console). Returns the

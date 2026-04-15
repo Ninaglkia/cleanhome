@@ -47,11 +47,14 @@ import { useAuth } from "../../lib/auth";
 import {
   createClientProperty,
   deleteClientProperty,
+  fetchAddressDetails,
   fetchClientProperties,
+  searchAddresses,
   updateClientProperty,
   uploadPropertyPhoto,
   validatePropertyPhoto,
 } from "../../lib/api";
+import type { AddressSuggestion } from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import type { ClientProperty } from "../../lib/types";
 
@@ -79,7 +82,7 @@ export default function PropertyEditScreen() {
     longitude: number;
   } | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<
-    Array<{ placeId: string; mainText: string; secondaryText: string }>
+    AddressSuggestion[]
   >([]);
   const [addressSearching, setAddressSearching] = useState(false);
   const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,129 +95,65 @@ export default function PropertyEditScreen() {
   const [roomPhotos, setRoomPhotos] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
 
-  const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
+  // Address autocomplete — delegates to lib/api.searchAddresses which
+  // uses Google Places API (New) as primary and falls back to Nominatim
+  // if Places is not enabled on the GCP project yet. Debounced 300ms
+  // with an AbortController that cancels in-flight requests on fast typing.
+  const handleAddressChange = useCallback((text: string) => {
+    setAddress(text);
+    setAddressLatLng(null);
 
-  // ── Google Places address autocomplete ────────────────────
-  const handleAddressChange = useCallback(
-    (text: string) => {
-      setAddress(text);
-      // Invalidate the previous latlng pick on any edit — force the
-      // user to re-pick from the dropdown before they can save.
-      setAddressLatLng(null);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    if (addressAbortRef.current) addressAbortRef.current.abort();
 
-      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
-      if (addressAbortRef.current) addressAbortRef.current.abort();
+    const trimmed = text.trim();
+    if (trimmed.length < 3) {
+      setAddressSuggestions([]);
+      setAddressSearching(false);
+      return;
+    }
 
-      const trimmed = text.trim();
-      if (trimmed.length < 3 || !GOOGLE_PLACES_KEY) {
-        setAddressSuggestions([]);
-        setAddressSearching(false);
-        return;
-      }
-
-      setAddressSearching(true);
-      addressDebounceRef.current = setTimeout(async () => {
-        const controller = new AbortController();
-        addressAbortRef.current = controller;
-        try {
-          // No includedPrimaryTypes filter: Google Places is more strict
-          // with that on partial queries like "Via Romilli 11" — it
-          // refuses to return a result unless the query unambiguously
-          // resolves to a single typed node. Without the filter we get
-          // every candidate and rely on the user picking the right row,
-          // which is the standard UX on address autocomplete forms.
-          const res = await fetch(
-            "https://places.googleapis.com/v1/places:autocomplete",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-              },
-              body: JSON.stringify({
-                input: trimmed,
-                languageCode: "it",
-                regionCode: "it",
-                includedRegionCodes: ["it"],
-              }),
-              signal: controller.signal,
-            }
-          );
-          const data = (await res.json()) as {
-            suggestions?: Array<{
-              placePrediction?: {
-                placeId: string;
-                structuredFormat?: {
-                  mainText?: { text: string };
-                  secondaryText?: { text: string };
-                };
-                text?: { text: string };
-              };
-            }>;
-          };
-
-          const mapped = (data.suggestions || [])
-            .map((s) => s.placePrediction)
-            .filter((p): p is NonNullable<typeof p> => !!p)
-            .map((p) => ({
-              placeId: p.placeId,
-              mainText: p.structuredFormat?.mainText?.text || p.text?.text || "",
-              secondaryText: p.structuredFormat?.secondaryText?.text || "",
-            }))
-            .filter((p) => p.mainText.length > 0)
-            .slice(0, 5);
-
-          setAddressSuggestions(mapped);
-        } catch (err) {
-          if ((err as Error).name !== "AbortError") {
-            setAddressSuggestions([]);
-          }
-        } finally {
-          setAddressSearching(false);
+    setAddressSearching(true);
+    addressDebounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      addressAbortRef.current = controller;
+      try {
+        const rows = await searchAddresses(trimmed, controller.signal);
+        setAddressSuggestions(rows);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setAddressSuggestions([]);
         }
-      }, 300);
-    },
-    [GOOGLE_PLACES_KEY]
-  );
+      } finally {
+        setAddressSearching(false);
+      }
+    }, 300);
+  }, []);
 
   const handleSelectAddress = useCallback(
-    async (suggestion: { placeId: string; mainText: string; secondaryText: string }) => {
-      // Lock the text to the full formatted address so saving captures
-      // the canonical form from Google rather than whatever the user typed.
+    async (suggestion: AddressSuggestion) => {
       const fullText = suggestion.secondaryText
         ? `${suggestion.mainText}, ${suggestion.secondaryText}`
         : suggestion.mainText;
       setAddress(fullText);
       setAddressSuggestions([]);
 
-      // Fetch the place details to get coordinates. Using the Location-only
-      // field mask keeps the Place Details billing tier at its minimum.
-      if (!GOOGLE_PLACES_KEY) return;
-      try {
-        const res = await fetch(
-          `https://places.googleapis.com/v1/places/${suggestion.placeId}`,
-          {
-            headers: {
-              "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-              "X-Goog-FieldMask": "location",
-            },
-          }
-        );
-        const data = (await res.json()) as {
-          location?: { latitude: number; longitude: number };
-        };
-        if (data.location) {
-          setAddressLatLng({
-            latitude: data.location.latitude,
-            longitude: data.location.longitude,
-          });
-        }
-      } catch {
-        // Non-fatal: the address is set, just no coordinates. Save will
-        // still fail validation until the user picks again.
+      // Nominatim suggestions already include coordinates — just use them.
+      if (suggestion.latitude !== 0 || suggestion.longitude !== 0) {
+        setAddressLatLng({
+          latitude: suggestion.latitude,
+          longitude: suggestion.longitude,
+        });
+        return;
+      }
+
+      // Google Places suggestions come without coordinates — fetch them.
+      const details = await fetchAddressDetails(suggestion.placeId);
+      if (details) {
+        setAddressLatLng(details);
       }
     },
-    [GOOGLE_PLACES_KEY]
+    []
   );
 
   const [loading, setLoading] = useState(isEdit);
@@ -853,11 +792,43 @@ export default function PropertyEditScreen() {
           )}
         </ScrollView>
 
-        {/* ── Save bar sticky ── */}
+        {/* Save bar — intentionally loud so users can't miss it */}
         <View style={styles.saveBar}>
+          {!isValid && (
+            <View style={styles.saveHintRow}>
+              <Ionicons
+                name="information-circle"
+                size={14}
+                color={Colors.warning}
+              />
+              <Text style={styles.saveHintText}>
+                {!coverPhoto
+                  ? "Aggiungi una foto di copertina per continuare"
+                  : !addressLatLng && address.trim().length > 0
+                  ? "Seleziona l'indirizzo dai suggerimenti"
+                  : "Compila i campi obbligatori"}
+              </Text>
+            </View>
+          )}
+          {isValid && !saving && (
+            <View style={styles.saveHintRow}>
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={Colors.success}
+              />
+              <Text style={[styles.saveHintText, { color: Colors.success }]}>
+                Tutto pronto — tocca per salvare
+              </Text>
+            </View>
+          )}
           <Pressable
             onPress={handleSave}
             disabled={saving}
+            accessibilityLabel={
+              isEdit ? "Salva modifiche" : "Salva casa"
+            }
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.saveBtn,
               saving && styles.saveBtnDisabled,
@@ -868,10 +839,15 @@ export default function PropertyEditScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={20} color="#fff" />
+                <Ionicons name="checkmark-circle" size={22} color="#fff" />
                 <Text style={styles.saveBtnText}>
-                  {isEdit ? "Salva modifiche" : "Salva casa"}
+                  {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
                 </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color="rgba(255,255,255,0.8)"
+                />
               </>
             )}
           </Pressable>
@@ -1445,24 +1421,47 @@ const styles = StyleSheet.create({
     color: Colors.error,
   },
 
-  // ── Save bar ──
+  // ── Save bar (sticky, loud, always visible) ──
   saveBar: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.md,
-    paddingBottom: Platform.OS === "ios" ? 28 : Spacing.base,
-    backgroundColor: Colors.background,
+    paddingBottom: Platform.OS === "ios" ? 32 : Spacing.lg,
+    backgroundColor: "#ffffff",
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
+    // Lift the bar above the scrollview so it never blends with the
+    // content. iOS shadow + android elevation combo.
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 16,
+  },
+  saveHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+  saveHintText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.warning,
   },
   saveBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    height: 56,
+    gap: 10,
+    height: 60,
     borderRadius: Radius.full,
     backgroundColor: Colors.secondary,
-    ...Shadows.md,
+    shadowColor: Colors.secondary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
   saveBtnDisabled: {
     backgroundColor: Colors.textTertiary,
@@ -1470,8 +1469,9 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   saveBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "900",
     color: "#fff",
+    letterSpacing: 0.8,
   },
 });

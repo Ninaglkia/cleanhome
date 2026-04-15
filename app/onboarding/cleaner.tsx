@@ -14,7 +14,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
-import { upsertCleanerProfile, markCleanerOnboarded } from "../../lib/api";
+import {
+  upsertCleanerProfile,
+  markCleanerOnboarded,
+  searchAddresses,
+} from "../../lib/api";
+import type { AddressSuggestion } from "../../lib/api";
 import { ALL_SERVICES } from "../../lib/types";
 import { Colors } from "../../lib/theme";
 
@@ -51,9 +56,9 @@ export default function CleanerOnboardingScreen() {
   // real Italian city) vs. free-typed text. "Continua" requires a verified
   // selection so users can't proceed with junk like "Mi" or "asdfgh".
   const [cityPlaceId, setCityPlaceId] = useState<string | null>(null);
-  const [citySuggestions, setCitySuggestions] = useState<
-    Array<{ placeId: string; mainText: string; secondaryText: string }>
-  >([]);
+  const [citySuggestions, setCitySuggestions] = useState<AddressSuggestion[]>(
+    []
+  );
   const [citySearching, setCitySearching] = useState(false);
   const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cityAbortRef = useRef<AbortController | null>(null);
@@ -67,100 +72,45 @@ export default function CleanerOnboardingScreen() {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
+  // City autocomplete — delegates to lib/api.searchAddresses (Google
+  // Places with Nominatim fallback). Debounced 300ms, abortable.
+  const handleCityChange = useCallback((text: string) => {
+    setCity(text);
+    setCityPlaceId(null);
 
-  // City autocomplete — hits Google Places (New) restricted to Italian
-  // localities (comuni). Debounced 300ms to avoid burning API quota on
-  // every keystroke. Abort controller cancels in-flight requests when the
-  // user keeps typing so we never render stale results.
-  const handleCityChange = useCallback(
-    (text: string) => {
-      setCity(text);
-      // Typing after a selection invalidates the previous pick —
-      // reset the placeId so the user must pick again from the list.
-      setCityPlaceId(null);
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    if (cityAbortRef.current) cityAbortRef.current.abort();
 
-      if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
-      if (cityAbortRef.current) cityAbortRef.current.abort();
-
-      const trimmed = text.trim();
-      if (trimmed.length < 2 || !GOOGLE_PLACES_KEY) {
-        setCitySuggestions([]);
-        setCitySearching(false);
-        return;
-      }
-
-      setCitySearching(true);
-      cityDebounceRef.current = setTimeout(async () => {
-        const controller = new AbortController();
-        cityAbortRef.current = controller;
-        try {
-          const res = await fetch(
-            "https://places.googleapis.com/v1/places:autocomplete",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-              },
-              body: JSON.stringify({
-                input: trimmed,
-                languageCode: "it",
-                regionCode: "it",
-                includedRegionCodes: ["it"],
-                // Restrict to cities/comuni only — no streets or POIs.
-                includedPrimaryTypes: ["locality", "administrative_area_level_3"],
-              }),
-              signal: controller.signal,
-            }
-          );
-          const data = (await res.json()) as {
-            suggestions?: Array<{
-              placePrediction?: {
-                placeId: string;
-                structuredFormat?: {
-                  mainText?: { text: string };
-                  secondaryText?: { text: string };
-                };
-                text?: { text: string };
-              };
-            }>;
-          };
-
-          const mapped = (data.suggestions || [])
-            .map((s) => s.placePrediction)
-            .filter((p): p is NonNullable<typeof p> => !!p)
-            .map((p) => ({
-              placeId: p.placeId,
-              mainText: p.structuredFormat?.mainText?.text || p.text?.text || "",
-              secondaryText: p.structuredFormat?.secondaryText?.text || "",
-            }))
-            .filter((p) => p.mainText.length > 0)
-            .slice(0, 5);
-
-          setCitySuggestions(mapped);
-        } catch (err) {
-          // Aborted requests are expected on rapid typing — swallow.
-          if ((err as Error).name !== "AbortError") {
-            setCitySuggestions([]);
-          }
-        } finally {
-          setCitySearching(false);
-        }
-      }, 300);
-    },
-    [GOOGLE_PLACES_KEY]
-  );
-
-  const handleSelectCity = useCallback(
-    (suggestion: { placeId: string; mainText: string }) => {
-      setCity(suggestion.mainText);
-      setCityPlaceId(suggestion.placeId);
+    const trimmed = text.trim();
+    if (trimmed.length < 2) {
       setCitySuggestions([]);
-      setFocusedField(null);
-    },
-    []
-  );
+      setCitySearching(false);
+      return;
+    }
+
+    setCitySearching(true);
+    cityDebounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      cityAbortRef.current = controller;
+      try {
+        const rows = await searchAddresses(trimmed, controller.signal);
+        setCitySuggestions(rows);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setCitySuggestions([]);
+        }
+      } finally {
+        setCitySearching(false);
+      }
+    }, 300);
+  }, []);
+
+  const handleSelectCity = useCallback((suggestion: AddressSuggestion) => {
+    setCity(suggestion.mainText);
+    setCityPlaceId(suggestion.placeId);
+    setCitySuggestions([]);
+    setFocusedField(null);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
