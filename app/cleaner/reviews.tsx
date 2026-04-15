@@ -252,7 +252,7 @@ export default function CleanerReviewsScreen() {
                 activeTab === "experience" && styles.tabPillTextActive,
               ]}
             >
-              Experience
+              Esperienza
             </Text>
           </Pressable>
           <Pressable
@@ -268,7 +268,7 @@ export default function CleanerReviewsScreen() {
                 activeTab === "trust" && styles.tabPillTextActive,
               ]}
             >
-              Trust
+              Affidabilità
             </Text>
           </Pressable>
         </View>
@@ -276,10 +276,10 @@ export default function CleanerReviewsScreen() {
         {/* ── Reviews section ── */}
         <View style={styles.reviewsSection}>
           <View style={styles.reviewsSectionHeader}>
-            <Text style={styles.reviewsSectionTitle}>Client Reviews</Text>
+            <Text style={styles.reviewsSectionTitle}>Recensioni dei clienti</Text>
             <View style={styles.ratePrompt}>
               <Ionicons name="star-outline" size={14} color={BROWN} />
-              <Text style={styles.ratePromptText}>Rate your experience</Text>
+              <Text style={styles.ratePromptText}>Valuta la tua esperienza</Text>
             </View>
           </View>
 

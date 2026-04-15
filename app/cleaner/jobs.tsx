@@ -350,9 +350,13 @@ export default function CleanerJobsScreen() {
         {/* ── Motivational banner ── */}
         <View style={styles.motivationBanner}>
           <View style={styles.motivationContent}>
-            <Text style={styles.motivationTitle}>Focus on Perfection</Text>
+            <Text style={styles.motivationTitle}>Cura nei dettagli</Text>
             <Text style={styles.motivationSub}>
-              Hai {activeJobs.length} incarichi oggi. Dai il massimo!
+              {activeJobs.length === 0
+                ? "Nessun incarico attivo al momento. Ricaricale dall'elenco."
+                : activeJobs.length === 1
+                ? "Hai 1 incarico oggi. Dai il massimo!"
+                : `Hai ${activeJobs.length} incarichi oggi. Dai il massimo!`}
             </Text>
           </View>
           <View style={styles.motivationIllustration}>

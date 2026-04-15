@@ -11,6 +11,7 @@ import {
   StatusBar,
   StyleSheet,
   ScrollView,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -19,6 +20,7 @@ import { useAuth } from "../../lib/auth";
 import {
   fetchBooking,
   fetchMessages,
+  fetchProfile,
   sendMessage,
   subscribeToMessages,
 } from "../../lib/api";
@@ -216,6 +218,12 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [booking, setBooking] = useState<Booking | null>(null);
+  // Name + avatar of the OTHER person in the conversation. If the
+  // current user is the client, this is the cleaner — and vice versa.
+  // Drives the chat header so it shows the actual counterparty instead
+  // of the old hard-coded "Concierge CleanHome" placeholder.
+  const [counterpartyName, setCounterpartyName] = useState<string>("");
+  const [counterpartyAvatar, setCounterpartyAvatar] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -235,6 +243,26 @@ export default function ChatScreen() {
         if (mounted) {
           setMessages(msgs);
           setBooking(bk);
+        }
+
+        // Resolve the counterparty profile so the header can show
+        // their real name + avatar. We pick the id that ISN'T the
+        // current user: cleaner_id if user is the client, client_id
+        // if user is the cleaner.
+        if (bk && user?.id && mounted) {
+          const otherId =
+            bk.client_id === user.id ? bk.cleaner_id : bk.client_id;
+          if (otherId) {
+            try {
+              const otherProfile = await fetchProfile(otherId);
+              if (mounted && otherProfile) {
+                setCounterpartyName(otherProfile.full_name ?? "");
+                setCounterpartyAvatar(otherProfile.avatar_url ?? null);
+              }
+            } catch {
+              // Non-fatal — fall back to generic label below.
+            }
+          }
         }
       } catch {
         if (mounted) setMessages([]);
@@ -351,32 +379,46 @@ export default function ChatScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
 
-        {/* Cleaner avatar + name */}
+        {/* Counterparty avatar + name — pulled from the profiles table */}
         <View style={styles.headerAvatar}>
-          <Ionicons name="person" size={16} color={Colors.textOnDark} />
-          <View style={styles.headerOnlineDot} />
+          {counterpartyAvatar ? (
+            <Image
+              source={{ uri: counterpartyAvatar }}
+              style={{ width: "100%", height: "100%", borderRadius: 999 }}
+            />
+          ) : (
+            <Text
+              style={{
+                color: Colors.textOnDark,
+                fontSize: 13,
+                fontWeight: "800",
+              }}
+            >
+              {counterpartyName
+                ? counterpartyName
+                    .split(" ")
+                    .map((w) => w[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)
+                : "?"}
+            </Text>
+          )}
         </View>
 
         <View style={styles.headerTitleGroup}>
-          <Text style={styles.headerTitle}>Concierge CleanHome</Text>
-          <View style={styles.headerSubRow}>
-            <View style={styles.onlineDotSmall} />
-            <Text style={styles.headerSubtitle}>SERVIZIO CONCIERGE · Disponibile</Text>
-          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {counterpartyName || "Caricamento..."}
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {booking?.service_type ?? "Conversazione"}
+          </Text>
         </View>
 
-        <View style={styles.headerActions}>
-          <Pressable
-            style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="call-outline" size={20} color={Colors.textSecondary} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="ellipsis-vertical" size={20} color={Colors.textSecondary} />
-          </Pressable>
-        </View>
+        {/* Right side kept empty for now — the old call/menu buttons were
+            non-functional placeholders that confused users. Re-add real
+            actions (dispute, report, mute) once the backend wires are in. */}
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView

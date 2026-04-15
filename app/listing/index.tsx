@@ -503,9 +503,12 @@ export default function ListingScreen() {
 
   // Existing state
   const [hourlyRate, setHourlyRate] = useState("25");
-  const [description, setDescription] = useState(
-    "Professionista con 5 anni di esperienza nel settore. Lavoro con prodotti ecologici e certificati, garantendo massima cura e attenzione ai dettagli. Disponibile per interventi regolari o una tantum."
-  );
+  // Start with an empty description — the old hard-coded placeholder
+  // ("Professionista con 5 anni di esperienza...") was silently
+  // published by cleaners who didn't bother to edit it, which made
+  // every cleaner profile look identical. Now the input is empty and
+  // the placeholder text (in the TextInput below) guides the user.
+  const [description, setDescription] = useState("");
   const [services, setServices] = useState<ServiceTag[]>(INITIAL_SERVICES);
   const [days, setDays] = useState<DayAvailability[]>(INITIAL_DAYS);
 

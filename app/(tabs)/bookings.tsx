@@ -136,10 +136,12 @@ const BookingCard = ({
           <Text style={styles.cleanerName} numberOfLines={1}>
             {item.service_type}
           </Text>
+          {/* Show the authoritative total the client paid, not a wrong
+              synthetic €/h computed by dividing by a fixed 3-hour
+              assumption. The estimated_hours column is the right field
+              for rates but most readers just want to see the total. */}
           <Text style={styles.cleanerRate}>
-            {item.total_price > 0
-              ? `${(item.total_price / 3).toFixed(0)}€/HR`
-              : "—"}
+            {item.total_price > 0 ? `€${item.total_price.toFixed(2)}` : "—"}
           </Text>
         </View>
 
