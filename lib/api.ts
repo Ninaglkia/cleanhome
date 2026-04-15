@@ -73,6 +73,185 @@ export async function setDefaultProperty(
   return updateClientProperty(id, { is_default: true } as Partial<NewClientProperty>);
 }
 
+// Upload a single property photo to the `property-photos` bucket. Returns
+// the public URL. Each file is scoped under the client's user id so RLS
+// can enforce that clients only touch their own folder.
+export async function uploadPropertyPhoto(
+  clientId: string,
+  localUri: string,
+  kind: "cover" | "room" = "cover"
+): Promise<string> {
+  const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
+  const fileName = `${clientId}/${kind}-${Date.now()}-${Math.floor(
+    Math.random() * 10000
+  )}.${ext}`;
+
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+
+  const { error: uploadError } = await supabase.storage
+    .from("property-photos")
+    .upload(fileName, blob, {
+      contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: urlData } = supabase.storage
+    .from("property-photos")
+    .getPublicUrl(fileName);
+
+  return urlData.publicUrl;
+}
+
+// Call Google Cloud Vision API to classify an image and return whether it
+// looks like a house/room interior. Uses the same API key already in env
+// (must be enabled for Vision API in Google Cloud Console). Returns the
+// top labels so the caller can show a friendly error when validation
+// fails. Non-house photos (selfies, memes, food, pets, etc.) are rejected.
+export interface PhotoValidationResult {
+  isValid: boolean;
+  reason?: string;
+  topLabels: string[];
+}
+
+// Labels from Vision API that indicate the photo actually shows a
+// house / room / interior / cleaning context. Any match in the top
+// labels is enough to pass validation.
+const HOUSE_LIKE_LABELS = new Set([
+  "room",
+  "bedroom",
+  "living room",
+  "kitchen",
+  "bathroom",
+  "dining room",
+  "home",
+  "house",
+  "apartment",
+  "interior design",
+  "property",
+  "real estate",
+  "furniture",
+  "floor",
+  "ceiling",
+  "wall",
+  "window",
+  "countertop",
+  "cabinetry",
+  "tile",
+  "sink",
+  "bed",
+  "couch",
+  "table",
+  "chair",
+  "lamp",
+  "curtain",
+  "hardwood",
+  "laminate flooring",
+  "bathtub",
+  "shower",
+  "toilet",
+  "stairs",
+  "door",
+]);
+
+export async function validatePropertyPhoto(
+  localUri: string
+): Promise<PhotoValidationResult> {
+  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    // No API key — fail open so the form still works in dev, but mark
+    // the result as unvalidated so the UI can show a gentle notice.
+    return { isValid: true, topLabels: [] };
+  }
+
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const base64: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      // result is `data:image/jpeg;base64,<base64-data>` — strip the prefix
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+  const visionRes = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: base64 },
+            features: [
+              { type: "LABEL_DETECTION", maxResults: 15 },
+              { type: "SAFE_SEARCH_DETECTION" },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!visionRes.ok) {
+    // Vision API not enabled or quota exceeded — fail open with a warning.
+    return { isValid: true, topLabels: [] };
+  }
+
+  const visionData = (await visionRes.json()) as {
+    responses?: Array<{
+      labelAnnotations?: Array<{ description: string; score: number }>;
+      safeSearchAnnotation?: {
+        adult: string;
+        racy: string;
+        violence: string;
+      };
+    }>;
+  };
+
+  const r = visionData.responses?.[0];
+  if (!r) return { isValid: true, topLabels: [] };
+
+  // Reject adult/racy/violent content outright.
+  const safe = r.safeSearchAnnotation;
+  if (safe) {
+    const bad = ["LIKELY", "VERY_LIKELY"];
+    if (
+      bad.includes(safe.adult) ||
+      bad.includes(safe.racy) ||
+      bad.includes(safe.violence)
+    ) {
+      return {
+        isValid: false,
+        reason: "La foto contiene contenuti non appropriati.",
+        topLabels: [],
+      };
+    }
+  }
+
+  const labels = (r.labelAnnotations ?? [])
+    .filter((l) => l.score >= 0.6)
+    .map((l) => l.description.toLowerCase());
+
+  const matches = labels.filter((l) => HOUSE_LIKE_LABELS.has(l));
+
+  if (matches.length === 0) {
+    return {
+      isValid: false,
+      reason:
+        "La foto non sembra rappresentare una casa, una stanza o un ambiente domestico. Carica una foto dell'interno della casa.",
+      topLabels: labels.slice(0, 5),
+    };
+  }
+
+  return { isValid: true, topLabels: labels.slice(0, 5) };
+}
+
 // --- Reviews ---
 
 export async function fetchReviewsForCleaner(

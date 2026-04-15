@@ -159,8 +159,16 @@ export interface ClientProperty {
   num_rooms: number;
   sqm?: number | null;
   notes?: string | null;
+  // Legacy single cover photo — kept for backward compatibility with
+  // existing rows that were created before cover_photo_url/room_photo_urls.
   photo_url?: string | null;
+  // Primary hero photo of the house — what the cleaner sees first.
+  cover_photo_url?: string | null;
+  // Per-room/per-area photos (kitchen, bathroom, bedroom...) for context.
+  room_photo_urls: string[];
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   created_at: string;
   updated_at: string;
 }
