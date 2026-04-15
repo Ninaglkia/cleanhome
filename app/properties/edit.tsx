@@ -117,6 +117,12 @@ export default function PropertyEditScreen() {
         const controller = new AbortController();
         addressAbortRef.current = controller;
         try {
+          // No includedPrimaryTypes filter: Google Places is more strict
+          // with that on partial queries like "Via Romilli 11" — it
+          // refuses to return a result unless the query unambiguously
+          // resolves to a single typed node. Without the filter we get
+          // every candidate and rely on the user picking the right row,
+          // which is the standard UX on address autocomplete forms.
           const res = await fetch(
             "https://places.googleapis.com/v1/places:autocomplete",
             {
@@ -130,8 +136,6 @@ export default function PropertyEditScreen() {
                 languageCode: "it",
                 regionCode: "it",
                 includedRegionCodes: ["it"],
-                // Street addresses, not cities or POIs.
-                includedPrimaryTypes: ["street_address", "premise", "route"],
               }),
               signal: controller.signal,
             }
@@ -624,7 +628,7 @@ export default function PropertyEditScreen() {
                   icon="location-outline"
                   value={address}
                   onChangeText={(t) => handleAddressChange(t.slice(0, ADDRESS_MAX))}
-                  placeholder="Inizia a scrivere (es. Via Roma 12)"
+                  placeholder="Es. Via Roma 12, Milano"
                   error={showErrors ? fieldErrors.address : undefined}
                   maxLength={ADDRESS_MAX}
                   trailing={
@@ -681,7 +685,15 @@ export default function PropertyEditScreen() {
                   addressSuggestions.length === 0 &&
                   !addressLatLng && (
                     <Text style={styles.fieldHint}>
-                      Nessun indirizzo trovato — prova ad aggiungere la città
+                      Nessun indirizzo trovato — aggiungi anche la città (es. "Via
+                      Arcivescovo Romilli 11, Milano")
+                    </Text>
+                  )}
+                {address.trim().length > 0 &&
+                  address.trim().length < 3 &&
+                  !addressLatLng && (
+                    <Text style={styles.fieldHint}>
+                      Continua a scrivere per vedere i suggerimenti...
                     </Text>
                   )}
               </View>
