@@ -57,6 +57,7 @@ import {
 import type { AddressSuggestion } from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import type { ClientProperty } from "../../lib/types";
+import TypologySheet, { TypologyValue } from "../../components/TypologySheet";
 
 const ROOM_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 const NAME_MAX = 60;
@@ -94,6 +95,15 @@ export default function PropertyEditScreen() {
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [roomPhotos, setRoomPhotos] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+
+  // ── Typology sheet state ───────────────────────────────────
+  const [typologyOpen, setTypologyOpen] = useState(false);
+  const [typology, setTypology] = useState<TypologyValue>({
+    typology: "trilocale",
+    bedrooms: 2,
+    bathrooms: 1,
+    sqm: "",
+  });
 
   // Address autocomplete — delegates to lib/api.searchAddresses which
   // uses Google Places API (New) as primary and falls back to Nominatim
@@ -166,6 +176,16 @@ export default function PropertyEditScreen() {
   const heroOpacity = useSharedValue(0);
   const heroScale = useSharedValue(0.96);
 
+  // Progress bar — animated width ratio 0..1
+  const progressRatio = useSharedValue(0);
+
+  // Star bounce for "Casa predefinita" toggle
+  const starScale = useSharedValue(1);
+
+  // Default badge fade-in
+  const defaultBadgeOpacity = useSharedValue(0);
+  const defaultBadgeScale = useSharedValue(0.6);
+
   useEffect(() => {
     heroOpacity.value = withTiming(1, { duration: 500 });
     heroScale.value = withSpring(1, { damping: 18, stiffness: 170 });
@@ -174,6 +194,19 @@ export default function PropertyEditScreen() {
   const heroStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
     transform: [{ scale: heroScale.value }],
+  }));
+
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${progressRatio.value * 100}%` as unknown as number,
+  }));
+
+  const starAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: starScale.value }],
+  }));
+
+  const defaultBadgeStyle = useAnimatedStyle(() => ({
+    opacity: defaultBadgeOpacity.value,
+    transform: [{ scale: defaultBadgeScale.value }],
   }));
 
   // ── Load existing row when editing ────────────────────────
@@ -339,6 +372,63 @@ export default function PropertyEditScreen() {
     [fieldErrors, numRooms]
   );
 
+  // ── Progress calculation (for header bar + save bar) ──────
+  // 5 tracked fields: cover photo, name, address+latlng, numRooms, notes-no-error
+  const completedCount = useMemo(() => {
+    let n = 0;
+    if (coverPhoto) n++;
+    if (name.trim().length > 0 && !fieldErrors.name) n++;
+    if (address.trim().length > 0 && addressLatLng && !fieldErrors.address) n++;
+    if (numRooms >= 1) n++;
+    if (!fieldErrors.notes) n++;
+    return n;
+  }, [coverPhoto, name, address, addressLatLng, numRooms, fieldErrors]);
+
+  const PROGRESS_TOTAL = 5;
+
+  // Animate progress bar whenever completedCount changes
+  useEffect(() => {
+    progressRatio.value = withTiming(completedCount / PROGRESS_TOTAL, {
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [completedCount]);
+
+  // Toggle with star bounce animation
+  const handleDefaultToggle = useCallback((val: boolean) => {
+    setIsDefault(val);
+    starScale.value = withSequence(
+      withSpring(val ? 1.4 : 0.7, { damping: 8, stiffness: 300 }),
+      withSpring(1, { damping: 14, stiffness: 250 })
+    );
+    if (val) {
+      defaultBadgeOpacity.value = withDelay(
+        80,
+        withSpring(1, { damping: 18, stiffness: 220 })
+      );
+      defaultBadgeScale.value = withDelay(
+        80,
+        withSpring(1, { damping: 18, stiffness: 220 })
+      );
+    } else {
+      defaultBadgeOpacity.value = withTiming(0, { duration: 180 });
+      defaultBadgeScale.value = withTiming(0.6, { duration: 180 });
+    }
+  }, []);
+
+  // Seed badge visibility once after the edit-mode data loads
+  const badgeSeedDone = useRef(false);
+  useEffect(() => {
+    if (badgeSeedDone.current) return;
+    if (!loading) {
+      badgeSeedDone.current = true;
+      if (isDefault) {
+        defaultBadgeOpacity.value = 1;
+        defaultBadgeScale.value = 1;
+      }
+    }
+  }, [loading, isDefault]);
+
   // ── Save ──────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!user || saving) return;
@@ -451,18 +541,34 @@ export default function PropertyEditScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      <View style={styles.header}>
-        <Pressable
-          onPress={handleClose}
-          hitSlop={12}
-          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons name="close" size={24} color={Colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>
-          {isEdit ? "Modifica casa" : "Nuova casa"}
-        </Text>
-        <View style={styles.iconBtn} />
+      <View style={styles.headerWrap}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleClose}
+            hitSlop={12}
+            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="close" size={24} color={Colors.text} />
+          </Pressable>
+          <View style={{ alignItems: "center" }}>
+            <Text style={styles.headerTitle}>
+              {isEdit ? "Modifica casa" : "Nuova casa"}
+            </Text>
+            <Text style={styles.headerSubCount}>
+              {completedCount} di {PROGRESS_TOTAL} completati
+            </Text>
+          </View>
+          <View style={styles.iconBtn} />
+        </View>
+        {/* Progress bar with percentage label — matches V1 "Progress Hero" design */}
+        <View style={styles.progressRow}>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, progressBarStyle]} />
+          </View>
+          <Text style={styles.progressPercent}>
+            {Math.round((completedCount / PROGRESS_TOTAL) * 100)}%
+          </Text>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -647,6 +753,28 @@ export default function PropertyEditScreen() {
               subtitle="Aiuta il pulitore a prepararsi"
             />
 
+            {/* Riga tipologia — apre il bottom sheet */}
+            <Pressable
+              onPress={() => setTypologyOpen(true)}
+              style={styles.summaryRow}
+            >
+              <View style={styles.summaryIconWrap}>
+                <Ionicons name="home-outline" size={18} color={Colors.secondary} />
+              </View>
+              <View style={styles.summaryTextWrap}>
+                <Text style={styles.summaryLabel}>Tipologia</Text>
+                <Text style={styles.summaryValue} numberOfLines={1}>
+                  {typology.typology.charAt(0).toUpperCase() + typology.typology.slice(1)}
+                  {" · "}{typology.bedrooms} {typology.bedrooms === 1 ? "camera" : "camere"}
+                  {" · "}{typology.bathrooms} {typology.bathrooms === 1 ? "bagno" : "bagni"}
+                  {typology.sqm ? ` · ${typology.sqm} m²` : ""}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+            </Pressable>
+
+            <View style={styles.summaryDivider} />
+
             <FieldBlock label="Numero di stanze">
               <View style={styles.roomGrid}>
                 {ROOM_OPTIONS.map((n) => (
@@ -682,43 +810,13 @@ export default function PropertyEditScreen() {
               subtitle="Mostra le aree da pulire al pulitore (opzionale)"
             />
 
-            <View style={styles.roomPhotoGrid}>
-              {roomPhotos.map((uri, idx) => (
-                <View key={`${uri}-${idx}`} style={styles.roomPhotoThumb}>
-                  <Image source={{ uri }} style={styles.roomPhotoImg} />
-                  <Pressable
-                    onPress={() => removeRoomPhoto(idx)}
-                    style={styles.roomPhotoRemove}
-                    hitSlop={6}
-                  >
-                    <Ionicons name="close" size={14} color="#fff" />
-                  </Pressable>
-                </View>
-              ))}
-              {roomPhotos.length < MAX_ROOM_PHOTOS && (
-                <Pressable
-                  onPress={() => pickAndUpload("room")}
-                  disabled={uploadingRoom}
-                  style={({ pressed }) => [
-                    styles.roomPhotoAdd,
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  {uploadingRoom ? (
-                    <ActivityIndicator color={Colors.secondary} />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="add"
-                        size={28}
-                        color={Colors.secondary}
-                      />
-                      <Text style={styles.roomPhotoAddText}>Aggiungi</Text>
-                    </>
-                  )}
-                </Pressable>
-              )}
-            </View>
+            <RoomPhotoGrid
+              photos={roomPhotos}
+              maxPhotos={MAX_ROOM_PHOTOS}
+              uploading={uploadingRoom}
+              onAdd={() => pickAndUpload("room")}
+              onRemove={removeRoomPhoto}
+            />
 
             <View style={styles.aiNoticeRow}>
               <Ionicons
@@ -741,33 +839,37 @@ export default function PropertyEditScreen() {
               subtitle="Istruzioni fisse che valgono sempre (opzionale)"
             />
 
-            <InputRow
-              icon="create-outline"
+            <NotesInput
               value={notes}
               onChangeText={(t) => setNotes(t.slice(0, NOTES_MAX))}
-              placeholder="Es. Le chiavi sono dal portinaio, c'è un gatto, materiali già presenti"
-              error={showErrors ? fieldErrors.notes : undefined}
               maxLength={NOTES_MAX}
-              multiline
-              minHeight={100}
-              showLength
+              error={showErrors ? fieldErrors.notes : undefined}
             />
           </View>
 
           {/* ─────────────────────── Predefinita ─────────────────────── */}
-          <View style={styles.defaultCard}>
-            <View style={styles.defaultIcon}>
-              <Ionicons name="star" size={18} color={Colors.secondary} />
-            </View>
+          <View style={[styles.defaultCard, isDefault && styles.defaultCardActive]}>
+            <Animated.View style={[styles.defaultIcon, starAnimStyle]}>
+              <Ionicons
+                name={isDefault ? "star" : "star-outline"}
+                size={18}
+                color={isDefault ? Colors.secondary : Colors.textTertiary}
+              />
+            </Animated.View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.defaultTitle}>Casa predefinita</Text>
+              <View style={styles.defaultTitleRow}>
+                <Text style={styles.defaultTitle}>Casa predefinita</Text>
+                <Animated.View style={[styles.defaultBadge, defaultBadgeStyle]}>
+                  <Text style={styles.defaultBadgeText}>PREDEFINITA</Text>
+                </Animated.View>
+              </View>
               <Text style={styles.defaultSub}>
                 Appare sempre per prima quando prenoti una pulizia.
               </Text>
             </View>
             <Switch
               value={isDefault}
-              onValueChange={setIsDefault}
+              onValueChange={handleDefaultToggle}
               trackColor={{ false: Colors.border, true: Colors.secondary }}
               thumbColor="#fff"
               ios_backgroundColor={Colors.border}
@@ -794,65 +896,37 @@ export default function PropertyEditScreen() {
 
         {/* Save bar — intentionally loud so users can't miss it */}
         <View style={styles.saveBar}>
-          {!isValid && (
-            <View style={styles.saveHintRow}>
-              <Ionicons
-                name="information-circle"
-                size={14}
-                color={Colors.warning}
-              />
-              <Text style={styles.saveHintText}>
-                {!coverPhoto
-                  ? "Aggiungi una foto di copertina per continuare"
-                  : !addressLatLng && address.trim().length > 0
-                  ? "Seleziona l'indirizzo dai suggerimenti"
-                  : "Compila i campi obbligatori"}
-              </Text>
+          {/* Progress indicator strip */}
+          <View style={styles.saveProgressWrap}>
+            <View style={styles.saveProgressTrack}>
+              <Animated.View style={[styles.saveProgressFill, progressBarStyle]} />
             </View>
-          )}
-          {isValid && !saving && (
-            <View style={styles.saveHintRow}>
-              <Ionicons
-                name="checkmark-circle"
-                size={14}
-                color={Colors.success}
-              />
-              <Text style={[styles.saveHintText, { color: Colors.success }]}>
-                Tutto pronto — tocca per salvare
-              </Text>
-            </View>
-          )}
-          <Pressable
+            <Text style={[styles.saveProgressLabel, isValid && { color: Colors.success }]}>
+              {isValid
+                ? "Tutto pronto"
+                : !coverPhoto
+                ? "Aggiungi la foto di copertina"
+                : !addressLatLng && address.trim().length > 0
+                ? "Seleziona l'indirizzo dai suggerimenti"
+                : `${completedCount} di ${PROGRESS_TOTAL} campi completati`}
+            </Text>
+          </View>
+          <AnimatedSaveButton
             onPress={handleSave}
-            disabled={saving}
-            accessibilityLabel={
-              isEdit ? "Salva modifiche" : "Salva casa"
-            }
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.saveBtn,
-              saving && styles.saveBtnDisabled,
-              pressed && !saving && { transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={22} color="#fff" />
-                <Text style={styles.saveBtnText}>
-                  {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
-                </Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={18}
-                  color="rgba(255,255,255,0.8)"
-                />
-              </>
-            )}
-          </Pressable>
+            saving={saving}
+            isValid={isValid}
+            isEdit={isEdit}
+          />
         </View>
       </KeyboardAvoidingView>
+
+      {/* Typology bottom sheet */}
+      <TypologySheet
+        visible={typologyOpen}
+        onClose={() => setTypologyOpen(false)}
+        value={typology}
+        onChange={setTypology}
+      />
     </SafeAreaView>
   );
 }
@@ -1028,6 +1102,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
 
+  // ── Header with progress ──
+  headerWrap: {
+    backgroundColor: Colors.background,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1043,6 +1121,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 17, fontWeight: "800", color: Colors.text },
+  headerSubCount: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.textTertiary,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: Spacing.base,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 3,
+    backgroundColor: Colors.borderLight,
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: Colors.secondary,
+    borderRadius: 3,
+  },
+  progressPercent: {
+    marginLeft: Spacing.sm,
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.secondary,
+    letterSpacing: 0.2,
+    minWidth: 32,
+    textAlign: "right",
+  },
 
   scroll: {
     paddingHorizontal: Spacing.base,
@@ -1163,6 +1273,52 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
     ...Shadows.sm,
   },
+
+  // ── Typology summary row ──
+  summaryRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  summaryIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryTextWrap: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  summaryValue: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginTop: Spacing.base,
+    marginBottom: 0,
+  },
+
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1311,51 +1467,6 @@ const styles = StyleSheet.create({
     color: Colors.secondary,
   },
 
-  // ── Room photo grid ──
-  roomPhotoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: Spacing.md,
-  },
-  roomPhotoThumb: {
-    width: 90,
-    height: 90,
-    borderRadius: Radius.md,
-    overflow: "hidden",
-    position: "relative",
-  },
-  roomPhotoImg: { width: "100%", height: "100%" },
-  roomPhotoRemove: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  roomPhotoAdd: {
-    width: 90,
-    height: 90,
-    borderRadius: Radius.md,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.surfaceElevated,
-  },
-  roomPhotoAddText: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "800",
-    color: Colors.secondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
   aiNoticeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1385,6 +1496,10 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
     marginBottom: Spacing.md,
   },
+  defaultCardActive: {
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.accentLight,
+  },
   defaultIcon: {
     width: 36,
     height: 36,
@@ -1393,15 +1508,152 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  defaultTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   defaultTitle: {
     fontSize: 15,
     fontWeight: "800",
     color: Colors.text,
   },
+  defaultBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.secondary,
+  },
+  defaultBadgeText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
   defaultSub: {
     marginTop: 3,
     fontSize: 12,
     color: Colors.textSecondary,
+  },
+
+  // ── Room photo grid (premium) ──
+  roomPhotoGridWrap: {
+    marginTop: Spacing.md,
+  },
+  roomPhotoRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  roomPhotoThumbWrap: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: Radius.md,
+    overflow: "hidden",
+    position: "relative",
+  },
+  roomPhotoThumbImg: {
+    width: "100%",
+    height: "100%",
+  },
+  roomPhotoRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roomPhotoGhostSlot: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: "dashed",
+    backgroundColor: Colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roomPhotoGhostPrimary: {
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.accentLight,
+    borderWidth: 2,
+  },
+  roomPhotoGhostLabel: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "800",
+    color: Colors.secondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  roomPhotoGhostSub: {
+    marginTop: 2,
+    fontSize: 9,
+    color: Colors.textTertiary,
+    textAlign: "center",
+  },
+
+  // ── Notes input ──
+  notesWrap: {
+    marginTop: Spacing.md,
+  },
+  notesInputContainer: {
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.borderLight,
+    backgroundColor: Colors.surfaceElevated,
+    padding: Spacing.base,
+  },
+  notesInputContainerFocused: {
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.surface,
+    shadowColor: Colors.secondary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  notesInputContainerError: {
+    borderColor: Colors.error,
+    backgroundColor: Colors.errorLight,
+  },
+  notesInput: {
+    fontSize: 14,
+    color: Colors.text,
+    lineHeight: 20,
+    minHeight: 100,
+    maxHeight: 200,
+    textAlignVertical: "top",
+  },
+  notesFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.sm,
+  },
+  notesError: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.error,
+    flex: 1,
+  },
+  notesCounter: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.textTertiary,
+    textAlign: "right",
+  },
+  notesCounterWarning: {
+    color: Colors.warning,
+  },
+  notesCounterDanger: {
+    color: Colors.error,
   },
 
   // ── Delete ──
@@ -1429,25 +1681,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
-    // Lift the bar above the scrollview so it never blends with the
-    // content. iOS shadow + android elevation combo.
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
     shadowRadius: 14,
     elevation: 16,
   },
-  saveHintRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginBottom: 10,
+  saveProgressWrap: {
+    marginBottom: 12,
   },
-  saveHintText: {
-    fontSize: 12,
+  saveProgressTrack: {
+    height: 4,
+    backgroundColor: Colors.borderLight,
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  saveProgressFill: {
+    height: 4,
+    backgroundColor: Colors.secondary,
+    borderRadius: 4,
+  },
+  saveProgressLabel: {
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.warning,
+    textAlign: "center",
   },
   saveBtn: {
     flexDirection: "row",
@@ -1475,3 +1734,268 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 });
+
+// ─────────────────────────── New sub-components ───────────────────────────
+// Declared after StyleSheet to avoid Hermes TDZ issues with const styles
+
+// ── AnimatedSaveButton ────────────────────────────────────────────────────
+function AnimatedSaveButton({
+  onPress,
+  saving,
+  isValid,
+  isEdit,
+}: {
+  onPress: () => void;
+  saving: boolean;
+  isValid: boolean;
+  isEdit: boolean;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const onPressIn = () => {
+    if (!saving) {
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 200 });
+    }
+  };
+  const onPressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 200 });
+  };
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={saving}
+        accessibilityLabel={isEdit ? "Salva modifiche" : "Salva casa"}
+        accessibilityRole="button"
+        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+      >
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="checkmark-circle" size={22} color="#fff" />
+            <Text style={styles.saveBtnText}>
+              {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color="rgba(255,255,255,0.8)"
+            />
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── NotesInput ───────────────────────────────────────────────────────────
+function NotesInput({
+  value,
+  onChangeText,
+  maxLength,
+  error,
+}: {
+  value: string;
+  onChangeText: (t: string) => void;
+  maxLength: number;
+  error?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  const counterStyle = (() => {
+    if (value.length >= maxLength - 10) return styles.notesCounterDanger;
+    if (value.length >= maxLength - 50) return styles.notesCounterWarning;
+    return undefined;
+  })();
+
+  return (
+    <View style={styles.notesWrap}>
+      <View
+        style={[
+          styles.notesInputContainer,
+          focused && styles.notesInputContainerFocused,
+          error && styles.notesInputContainerError,
+        ]}
+      >
+        <TextInput
+          style={styles.notesInput}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder="Es. Le chiavi sono dal portinaio, c'è un gatto, materiali già presenti"
+          placeholderTextColor={Colors.textTertiary}
+          multiline
+          maxLength={maxLength}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          textAlignVertical="top"
+        />
+      </View>
+      <View style={styles.notesFooter}>
+        {error ? (
+          <Text style={styles.notesError}>{error}</Text>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+        <Text style={[styles.notesCounter, counterStyle]}>
+          {value.length} / {maxLength}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ── RoomPhotoThumbAnimated ────────────────────────────────────────────────
+function RoomPhotoThumbAnimated({
+  uri,
+  onRemove,
+}: {
+  uri: string;
+  onRemove: () => void;
+}) {
+  const scale = useSharedValue(0.7);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withSpring(1, { damping: 16, stiffness: 220 });
+    opacity.value = withTiming(1, { duration: 220 });
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.roomPhotoThumbWrap, animStyle]}>
+      <Image source={{ uri }} style={styles.roomPhotoThumbImg} />
+      <Pressable
+        onPress={onRemove}
+        style={styles.roomPhotoRemove}
+        hitSlop={6}
+        accessibilityLabel="Rimuovi foto"
+      >
+        <Ionicons name="close" size={14} color="#fff" />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── RoomPhotoGrid ─────────────────────────────────────────────────────────
+// Shows photos in pairs of 2 per row. Fills remaining slots with ghost
+// placeholders up to a max of 4 visible slots. The first empty ghost
+// is the primary CTA; the rest are subtle dashed guides.
+function RoomPhotoGrid({
+  photos,
+  maxPhotos,
+  uploading,
+  onAdd,
+  onRemove,
+}: {
+  photos: string[];
+  maxPhotos: number;
+  uploading: boolean;
+  onAdd: () => void;
+  onRemove: (idx: number) => void;
+}) {
+  // Build a flat list: real photos + ghost slots (max visible = 4 slots or
+  // enough to show all real photos plus one add slot)
+  const GHOST_SLOTS = 4;
+  const totalSlots = Math.max(GHOST_SLOTS, photos.length + (photos.length < maxPhotos ? 1 : 0));
+  // Cap rows to show at most 2 rows of 2
+  const visibleSlots = Math.min(totalSlots, 4);
+
+  const slots: Array<{ kind: "photo"; uri: string; idx: number } | { kind: "add" } | { kind: "ghost" }> = [];
+  for (let i = 0; i < photos.length; i++) {
+    slots.push({ kind: "photo", uri: photos[i], idx: i });
+  }
+  if (photos.length < maxPhotos && slots.length < visibleSlots) {
+    slots.push({ kind: "add" });
+  }
+  while (slots.length < visibleSlots) {
+    slots.push({ kind: "ghost" });
+  }
+
+  // Split into rows of 2
+  const rows: typeof slots[] = [];
+  for (let i = 0; i < slots.length; i += 2) {
+    rows.push(slots.slice(i, i + 2));
+  }
+
+  const isFirstEmpty = photos.length === 0;
+
+  return (
+    <View style={styles.roomPhotoGridWrap}>
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={styles.roomPhotoRow}>
+          {row.map((slot, colIdx) => {
+            const isFirst = rowIdx === 0 && colIdx === 0 && slot.kind !== "photo";
+
+            if (slot.kind === "photo") {
+              return (
+                <RoomPhotoThumbAnimated
+                  key={`photo-${slot.idx}`}
+                  uri={slot.uri}
+                  onRemove={() => onRemove(slot.idx)}
+                />
+              );
+            }
+
+            if (slot.kind === "add") {
+              return (
+                <Pressable
+                  key={`add-${rowIdx}-${colIdx}`}
+                  onPress={onAdd}
+                  disabled={uploading}
+                  accessibilityLabel="Aggiungi foto stanza"
+                  style={({ pressed }) => [
+                    styles.roomPhotoThumbWrap,
+                    styles.roomPhotoGhostSlot,
+                    isFirst && styles.roomPhotoGhostPrimary,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  {uploading ? (
+                    <ActivityIndicator color={Colors.secondary} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="add-circle-outline"
+                        size={isFirst ? 32 : 22}
+                        color={isFirst ? Colors.secondary : Colors.textTertiary}
+                      />
+                      {isFirst && (
+                        <>
+                          <Text style={styles.roomPhotoGhostLabel}>
+                            Aggiungi foto
+                          </Text>
+                          <Text style={styles.roomPhotoGhostSub}>
+                            Camera  •  Libreria
+                          </Text>
+                        </>
+                      )}
+                    </>
+                  )}
+                </Pressable>
+              );
+            }
+
+            // ghost — decorative empty slot
+            return (
+              <View
+                key={`ghost-${rowIdx}-${colIdx}`}
+                style={[styles.roomPhotoThumbWrap, styles.roomPhotoGhostSlot]}
+              />
+            );
+          })}
+          {/* If row has only 1 slot, add invisible filler for even columns */}
+          {row.length === 1 && <View style={{ flex: 1 }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
