@@ -55,7 +55,9 @@ export default function PropertiesListScreen() {
   );
 
   const handleAdd = useCallback(() => {
-    router.push("/properties/edit");
+    // New properties go through the multi-step wizard; only edits
+    // (with an id param) still hit /properties/edit.
+    router.push("/properties/new");
   }, [router]);
 
   const handleEdit = useCallback(

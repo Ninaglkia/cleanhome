@@ -1224,11 +1224,11 @@ export default function HomeScreen() {
               })}
             </ScrollView>
 
-            {/* Add new house button */}
+            {/* Add new house button — uses the multi-step wizard */}
             <Pressable
               onPress={() => {
                 setPropertyPickerOpen(false);
-                router.push("/properties/edit");
+                router.push("/properties/new");
               }}
               style={({ pressed }) => ({
                 marginHorizontal: 20,

@@ -147,6 +147,39 @@ export interface Review {
   created_at: string;
 }
 
+// What kind of property is being cleaned. Drives the pricing model
+// (€/sqm vs €/covers vs €/desks) and which fields the creation wizard
+// asks for in step 3.
+export type PropertyType =
+  | "apartment"
+  | "house"      // casa indipendente / villa
+  | "office"
+  | "restaurant"
+  | "bnb"        // B&B / Airbnb
+  | "shop"
+  | "other";
+
+// How often the client wants this property cleaned. Drives the
+// dispatch engine ("recurring contract" vs "one-off booking") and
+// unlocks subscription-style pricing tiers.
+export type CleaningFrequency =
+  | "monthly"        // 1x/month
+  | "biweekly"       // 2x/month
+  | "weekly"         // 1x/week (4x/month)
+  | "twice_weekly";  // 2x/week (8x/month)
+
+// Type-specific details stored as a flexible JSON blob. Each property
+// type uses a different shape — see PropertyTypeDetails below.
+export type PropertyTypeDetails =
+  | { kind: "apartment"; typology: string; bedrooms?: number; bathrooms?: number }
+  | { kind: "house"; floors: number; has_garden: boolean }
+  | { kind: "office"; desks: number }
+  | { kind: "restaurant"; covers: number; has_kitchen: boolean }
+  | { kind: "bnb"; bedrooms: number; bathrooms: number }
+  | { kind: "shop"; has_windows: boolean }
+  | { kind: "other"; description: string }
+  | Record<string, never>; // empty {} for legacy rows
+
 // A saved property/house that a client can reuse when booking a cleaning.
 // Clients with multiple homes (Airbnb hosts, property managers, people with
 // a second house) can add each one once and pick it from a dropdown in the
@@ -167,6 +200,12 @@ export interface ClientProperty {
   // Per-room/per-area photos (kitchen, bathroom, bedroom...) for context.
   room_photo_urls: string[];
   is_default: boolean;
+  // What kind of property + how often the client wants it cleaned.
+  // Both default to a sensible value so legacy rows keep working.
+  property_type: PropertyType;
+  cleaning_frequency: CleaningFrequency | null;
+  // Free-form per-type extras (covers, desks, floors, ecc.)
+  type_details: PropertyTypeDetails;
   latitude?: number | null;
   longitude?: number | null;
   created_at: string;

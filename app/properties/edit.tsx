@@ -65,6 +65,29 @@ const ADDRESS_MAX = 255;
 const NOTES_MAX = 500;
 const MAX_ROOM_PHOTOS = 6;
 
+// Maps between the property typology id (used in TypologySheet) and the
+// num_rooms integer that we persist in the database. The DB column predates
+// the typology picker, so we keep saving num_rooms for backward compat with
+// the booking flow / pricing engine.
+const TYPOLOGY_TO_ROOMS: Record<string, number> = {
+  monolocale: 1,
+  bilocale: 2,
+  trilocale: 3,
+  quadrilocale: 4,
+  "5locali": 5,
+  "6locali": 6,
+  "7locali": 7,
+};
+const ROOMS_TO_TYPOLOGY = (n: number): string => {
+  if (n <= 1) return "monolocale";
+  if (n === 2) return "bilocale";
+  if (n === 3) return "trilocale";
+  if (n === 4) return "quadrilocale";
+  if (n === 5) return "5locali";
+  if (n === 6) return "6locali";
+  return "7locali";
+};
+
 export default function PropertyEditScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
@@ -88,8 +111,6 @@ export default function PropertyEditScreen() {
   const [addressSearching, setAddressSearching] = useState(false);
   const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addressAbortRef = useRef<AbortController | null>(null);
-  const [numRooms, setNumRooms] = useState<number>(2);
-  const [sqm, setSqm] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
@@ -236,8 +257,15 @@ export default function PropertyEditScreen() {
             longitude: row.longitude,
           });
         }
-        setNumRooms(row.num_rooms);
-        setSqm(row.sqm ? String(row.sqm) : "");
+        // Hydrate the typology sheet from the persisted DB columns. The
+        // typology.typology is derived from num_rooms because the DB
+        // doesn't yet store it as its own column.
+        setTypology({
+          typology: ROOMS_TO_TYPOLOGY(row.num_rooms),
+          bedrooms: Math.max(0, row.num_rooms - 1),
+          bathrooms: 1,
+          sqm: row.sqm ? String(row.sqm) : "",
+        });
         setNotes(row.notes ?? "");
         setIsDefault(row.is_default);
         setCoverPhoto(row.cover_photo_url ?? row.photo_url ?? null);
@@ -352,8 +380,8 @@ export default function PropertyEditScreen() {
       // pick a verified address.
       errors.address = "Seleziona un indirizzo dalla lista suggerita";
     }
-    if (sqm) {
-      const n = Number(sqm);
+    if (typology.sqm) {
+      const n = Number(typology.sqm);
       if (!Number.isFinite(n)) errors.sqm = "Inserisci un numero";
       else if (n < 10) errors.sqm = "Minimo 10 m²";
       else if (n > 2000) errors.sqm = "Massimo 2000 m²";
@@ -365,24 +393,24 @@ export default function PropertyEditScreen() {
       errors.cover = "La foto di copertina è obbligatoria";
     }
     return errors;
-  }, [name, address, addressLatLng, sqm, notes, coverPhoto]);
+  }, [name, address, addressLatLng, typology.sqm, notes, coverPhoto]);
 
   const isValid = useMemo(
-    () => Object.keys(fieldErrors).length === 0 && numRooms >= 1 && numRooms <= 50,
-    [fieldErrors, numRooms]
+    () => Object.keys(fieldErrors).length === 0 && !!typology.typology,
+    [fieldErrors, typology.typology]
   );
 
   // ── Progress calculation (for header bar + save bar) ──────
-  // 5 tracked fields: cover photo, name, address+latlng, numRooms, notes-no-error
+  // 5 tracked fields: cover photo, name, address+latlng, typology, notes-no-error
   const completedCount = useMemo(() => {
     let n = 0;
     if (coverPhoto) n++;
     if (name.trim().length > 0 && !fieldErrors.name) n++;
     if (address.trim().length > 0 && addressLatLng && !fieldErrors.address) n++;
-    if (numRooms >= 1) n++;
+    if (typology.typology) n++;
     if (!fieldErrors.notes) n++;
     return n;
-  }, [coverPhoto, name, address, addressLatLng, numRooms, fieldErrors]);
+  }, [coverPhoto, name, address, addressLatLng, typology.typology, fieldErrors]);
 
   const PROGRESS_TOTAL = 5;
 
@@ -441,8 +469,8 @@ export default function PropertyEditScreen() {
       const payload = {
         name: name.trim(),
         address: address.trim(),
-        num_rooms: numRooms,
-        sqm: sqm ? Number(sqm) : null,
+        num_rooms: TYPOLOGY_TO_ROOMS[typology.typology] ?? 1,
+        sqm: typology.sqm ? Number(typology.sqm) : null,
         notes: notes.trim() ? notes.trim() : null,
         photo_url: coverPhoto, // backward compat
         cover_photo_url: coverPhoto,
@@ -457,7 +485,16 @@ export default function PropertyEditScreen() {
       if (isEdit && id) {
         await updateClientProperty(id, payload);
       } else {
-        await createClientProperty(user.id, payload);
+        // Legacy fallback path — creation now flows through the wizard
+        // at /properties/new which sets property_type, cleaning_frequency
+        // and type_details properly. This branch defaults them for any
+        // entry point that still pushes here.
+        await createClientProperty(user.id, {
+          ...payload,
+          property_type: "apartment",
+          cleaning_frequency: null,
+          type_details: {},
+        });
       }
       router.back();
     } catch (err) {
@@ -474,8 +511,7 @@ export default function PropertyEditScreen() {
     name,
     address,
     addressLatLng,
-    numRooms,
-    sqm,
+    typology,
     notes,
     coverPhoto,
     roomPhotos,
@@ -772,34 +808,6 @@ export default function PropertyEditScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
             </Pressable>
-
-            <View style={styles.summaryDivider} />
-
-            <FieldBlock label="Numero di stanze">
-              <View style={styles.roomGrid}>
-                {ROOM_OPTIONS.map((n) => (
-                  <RoomChip
-                    key={n}
-                    value={n}
-                    selected={numRooms === n}
-                    onPress={() => setNumRooms(n)}
-                  />
-                ))}
-              </View>
-            </FieldBlock>
-
-            <FieldBlock label="Metri quadri (opzionale)">
-              <InputRow
-                icon="resize-outline"
-                value={sqm}
-                onChangeText={(t) => setSqm(t.replace(/[^0-9]/g, ""))}
-                placeholder="Es. 85"
-                keyboardType="number-pad"
-                maxLength={4}
-                trailing={<Text style={styles.trailingUnit}>m²</Text>}
-                error={showErrors ? fieldErrors.sqm : undefined}
-              />
-            </FieldBlock>
           </View>
 
           {/* ─────────────────────── Foto delle stanze ─────────────────────── */}

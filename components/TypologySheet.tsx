@@ -10,7 +10,7 @@
 //     onChange={setValue}
 //   />
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, Modal, Pressable, StyleSheet, ScrollView,
   TextInput, Platform, Dimensions,
@@ -236,7 +236,28 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.borderLight,
     backgroundColor: Colors.surface,
   },
+  footerRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelTxt: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.text,
+    letterSpacing: 0.3,
+  },
   saveBtn: {
+    flex: 2,
     height: 54,
     borderRadius: 27,
     backgroundColor: Colors.primary,
@@ -280,10 +301,23 @@ function Stepper({
 
 // ── Main component ──
 export default function TypologySheet({ visible, onClose, value, onChange }: Props) {
-  const setTypology = (id: string) => onChange({ ...value, typology: id });
-  const setBedrooms = (n: number) => onChange({ ...value, bedrooms: Math.max(0, Math.min(10, n)) });
-  const setBathrooms = (n: number) => onChange({ ...value, bathrooms: Math.max(1, Math.min(6, n)) });
-  const setSqm = (s: string) => onChange({ ...value, sqm: s.replace(/\D/g, '') });
+  // Draft state — changes inside the sheet are local until the user
+  // taps "Conferma". "Annulla" or backdrop dismiss discards them.
+  const [draft, setDraft] = useState<TypologyValue>(value);
+
+  useEffect(() => {
+    if (visible) setDraft(value);
+  }, [visible, value]);
+
+  const setTypology = (id: string) => setDraft((d) => ({ ...d, typology: id }));
+  const setBedrooms = (n: number) => setDraft((d) => ({ ...d, bedrooms: Math.max(0, Math.min(10, n)) }));
+  const setBathrooms = (n: number) => setDraft((d) => ({ ...d, bathrooms: Math.max(1, Math.min(6, n)) }));
+  const setSqm = (s: string) => setDraft((d) => ({ ...d, sqm: s.replace(/\D/g, '') }));
+
+  const handleConfirm = () => {
+    onChange(draft);
+    onClose();
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -305,7 +339,7 @@ export default function TypologySheet({ visible, onClose, value, onChange }: Pro
           <Text style={styles.sectionLabel}>Tipologia</Text>
           <View style={styles.grid}>
             {TYPOLOGIES.map(t => {
-              const on = value.typology === t.id;
+              const on = draft.typology === t.id;
               return (
                 <Pressable
                   key={t.id}
@@ -326,11 +360,11 @@ export default function TypologySheet({ visible, onClose, value, onChange }: Pro
 
           {/* Stepper camere */}
           <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Camere da letto</Text>
-          <Stepper value={value.bedrooms} onChange={setBedrooms} min={0} max={10} />
+          <Stepper value={draft.bedrooms} onChange={setBedrooms} min={0} max={10} />
 
           {/* Stepper bagni */}
           <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Bagni</Text>
-          <Stepper value={value.bathrooms} onChange={setBathrooms} min={1} max={6} />
+          <Stepper value={draft.bathrooms} onChange={setBathrooms} min={1} max={6} />
 
           {/* Input mq */}
           <Text style={[styles.sectionLabel, { marginTop: 16 }]}>
@@ -338,7 +372,7 @@ export default function TypologySheet({ visible, onClose, value, onChange }: Pro
           </Text>
           <View style={styles.sqmRow}>
             <TextInput
-              value={value.sqm}
+              value={draft.sqm}
               onChangeText={setSqm}
               placeholder="Es. 85"
               placeholderTextColor={Colors.textTertiary}
@@ -354,19 +388,24 @@ export default function TypologySheet({ visible, onClose, value, onChange }: Pro
               <Pressable
                 key={v}
                 onPress={() => setSqm(v)}
-                style={[styles.sqmChip, value.sqm === v && styles.sqmChipOn]}
+                style={[styles.sqmChip, draft.sqm === v && styles.sqmChipOn]}
               >
-                <Text style={[styles.sqmChipTxt, value.sqm === v && styles.sqmChipTxtOn]}>{v} m²</Text>
+                <Text style={[styles.sqmChipTxt, draft.sqm === v && styles.sqmChipTxtOn]}>{v} m²</Text>
               </Pressable>
             ))}
           </View>
         </ScrollView>
 
-        {/* CTA salva */}
+        {/* CTA Annulla / Conferma */}
         <View style={styles.footer}>
-          <Pressable style={styles.saveBtn} onPress={onClose}>
-            <Text style={styles.saveTxt}>Conferma</Text>
-          </Pressable>
+          <View style={styles.footerRow}>
+            <Pressable style={styles.cancelBtn} onPress={onClose}>
+              <Text style={styles.cancelTxt}>Annulla</Text>
+            </Pressable>
+            <Pressable style={styles.saveBtn} onPress={handleConfirm}>
+              <Text style={styles.saveTxt}>Conferma</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
