@@ -125,6 +125,11 @@ export default function PropertyEditScreen() {
     bathrooms: 1,
     sqm: "",
   });
+  // Original new-wizard fields read from the DB on load. We keep them
+  // intact across edits because this legacy screen has no UI for them
+  // — wiping them would silently demote a B&B/office back to apartment.
+  const [originalPropertyType, setOriginalPropertyType] = useState<string | null>(null);
+  const [originalNumRooms, setOriginalNumRooms] = useState<number | null>(null);
 
   // Address autocomplete — delegates to lib/api.searchAddresses which
   // uses Google Places API (New) as primary and falls back to Nominatim
@@ -257,13 +262,21 @@ export default function PropertyEditScreen() {
             longitude: row.longitude,
           });
         }
-        // Hydrate the typology sheet from the persisted DB columns. The
-        // typology.typology is derived from num_rooms because the DB
-        // doesn't yet store it as its own column.
+        // Hydrate the typology sheet. For properties created via the new
+        // wizard with property_type='apartment' the authoritative typology
+        // lives in row.type_details.typology — prefer that over deriving
+        // it from num_rooms which is lossy. Legacy rows just fall back.
+        const td = (row as { type_details?: { typology?: string; bedrooms?: number; bathrooms?: number } }).type_details ?? {};
+        const propertyType = (row as { property_type?: string }).property_type ?? "apartment";
+        const isApt = propertyType === "apartment";
+        const tdTypology = typeof td.typology === "string" ? td.typology : undefined;
+        setOriginalPropertyType(propertyType);
+        setOriginalNumRooms(row.num_rooms);
         setTypology({
-          typology: ROOMS_TO_TYPOLOGY(row.num_rooms),
-          bedrooms: Math.max(0, row.num_rooms - 1),
-          bathrooms: 1,
+          typology:
+            isApt && tdTypology ? tdTypology : ROOMS_TO_TYPOLOGY(row.num_rooms),
+          bedrooms: typeof td.bedrooms === "number" ? td.bedrooms : Math.max(0, row.num_rooms - 1),
+          bathrooms: typeof td.bathrooms === "number" ? td.bathrooms : 1,
           sqm: row.sqm ? String(row.sqm) : "",
         });
         setNotes(row.notes ?? "");
@@ -466,10 +479,20 @@ export default function PropertyEditScreen() {
     }
     setSaving(true);
     try {
+      // For non-apartment properties (office/restaurant/bnb/...) this legacy
+      // edit screen has no UI for the type-specific dimensions, so we keep
+      // num_rooms exactly as it was loaded. Computing it from the residential
+      // TypologySheet would silently rewrite an "ufficio · 12 postazioni"
+      // into "trilocale · 3 camere".
+      const isApt = !originalPropertyType || originalPropertyType === "apartment";
+      const numRoomsForSave = isApt
+        ? TYPOLOGY_TO_ROOMS[typology.typology] ?? 1
+        : originalNumRooms ?? 1;
+
       const payload = {
         name: name.trim(),
         address: address.trim(),
-        num_rooms: TYPOLOGY_TO_ROOMS[typology.typology] ?? 1,
+        num_rooms: numRoomsForSave,
         sqm: typology.sqm ? Number(typology.sqm) : null,
         notes: notes.trim() ? notes.trim() : null,
         photo_url: coverPhoto, // backward compat
@@ -519,6 +542,8 @@ export default function PropertyEditScreen() {
     isEdit,
     id,
     router,
+    originalPropertyType,
+    originalNumRooms,
   ]);
 
   // Cleanup debounce + abort on unmount

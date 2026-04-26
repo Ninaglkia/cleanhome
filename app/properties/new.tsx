@@ -5,19 +5,20 @@
 //   Step 3  Type-specific details (changes shape based on Step 1)
 //   Step 4  Address + name + cover photo
 //
-// Per the design brief: "fai una scelta a step con animazioni per ogni step".
-// We use Reanimated entering/exiting transitions on every step container so
-// the experience feels alive without depending on external Lottie files.
+// Premium visual redesign: SVG hero illustrations per step, micro-interactions
+// on type tiles, staggered card entrances, animated segmented progress bar,
+// and a glow CTA with sparkle icon on the final step.
 //
 // Editing existing properties still goes through /properties/edit — this
 // route is creation-only and will redirect any incoming `id` param there.
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -27,17 +28,36 @@ import {
   TextInput,
   View,
 } from "react-native";
+import MapView from "react-native-maps";
+import * as Location from "expo-location";
 import Animated, {
+  cancelAnimation,
+  Easing,
   FadeIn,
   FadeInDown,
   FadeOut,
-  SlideInRight,
-  SlideOutLeft,
+  interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import Svg, {
+  Circle,
+  Defs,
+  Ellipse,
+  G,
+  Line,
+  Path,
+  Polygon,
+  RadialGradient,
+  Rect,
+  Stop,
+} from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../lib/auth";
@@ -99,6 +119,377 @@ const TOTAL_STEPS = 4;
 const NAME_MAX = 60;
 const ADDRESS_MAX = 255;
 
+// ─────────────────────────── Spring configs ───────────────────────────
+
+const SPRING_SNAPPY  = { damping: 18, stiffness: 300, mass: 0.8 };
+const SPRING_GENTLE  = { damping: 22, stiffness: 180 };
+const SPRING_BOUNCY  = { damping: 10, stiffness: 220 };
+
+// ─────────────────────────── Hero illustrations (SVG) ─────────────────
+
+// Step 1: House with animated sparkles
+function HeroStep1() {
+  const pulse   = useSharedValue(1);
+  const spark1  = useSharedValue(0);
+  const spark2  = useSharedValue(0);
+  const spark3  = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.0,  { duration: 900, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+    spark1.value = withDelay(200,
+      withRepeat(
+        withSequence(withTiming(1, { duration: 600 }), withTiming(0, { duration: 400 })),
+        -1, false,
+      ),
+    );
+    spark2.value = withDelay(700,
+      withRepeat(
+        withSequence(withTiming(1, { duration: 500 }), withTiming(0, { duration: 500 })),
+        -1, false,
+      ),
+    );
+    spark3.value = withDelay(1100,
+      withRepeat(
+        withSequence(withTiming(1, { duration: 700 }), withTiming(0, { duration: 300 })),
+        -1, false,
+      ),
+    );
+    // Cancel infinite loops on unmount — otherwise Reanimated keeps
+    // running them after the screen leaves, leaking CPU/memory.
+    return () => {
+      cancelAnimation(pulse);
+      cancelAnimation(spark1);
+      cancelAnimation(spark2);
+      cancelAnimation(spark3);
+    };
+  }, [pulse, spark1, spark2, spark3]);
+
+  const houseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+  const s1Style = useAnimatedStyle(() => ({ opacity: spark1.value }));
+  const s2Style = useAnimatedStyle(() => ({ opacity: spark2.value }));
+  const s3Style = useAnimatedStyle(() => ({ opacity: spark3.value }));
+
+  return (
+    <View style={heroStyles.container}>
+      <Animated.View style={houseStyle}>
+        <Svg width={100} height={88} viewBox="0 0 100 88">
+          <Defs>
+            <RadialGradient id="houseBg" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor="#00c896" stopOpacity="0.18" />
+              <Stop offset="100%" stopColor="#006b55" stopOpacity="0.04" />
+            </RadialGradient>
+          </Defs>
+          {/* Base circle glow */}
+          <Circle cx="50" cy="50" r="44" fill="url(#houseBg)" />
+          {/* Roof */}
+          <Polygon points="50,14 82,42 18,42" fill="#006b55" opacity={0.9} />
+          <Polygon points="50,14 82,42 18,42" fill="none" stroke="#00c896" strokeWidth="1.5" opacity={0.6} />
+          {/* Chimney */}
+          <Rect x="62" y="22" width="7" height="14" rx="1" fill="#022420" opacity={0.7} />
+          {/* Walls */}
+          <Rect x="22" y="42" width="56" height="34" rx="3" fill="#e8fdf7" />
+          <Rect x="22" y="42" width="56" height="34" rx="3" fill="none" stroke="#006b55" strokeWidth="1.5" opacity={0.5} />
+          {/* Door */}
+          <Rect x="42" y="58" width="16" height="18" rx="2" fill="#006b55" opacity={0.8} />
+          <Circle cx="55" cy="67" r="1.5" fill="#00c896" />
+          {/* Windows */}
+          <Rect x="27" y="50" width="12" height="10" rx="2" fill="#00c896" opacity={0.3} />
+          <Rect x="61" y="50" width="12" height="10" rx="2" fill="#00c896" opacity={0.3} />
+          <Line x1="33" y1="50" x2="33" y2="60" stroke="#006b55" strokeWidth="1" opacity={0.4} />
+          <Line x1="27" y1="55" x2="39" y2="55" stroke="#006b55" strokeWidth="1" opacity={0.4} />
+          <Line x1="67" y1="50" x2="67" y2="60" stroke="#006b55" strokeWidth="1" opacity={0.4} />
+          <Line x1="61" y1="55" x2="73" y2="55" stroke="#006b55" strokeWidth="1" opacity={0.4} />
+        </Svg>
+      </Animated.View>
+      {/* Sparkles */}
+      <Animated.View style={[heroStyles.spark, { top: 8, right: 32 }, s1Style]}>
+        <Svg width={14} height={14} viewBox="0 0 14 14">
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#00c896" />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[heroStyles.spark, { top: 20, left: 28 }, s2Style]}>
+        <Svg width={10} height={10} viewBox="0 0 14 14">
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#00c896" opacity={0.7} />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[heroStyles.spark, { bottom: 14, right: 20 }, s3Style]}>
+        <Svg width={8} height={8} viewBox="0 0 14 14">
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#006b55" opacity={0.8} />
+        </Svg>
+      </Animated.View>
+    </View>
+  );
+}
+
+// Step 2: Calendar with cells lighting in sequence
+//
+// The day cells live in their own component so each can declare its
+// own hooks (useSharedValue + useAnimatedStyle) at the top level —
+// otherwise they would have to be declared inside a .map() in the
+// parent, which violates the Rules of Hooks and can crash on Hermes.
+function HeroCalCell({ index, even }: { index: number; even: boolean }) {
+  const opacity = useSharedValue(0.15);
+  useEffect(() => {
+    opacity.value = withDelay(
+      index * 200,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 350 }),
+          withTiming(0.15, { duration: 350 }),
+        ),
+        -1,
+        false,
+      ),
+    );
+    return () => { cancelAnimation(opacity); };
+  }, [index, opacity]);
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    backgroundColor: even ? "#00c896" : "#006b55",
+  }));
+  return <Animated.View style={[heroStyles.calCell, animStyle]} />;
+}
+
+function HeroStep2() {
+  const cells = [0, 1, 2, 3, 4, 5, 6, 7];
+  return (
+    <View style={heroStyles.container}>
+      <Svg width={110} height={96} viewBox="0 0 110 96">
+        <Defs>
+          <RadialGradient id="calBg" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#00c896" stopOpacity="0.12" />
+            <Stop offset="100%" stopColor="#006b55" stopOpacity="0.03" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx="55" cy="48" r="46" fill="url(#calBg)" />
+        {/* Calendar body */}
+        <Rect x="14" y="20" width="82" height="62" rx="8" fill="#ffffff" stroke="#d4e4e0" strokeWidth="1.5" />
+        {/* Header */}
+        <Rect x="14" y="20" width="82" height="20" rx="8" fill="#006b55" />
+        <Rect x="14" y="32" width="82" height="8" rx="0" fill="#006b55" />
+        {/* Calendar pins */}
+        <Rect x="29" y="14" width="5" height="12" rx="2.5" fill="#022420" opacity={0.7} />
+        <Rect x="76" y="14" width="5" height="12" rx="2.5" fill="#022420" opacity={0.7} />
+        {/* Month label */}
+        <Rect x="36" y="26" width="38" height="7" rx="3" fill="#00c896" opacity={0.6} />
+      </Svg>
+      {/* Animated day cells laid on top */}
+      <View style={heroStyles.calCells} pointerEvents="none">
+        {cells.map((c, i) => (
+          <HeroCalCell key={c} index={i} even={i % 2 === 0} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Step 3: Morphing shape that changes per property type
+function HeroStep3({ propertyType }: { propertyType: PropertyType | null }) {
+  const morphProgress = useSharedValue(0);
+  const float = useSharedValue(0);
+
+  useEffect(() => {
+    morphProgress.value = withSpring(1, SPRING_GENTLE);
+    // Cancel any running float loop before starting a new one — without
+    // this, every change of `propertyType` stacks an extra withRepeat on
+    // top of the previous one and the illustration appears to accelerate.
+    cancelAnimation(float);
+    float.value = 0;
+    float.value = withRepeat(
+      withSequence(
+        withTiming(-4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
+    );
+    return () => { cancelAnimation(float); };
+  }, [propertyType, morphProgress, float]);
+
+  const floatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: float.value }],
+  }));
+
+  const iconForType = () => {
+    switch (propertyType) {
+      case "office":     return "briefcase-outline";
+      case "restaurant": return "restaurant-outline";
+      case "bnb":        return "bed-outline";
+      case "shop":       return "storefront-outline";
+      case "house":      return "home-outline";
+      case "other":      return "shapes-outline";
+      default:           return "business-outline";
+    }
+  };
+
+  const tintForType = () => {
+    switch (propertyType) {
+      case "office":     return "#3a7bd5";
+      case "restaurant": return "#e85d4f";
+      case "bnb":        return "#b85ca0";
+      case "shop":       return "#d97a3a";
+      case "house":      return "#0d7d6c";
+      default:           return "#006b55";
+    }
+  };
+
+  const tint = tintForType();
+
+  return (
+    <View style={heroStyles.container}>
+      <Animated.View entering={FadeIn.duration(280)} style={floatStyle}>
+        <Svg width={110} height={96} viewBox="0 0 110 96">
+          <Defs>
+            <RadialGradient id="step3Bg" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={tint} stopOpacity="0.15" />
+              <Stop offset="100%" stopColor={tint} stopOpacity="0.03" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="55" cy="48" r="44" fill="url(#step3Bg)" />
+          {/* Outer ring */}
+          <Circle cx="55" cy="48" r="36" fill="none" stroke={tint} strokeWidth="1" strokeDasharray="4 6" opacity={0.4} />
+          {/* Inner card */}
+          <Rect x="28" y="26" width="54" height="44" rx="10" fill="#fff" stroke={tint} strokeWidth="1.5" opacity={0.9} />
+          {/* Icon placeholder rects — decorative */}
+          <Rect x="36" y="36" width="18" height="4" rx="2" fill={tint} opacity={0.5} />
+          <Rect x="36" y="44" width="30" height="3" rx="1.5" fill={tint} opacity={0.25} />
+          <Rect x="36" y="51" width="24" height="3" rx="1.5" fill={tint} opacity={0.18} />
+          {/* Bottom accent bar */}
+          <Rect x="28" y="60" width="54" height="10" rx="0" fill={tint} opacity={0.08} />
+          <Rect x="28" y="62" width="54" height="8" rx="0" fill="none" />
+          <Rect x="28" y="66" width="54" height="4" rx="0" fill={tint} opacity={0.15} />
+          {/* Checkmark top-right */}
+          <Circle cx="74" cy="32" r="8" fill={tint} opacity={0.9} />
+          <Path d="M70 32 L73 35 L78 29" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      </Animated.View>
+      <View style={[heroStyles.iconBadge, { backgroundColor: `${tint}18` }]}>
+        <Ionicons name={iconForType()} size={16} color={tint} />
+      </View>
+    </View>
+  );
+}
+
+// Step 4: Location pin with concentric pulse waves
+function HeroStep4({ validated }: { validated: boolean }) {
+  const wave1 = useSharedValue(0);
+  const wave2 = useSharedValue(0);
+  const wave3 = useSharedValue(0);
+  const pinScale = useSharedValue(1);
+
+  useEffect(() => {
+    const cfg = { duration: 1600, easing: Easing.out(Easing.exp) };
+    wave1.value = withRepeat(withTiming(1, cfg), -1, false);
+    wave2.value = withDelay(520, withRepeat(withTiming(1, cfg), -1, false));
+    wave3.value = withDelay(1040, withRepeat(withTiming(1, cfg), -1, false));
+    return () => {
+      cancelAnimation(wave1);
+      cancelAnimation(wave2);
+      cancelAnimation(wave3);
+    };
+  }, [wave1, wave2, wave3]);
+
+  useEffect(() => {
+    if (validated) {
+      pinScale.value = withSequence(
+        withSpring(1.25, SPRING_BOUNCY),
+        withSpring(1.0, SPRING_GENTLE),
+      );
+    }
+  }, [validated, pinScale]);
+
+  // Each wave gets its own useAnimatedStyle call at the top level — the
+  // helper-as-hook pattern violates Rules of Hooks even when the call
+  // count is stable.
+  const w1s = useAnimatedStyle(() => ({
+    opacity: interpolate(wave1.value, [0, 0.6, 1], [0.5, 0.18, 0]),
+    transform: [{ scale: interpolate(wave1.value, [0, 1], [0.4, 1]) }],
+  }));
+  const w2s = useAnimatedStyle(() => ({
+    opacity: interpolate(wave2.value, [0, 0.6, 1], [0.5, 0.18, 0]),
+    transform: [{ scale: interpolate(wave2.value, [0, 1], [0.4, 1]) }],
+  }));
+  const w3s = useAnimatedStyle(() => ({
+    opacity: interpolate(wave3.value, [0, 0.6, 1], [0.5, 0.18, 0]),
+    transform: [{ scale: interpolate(wave3.value, [0, 1], [0.4, 1]) }],
+  }));
+  const pinStyle = useAnimatedStyle(() => ({ transform: [{ scale: pinScale.value }] }));
+
+  const pinColor = validated ? "#00c896" : "#006b55";
+
+  return (
+    <View style={heroStyles.container}>
+      {/* Pulse rings */}
+      <Animated.View style={[heroStyles.waveRing, { width: 96, height: 96, borderRadius: 48, borderColor: pinColor }, w3s]} />
+      <Animated.View style={[heroStyles.waveRing, { width: 72, height: 72, borderRadius: 36, borderColor: pinColor }, w2s]} />
+      <Animated.View style={[heroStyles.waveRing, { width: 52, height: 52, borderRadius: 26, borderColor: pinColor }, w1s]} />
+      {/* Pin */}
+      <Animated.View style={pinStyle}>
+        <Svg width={52} height={64} viewBox="0 0 52 64">
+          <Path
+            d="M26 2 C12.7 2 2 12.7 2 26 C2 42 26 62 26 62 C26 62 50 42 50 26 C50 12.7 39.3 2 26 2 Z"
+            fill={pinColor}
+          />
+          <Circle cx="26" cy="26" r="10" fill="#fff" opacity={0.9} />
+          {validated && (
+            <Path d="M20 26 L24 30 L32 21" stroke={pinColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+        </Svg>
+      </Animated.View>
+    </View>
+  );
+}
+
+const heroStyles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 120,
+    marginBottom: 8,
+    position: "relative",
+  },
+  spark: {
+    position: "absolute",
+  },
+  calCells: {
+    position: "absolute",
+    top: 52,
+    left: 28,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: 82,
+    gap: 4,
+  },
+  calCell: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  iconBadge: {
+    position: "absolute",
+    bottom: 16,
+    right: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waveRing: {
+    position: "absolute",
+    borderWidth: 1.5,
+  },
+});
+
 // ─────────────────────────── Main component ───────────────────────────
 
 export default function NewPropertyWizard() {
@@ -114,8 +505,7 @@ export default function NewPropertyWizard() {
   // Step 2
   const [frequency, setFrequency] = useState<CleaningFrequency | null>(null);
 
-  // Step 3 — flexible per-type state. We keep it as a discriminated union
-  // so TS can narrow correctly when reading.
+  // Step 3
   const [details, setDetails] = useState<DraftDetails>({});
 
   // Step 4
@@ -127,8 +517,9 @@ export default function NewPropertyWizard() {
   } | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [searchingAddress, setSearchingAddress] = useState(false);
-  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = React.useRef<AbortController | null>(null);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // ── Step gating ──────────────────────────────────────────
   const canAdvance = useMemo(() => {
@@ -221,11 +612,11 @@ export default function NewPropertyWizard() {
 
   // ── Render ───────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
 
       <Header step={step} onBack={onBack} />
-      <ProgressBar step={step} />
+      <SegmentedProgressBar step={step} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -240,9 +631,10 @@ export default function NewPropertyWizard() {
           {step === 1 && (
             <Animated.View
               key="step-1"
-              entering={SlideInRight.duration(280)}
-              exiting={SlideOutLeft.duration(180)}
+              entering={FadeInDown.duration(260).springify()}
+              exiting={FadeOut.duration(160)}
             >
+              <HeroStep1 />
               <StepHeading
                 kicker="Step 1 di 4"
                 title="Cosa vuoi far pulire?"
@@ -252,9 +644,17 @@ export default function NewPropertyWizard() {
                 {PROPERTY_TYPES.map((t, i) => (
                   <TypeCard
                     key={t.id}
-                    delay={i * 40}
+                    delay={i * 55}
                     selected={propertyType === t.id}
-                    onPress={() => setPropertyType(t.id)}
+                    isAnySelected={propertyType !== null}
+                    onPress={() => {
+                      // Switching type wipes the previous type's details
+                      // so leftover values (e.g. covers from "restaurant"
+                      // when switching to "apartment") can never silently
+                      // satisfy the new type's validation in Step 3.
+                      if (propertyType !== t.id) setDetails({});
+                      setPropertyType(t.id);
+                    }}
                     icon={t.icon}
                     label={t.label}
                     sub={t.sub}
@@ -268,9 +668,10 @@ export default function NewPropertyWizard() {
           {step === 2 && (
             <Animated.View
               key="step-2"
-              entering={SlideInRight.duration(280)}
-              exiting={SlideOutLeft.duration(180)}
+              entering={FadeInDown.duration(260).springify()}
+              exiting={FadeOut.duration(160)}
             >
+              <HeroStep2 />
               <StepHeading
                 kicker="Step 2 di 4"
                 title="Ogni quanto vuoi pulire?"
@@ -295,9 +696,10 @@ export default function NewPropertyWizard() {
           {step === 3 && (
             <Animated.View
               key="step-3"
-              entering={SlideInRight.duration(280)}
-              exiting={SlideOutLeft.duration(180)}
+              entering={FadeInDown.duration(260).springify()}
+              exiting={FadeOut.duration(160)}
             >
+              <HeroStep3 propertyType={propertyType} />
               <StepHeading
                 kicker="Step 3 di 4"
                 title={titleForType(propertyType)}
@@ -314,9 +716,10 @@ export default function NewPropertyWizard() {
           {step === 4 && (
             <Animated.View
               key="step-4"
-              entering={SlideInRight.duration(280)}
-              exiting={SlideOutLeft.duration(180)}
+              entering={FadeInDown.duration(260).springify()}
+              exiting={FadeOut.duration(160)}
             >
+              <HeroStep4 validated={!!addressLatLng} />
               <StepHeading
                 kicker="Step 4 di 4"
                 title="Dove si trova?"
@@ -338,8 +741,12 @@ export default function NewPropertyWizard() {
               </View>
 
               <FieldLabel style={{ marginTop: 18 }}>Indirizzo</FieldLabel>
-              <View style={styles.inputWrap}>
-                <Ionicons name="location-outline" size={18} color={Colors.textTertiary} />
+              <View style={[styles.inputWrap, addressLatLng ? styles.inputWrapValidated : null]}>
+                <Ionicons
+                  name="location-outline"
+                  size={18}
+                  color={addressLatLng ? Colors.accent : Colors.textTertiary}
+                />
                 <TextInput
                   value={address}
                   onChangeText={onAddressChange}
@@ -350,7 +757,9 @@ export default function NewPropertyWizard() {
                   autoCapitalize="none"
                 />
                 {addressLatLng && (
-                  <Ionicons name="checkmark-circle" size={18} color={Colors.accent} />
+                  <Animated.View entering={FadeIn.duration(200)}>
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                  </Animated.View>
                 )}
               </View>
               {searchingAddress && (
@@ -358,16 +767,19 @@ export default function NewPropertyWizard() {
               )}
               {addressSuggestions.length > 0 && (
                 <View style={styles.suggestionsBox}>
-                  {addressSuggestions.slice(0, 5).map((s) => (
+                  {addressSuggestions.slice(0, 5).map((s, i) => (
                     <Pressable
                       key={s.placeId}
                       onPress={() => pickSuggestion(s)}
                       style={({ pressed }) => [
                         styles.suggestionRow,
+                        i === addressSuggestions.slice(0, 5).length - 1 && styles.suggestionRowLast,
                         pressed && { backgroundColor: Colors.surfaceElevated },
                       ]}
                     >
-                      <Ionicons name="location" size={14} color={Colors.secondary} />
+                      <View style={styles.suggestionDot}>
+                        <Ionicons name="location" size={12} color={Colors.secondary} />
+                      </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.suggestionTxt} numberOfLines={1}>
                           {s.mainText}
@@ -387,30 +799,52 @@ export default function NewPropertyWizard() {
                   Seleziona un indirizzo dalla lista per continuare
                 </Text>
               )}
+
+              {/* Alternative input: pick the location on a map. Useful when
+                  the autocomplete doesn't return a precise enough match
+                  (e.g. country houses, new buildings, Airbnb units). */}
+              <View style={styles.mapDivider}>
+                <View style={styles.mapDividerLine} />
+                <Text style={styles.mapDividerTxt}>oppure</Text>
+                <View style={styles.mapDividerLine} />
+              </View>
+              <Pressable
+                onPress={() => setMapPickerOpen(true)}
+                style={({ pressed }) => [
+                  styles.mapPickerBtn,
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <Ionicons name="map-outline" size={20} color={Colors.secondary} />
+                <Text style={styles.mapPickerTxt}>Scegli sulla mappa</Text>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              </Pressable>
             </Animated.View>
           )}
         </ScrollView>
 
-        {/* CTA */}
-        <View style={styles.ctaWrap}>
-          <Pressable
-            disabled={!canAdvance || saving}
-            onPress={onPrimary}
-            style={({ pressed }) => [
-              styles.cta,
-              (!canAdvance || saving) && styles.ctaDisabled,
-              pressed && canAdvance && !saving && { opacity: 0.92 },
-            ]}
-          >
-            <Text style={styles.ctaTxt}>
-              {step < TOTAL_STEPS ? "Avanti" : saving ? "Salvo…" : "Crea casa"}
-            </Text>
-            {step < TOTAL_STEPS && !saving && (
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
-            )}
-          </Pressable>
-        </View>
+        {/* CTA — always visible. When the current step isn't valid yet,
+            tapping it shakes + flashes a reminder of what's missing. */}
+        <PremiumCTA
+          step={step}
+          saving={saving}
+          canAdvance={canAdvance}
+          missingHint={missingHintForStep(step, propertyType)}
+          onPress={onPrimary}
+        />
       </KeyboardAvoidingView>
+
+      <MapPicker
+        visible={mapPickerOpen}
+        initial={addressLatLng}
+        onClose={() => setMapPickerOpen(false)}
+        onPick={(coord, formatted) => {
+          setAddressLatLng(coord);
+          setAddress(formatted);
+          setAddressSuggestions([]);
+          setMapPickerOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -418,28 +852,93 @@ export default function NewPropertyWizard() {
 // ─────────────────────────── Sub-components ───────────────────────────
 
 function Header({ step, onBack }: { step: number; onBack: () => void }) {
+  const backScale = useSharedValue(1);
+  const backStyle = useAnimatedStyle(() => ({ transform: [{ scale: backScale.value }] }));
+
   return (
     <View style={styles.header}>
-      <Pressable onPress={onBack} hitSlop={8} style={styles.headerBtn}>
-        <Ionicons name="chevron-back" size={22} color={Colors.text} />
-      </Pressable>
-      <Text style={styles.headerTitle}>Nuova casa</Text>
+      <Animated.View style={backStyle}>
+        <Pressable
+          onPress={onBack}
+          hitSlop={8}
+          style={styles.headerBtn}
+          onPressIn={() => { backScale.value = withSpring(0.88, SPRING_SNAPPY); }}
+          onPressOut={() => { backScale.value = withSpring(1.0, SPRING_SNAPPY); }}
+        >
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
+        </Pressable>
+      </Animated.View>
+      <Animated.Text
+        key={`header-${step}`}
+        entering={FadeInDown.duration(220)}
+        style={styles.headerTitle}
+      >
+        Nuova casa
+      </Animated.Text>
       <View style={styles.headerBtn} />
     </View>
   );
 }
 
-function ProgressBar({ step }: { step: number }) {
-  const ratio = useSharedValue(step / TOTAL_STEPS);
-  React.useEffect(() => {
-    ratio.value = withTiming(step / TOTAL_STEPS, { duration: 300 });
-  }, [step, ratio]);
-  const style = useAnimatedStyle(() => ({
-    width: `${ratio.value * 100}%`,
-  }));
+// Segmented 4-pill progress bar with glow on active segment
+function SegmentedProgressBar({ step }: { step: number }) {
   return (
-    <View style={styles.progressTrack}>
-      <Animated.View style={[styles.progressFill, style]} />
+    <View style={styles.progressWrap}>
+      {/* Step number row */}
+      <View style={styles.progressNums}>
+        {[1,2,3,4].map((n) => (
+          <Animated.Text
+            key={n}
+            style={[
+              styles.progressNum,
+              n === step && styles.progressNumActive,
+              n < step && styles.progressNumDone,
+            ]}
+          >
+            {n}
+          </Animated.Text>
+        ))}
+      </View>
+      {/* Segment track */}
+      <View style={styles.progressSegments}>
+        {[1,2,3,4].map((n) => (
+          <ProgressSegment key={n} index={n} step={step} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ProgressSegment({ index, step }: { index: number; step: number }) {
+  const fill = useSharedValue(0);
+  const glow = useSharedValue(0);
+
+  useEffect(() => {
+    if (index < step) {
+      fill.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
+      glow.value = withTiming(0, { duration: 200 });
+    } else if (index === step) {
+      fill.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
+      glow.value = withTiming(1, { duration: 300 });
+    } else {
+      fill.value = withTiming(0, { duration: 200 });
+      glow.value = withTiming(0, { duration: 200 });
+    }
+  }, [step, index, fill, glow]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${fill.value * 100}%`,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(glow.value, [0, 1], [0, 0.35]),
+    transform: [{ scaleY: interpolate(glow.value, [0, 1], [0, 1]) }],
+  }));
+
+  return (
+    <View style={styles.progressSegTrack}>
+      <Animated.View style={[styles.progressSegFill, fillStyle]} />
+      <Animated.View style={[styles.progressSegGlow, glowStyle]} />
     </View>
   );
 }
@@ -448,7 +947,7 @@ function StepHeading({
   kicker, title, subtitle,
 }: { kicker: string; title: string; subtitle: string }) {
   return (
-    <Animated.View entering={FadeInDown.duration(250)} style={{ marginBottom: 24 }}>
+    <Animated.View entering={FadeInDown.duration(240).delay(60)} style={{ marginBottom: 20 }}>
       <Text style={styles.kicker}>{kicker}</Text>
       <Text style={styles.headTitle}>{title}</Text>
       <Text style={styles.headSubtitle}>{subtitle}</Text>
@@ -456,11 +955,12 @@ function StepHeading({
   );
 }
 
-// Animated card for property types — scales up + shows checkmark when selected.
+// Premium type card with icon rotation, bounce, and dimming of unselected
 function TypeCard({
-  selected, onPress, icon, label, sub, tint, delay,
+  selected, isAnySelected, onPress, icon, label, sub, tint, delay,
 }: {
   selected: boolean;
+  isAnySelected: boolean;
   onPress: () => void;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -468,33 +968,67 @@ function TypeCard({
   tint: string;
   delay: number;
 }) {
-  const scale = useSharedValue(1);
-  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const scale     = useSharedValue(1);
+  const iconRot   = useSharedValue(0);
+  const dimOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (selected) {
+      iconRot.value = withSequence(
+        withTiming(5, { duration: 100 }),
+        withSpring(0, SPRING_BOUNCY),
+      );
+      dimOpacity.value = withTiming(1, { duration: 200 });
+    } else if (isAnySelected) {
+      dimOpacity.value = withTiming(0.55, { duration: 200 });
+    } else {
+      dimOpacity.value = withTiming(1, { duration: 200 });
+    }
+  }, [selected, isAnySelected, iconRot, dimOpacity]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: dimOpacity.value,
+  }));
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRot.value}deg` }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, SPRING_SNAPPY);
+  };
+  const handlePressOut = () => {
+    scale.value = withSpring(1.0, SPRING_BOUNCY);
+  };
+
   return (
     <Animated.View
-      entering={FadeInDown.duration(280).delay(delay)}
-      style={[styles.typeCardWrap, aStyle]}
+      entering={FadeInDown.duration(300).delay(delay)}
+      style={[styles.typeCardWrap, cardStyle]}
     >
       <Pressable
-        onPress={() => {
-          scale.value = withSpring(0.96, { damping: 12 }, () => {
-            scale.value = withSpring(1, { damping: 10 });
-          });
-          onPress();
-        }}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`${label}, ${sub}`}
         style={[
           styles.typeCard,
-          selected && { borderColor: tint, backgroundColor: `${tint}10` },
+          selected && { borderColor: tint, borderWidth: 2, backgroundColor: `${tint}0e` },
         ]}
       >
-        <View style={[styles.typeIconCircle, { backgroundColor: `${tint}1a` }]}>
+        <Animated.View style={[styles.typeIconCircle, { backgroundColor: `${tint}1a` }, iconStyle]}>
           <Ionicons name={icon} size={26} color={tint} />
-        </View>
-        <Text style={styles.typeLabel} numberOfLines={1}>{label}</Text>
+        </Animated.View>
+        <Text style={styles.typeLabel} numberOfLines={2}>{label}</Text>
         <Text style={styles.typeSub} numberOfLines={1}>{sub}</Text>
         {selected && (
-          <Animated.View entering={FadeIn.duration(180)} style={[styles.typeCheck, { backgroundColor: tint }]}>
-            <Ionicons name="checkmark" size={14} color="#fff" />
+          <Animated.View
+            entering={FadeIn.duration(160)}
+            style={[styles.typeCheck, { backgroundColor: tint }]}
+          >
+            <Ionicons name="checkmark" size={12} color="#fff" />
           </Animated.View>
         )}
       </Pressable>
@@ -512,10 +1046,21 @@ function FreqCard({
   badge: string;
   delay: number;
 }) {
+  const scale = useSharedValue(1);
+  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
   return (
-    <Animated.View entering={FadeInDown.duration(280).delay(delay)}>
+    <Animated.View
+      entering={FadeInDown.duration(300).delay(delay)}
+      style={aStyle}
+    >
       <Pressable
         onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.97, SPRING_SNAPPY); }}
+        onPressOut={() => { scale.value = withSpring(1.0, SPRING_BOUNCY); }}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`${label}, ${sub}, ${badge}`}
         style={[styles.freqCard, selected && styles.freqCardOn]}
       >
         <View style={{ flex: 1 }}>
@@ -555,17 +1100,22 @@ function Step3Details({
       <>
         <FieldLabel>Tipologia</FieldLabel>
         <View style={styles.chipsGrid}>
-          {APARTMENT_TYPOLOGIES.map((t) => {
+          {APARTMENT_TYPOLOGIES.map((t, i) => {
             const on = details.typology === t.id;
             return (
-              <Pressable
+              <Animated.View
                 key={t.id}
-                onPress={() => set("typology", t.id)}
-                style={[styles.chip, on && styles.chipOn]}
+                entering={FadeInDown.duration(260).delay(i * 40)}
+                style={styles.chipWrap}
               >
-                <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{t.label}</Text>
-                <Text style={[styles.chipSub, on && styles.chipSubOn]}>{t.sub}</Text>
-              </Pressable>
+                <Pressable
+                  onPress={() => set("typology", t.id)}
+                  style={[styles.chip, on && styles.chipOn]}
+                >
+                  <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{t.label}</Text>
+                  <Text style={[styles.chipSub, on && styles.chipSubOn]}>{t.sub}</Text>
+                </Pressable>
+              </Animated.View>
             );
           })}
         </View>
@@ -581,11 +1131,7 @@ function Step3Details({
         <FieldLabel>Superficie (mq)</FieldLabel>
         <SqmInput value={String(details.sqm ?? "")} onChange={(v) => set("sqm", onlyDigits(v))} />
         <FieldLabel style={{ marginTop: 18 }}>N° piani</FieldLabel>
-        <Stepper
-          value={Number(details.floors ?? 1)}
-          onChange={(n) => set("floors", n)}
-          min={1} max={5}
-        />
+        <Stepper value={Number(details.floors ?? 1)} onChange={(n) => set("floors", n)} min={1} max={5} />
         <FieldLabel style={{ marginTop: 18 }}>Giardino</FieldLabel>
         <YesNoToggle value={!!details.has_garden} onChange={(v) => set("has_garden", v)} />
       </>
@@ -597,12 +1143,6 @@ function Step3Details({
       <>
         <FieldLabel>Superficie (mq)</FieldLabel>
         <SqmInput value={String(details.sqm ?? "")} onChange={(v) => set("sqm", onlyDigits(v))} />
-        <FieldLabel style={{ marginTop: 18 }}>N° postazioni</FieldLabel>
-        <Stepper
-          value={Number(details.desks ?? 1)}
-          onChange={(n) => set("desks", n)}
-          min={1} max={200}
-        />
       </>
     );
   }
@@ -613,11 +1153,7 @@ function Step3Details({
         <FieldLabel>Superficie (mq)</FieldLabel>
         <SqmInput value={String(details.sqm ?? "")} onChange={(v) => set("sqm", onlyDigits(v))} />
         <FieldLabel style={{ marginTop: 18 }}>N° coperti</FieldLabel>
-        <Stepper
-          value={Number(details.covers ?? 20)}
-          onChange={(n) => set("covers", n)}
-          min={1} max={500}
-        />
+        <Stepper value={Number(details.covers ?? 20)} onChange={(n) => set("covers", n)} min={1} max={500} />
         <FieldLabel style={{ marginTop: 18 }}>Cucina interna da pulire</FieldLabel>
         <YesNoToggle value={!!details.has_kitchen} onChange={(v) => set("has_kitchen", v)} />
       </>
@@ -628,17 +1164,9 @@ function Step3Details({
     return (
       <>
         <FieldLabel>N° camere</FieldLabel>
-        <Stepper
-          value={Number(details.bedrooms ?? 1)}
-          onChange={(n) => set("bedrooms", n)}
-          min={1} max={20}
-        />
+        <Stepper value={Number(details.bedrooms ?? 1)} onChange={(n) => set("bedrooms", n)} min={1} max={20} />
         <FieldLabel style={{ marginTop: 18 }}>N° bagni</FieldLabel>
-        <Stepper
-          value={Number(details.bathrooms ?? 1)}
-          onChange={(n) => set("bathrooms", n)}
-          min={1} max={10}
-        />
+        <Stepper value={Number(details.bathrooms ?? 1)} onChange={(n) => set("bathrooms", n)} min={1} max={10} />
       </>
     );
   }
@@ -678,45 +1206,93 @@ function Step3Details({
 }
 
 function SqmInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const n = Number(value);
+  const hasValue = value.length > 0 && Number.isFinite(n) && n > 0;
+  // Surface both ends of the valid range so the user gets feedback on
+  // typos like "1" (too small) and "9999" (too big) instead of just
+  // seeing the CTA stay disabled.
+  const showFloorHint   = hasValue && n < MIN_SQM;
+  const showCeilingHint = hasValue && n > MAX_SQM;
+  const isInvalid       = showFloorHint || showCeilingHint;
   return (
-    <View style={styles.inputWrap}>
-      <Ionicons name="resize-outline" size={18} color={Colors.textTertiary} />
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        placeholder="Es. 85"
-        placeholderTextColor={Colors.textTertiary}
-        keyboardType="number-pad"
-        style={styles.inputText}
-        maxLength={4}
-      />
-      <Text style={styles.unitTxt}>m²</Text>
-    </View>
+    <>
+      <View style={[styles.inputWrap, isInvalid && styles.inputWrapInvalid]}>
+        <Ionicons
+          name="resize-outline"
+          size={18}
+          color={isInvalid ? "#c95c5c" : Colors.textTertiary}
+        />
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          placeholder="Es. 85"
+          placeholderTextColor={Colors.textTertiary}
+          keyboardType="number-pad"
+          style={styles.inputText}
+          maxLength={4}
+          accessibilityLabel="Superficie in metri quadrati"
+        />
+        <Text style={styles.unitTxt}>m²</Text>
+      </View>
+      {showFloorHint && (
+        <Text style={styles.errorHint}>
+          La superficie minima è {MIN_SQM} m². Controlla il valore inserito.
+        </Text>
+      )}
+      {showCeilingHint && (
+        <Text style={styles.errorHint}>
+          La superficie massima è {MAX_SQM} m².
+        </Text>
+      )}
+    </>
   );
 }
 
 function Stepper({
   value, onChange, min, max,
 }: { value: number; onChange: (n: number) => void; min: number; max: number }) {
+  const scaleM = useSharedValue(1);
+  const scaleP = useSharedValue(1);
+  const numScale = useSharedValue(1);
+
+  const bump = (sv: ReturnType<typeof useSharedValue<number>>) => {
+    sv.value = withSequence(
+      withSpring(0.88, SPRING_SNAPPY),
+      withSpring(1.0, SPRING_BOUNCY),
+    );
+    numScale.value = withSequence(
+      withTiming(1.18, { duration: 80 }),
+      withSpring(1.0, SPRING_BOUNCY),
+    );
+  };
+
+  const minusStyle = useAnimatedStyle(() => ({ transform: [{ scale: scaleM.value }] }));
+  const plusStyle  = useAnimatedStyle(() => ({ transform: [{ scale: scaleP.value }] }));
+  const numStyle   = useAnimatedStyle(() => ({ transform: [{ scale: numScale.value }] }));
+
   return (
     <View style={styles.stepper}>
-      <Pressable
-        style={[styles.stepBtn, value <= min && styles.stepBtnDisabled]}
-        onPress={() => onChange(Math.max(min, value - 1))}
-        disabled={value <= min}
-        hitSlop={8}
-      >
-        <Ionicons name="remove" size={20} color={value <= min ? Colors.textTertiary : Colors.text} />
-      </Pressable>
-      <Text style={styles.stepValue}>{value}</Text>
-      <Pressable
-        style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
-        onPress={() => onChange(Math.min(max, value + 1))}
-        disabled={value >= max}
-        hitSlop={8}
-      >
-        <Ionicons name="add" size={20} color={value >= max ? Colors.textTertiary : Colors.text} />
-      </Pressable>
+      <Animated.View style={minusStyle}>
+        <Pressable
+          style={[styles.stepBtn, value <= min && styles.stepBtnDisabled]}
+          onPress={() => { bump(scaleM); onChange(Math.max(min, value - 1)); }}
+          disabled={value <= min}
+          hitSlop={8}
+        >
+          <Ionicons name="remove" size={20} color={value <= min ? Colors.textTertiary : Colors.text} />
+        </Pressable>
+      </Animated.View>
+      <Animated.Text style={[styles.stepValue, numStyle]}>{value}</Animated.Text>
+      <Animated.View style={plusStyle}>
+        <Pressable
+          style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
+          onPress={() => { bump(scaleP); onChange(Math.min(max, value + 1)); }}
+          disabled={value >= max}
+          hitSlop={8}
+        >
+          <Ionicons name="add" size={20} color={value >= max ? Colors.textTertiary : Colors.text} />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -736,10 +1312,445 @@ function YesNoToggle({
         onPress={() => onChange(true)}
         style={[styles.toggleBtn, value && styles.toggleBtnOn]}
       >
-        <Text style={[styles.toggleTxt, value && styles.toggleTxtOn]}>Sì</Text>
+        <Text style={[styles.toggleTxt, value && styles.toggleTxtOn]}>Si</Text>
       </Pressable>
     </View>
   );
+}
+
+// ─── Premium CTA ─────────────────────────────────────────────────────
+
+function PremiumCTA({
+  step, saving, canAdvance, missingHint, onPress,
+}: {
+  step: number;
+  saving: boolean;
+  canAdvance: boolean;
+  missingHint: string;
+  onPress: () => void;
+}) {
+  const scale       = useSharedValue(0.92);
+  const glowOp      = useSharedValue(0);
+  const pressScale  = useSharedValue(1);
+  const sparkRot    = useSharedValue(0);
+  const shakeX      = useSharedValue(0);
+  const hintOp      = useSharedValue(0);
+  const [hintVisible, setHintVisible] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLast      = step === TOTAL_STEPS;
+
+  // Entrance animation
+  useEffect(() => {
+    scale.value = withSpring(1.0, { damping: 14, stiffness: 200 });
+    glowOp.value = withSequence(
+      withTiming(0.6, { duration: 300 }),
+      withTiming(0.15, { duration: 300 }),
+    );
+    if (isLast) {
+      sparkRot.value = withRepeat(
+        withTiming(360, { duration: 2400, easing: Easing.linear }),
+        -1,
+        false,
+      );
+    }
+    return () => { cancelAnimation(sparkRot); };
+  }, [scale, glowOp, sparkRot, isLast]);
+
+  // Re-animate glow when canAdvance flips true → user just satisfied the step
+  useEffect(() => {
+    if (canAdvance) {
+      glowOp.value = withSequence(
+        withTiming(0.7, { duration: 250 }),
+        withTiming(0.2, { duration: 350 }),
+      );
+    }
+  }, [canAdvance, glowOp]);
+
+  // Cleanup hint timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    };
+  }, []);
+
+  const wrapStyle  = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }, { translateX: shakeX.value }],
+  }));
+  const glowStyle  = useAnimatedStyle(() => ({
+    opacity: canAdvance ? glowOp.value : 0,
+  }));
+  const sparkStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${sparkRot.value}deg` }],
+  }));
+  const hintStyle  = useAnimatedStyle(() => ({ opacity: hintOp.value }));
+
+  const triggerShake = () => {
+    // Mount the hint, fade it in, run the shake, then fade it out after 1.8s.
+    setHintVisible(true);
+    hintOp.value = withTiming(1, { duration: 160 });
+    shakeX.value = withSequence(
+      withTiming(-10, { duration: 55 }),
+      withTiming(10, { duration: 55 }),
+      withTiming(-8, { duration: 50 }),
+      withTiming(8, { duration: 50 }),
+      withTiming(-4, { duration: 45 }),
+      withTiming(0, { duration: 45 }),
+    );
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => {
+      hintOp.value = withTiming(0, { duration: 220 });
+      // Unmount after the fade
+      setTimeout(() => setHintVisible(false), 240);
+    }, 1800);
+  };
+
+  const handlePress = () => {
+    if (saving) return;
+    if (!canAdvance) {
+      triggerShake();
+      return;
+    }
+    onPress();
+  };
+
+  const handlePressIn = () => {
+    if (!saving) pressScale.value = withSpring(0.97, SPRING_SNAPPY);
+  };
+  const handlePressOut = () => {
+    pressScale.value = withSpring(1.0, SPRING_SNAPPY);
+  };
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(220)}
+      style={[styles.ctaWrap, wrapStyle]}
+    >
+      {/* Reminder shown when the user taps the CTA before satisfying the step */}
+      {hintVisible && (
+        <Animated.View style={[styles.ctaHint, hintStyle]} pointerEvents="none">
+          <Ionicons name="alert-circle" size={14} color="#c95c5c" />
+          <Text style={styles.ctaHintTxt}>{missingHint}</Text>
+        </Animated.View>
+      )}
+      {/* Glow layer behind button (only when CTA is enabled) */}
+      <Animated.View style={[styles.ctaGlow, glowStyle]} />
+      <Animated.View style={pressStyle}>
+        <Pressable
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canAdvance || saving }}
+          accessibilityLabel={isLast ? "Crea casa" : "Avanti al prossimo step"}
+          accessibilityHint={!canAdvance ? missingHint : undefined}
+          style={[styles.cta, !canAdvance && styles.ctaDisabled]}
+        >
+          <Text style={[styles.ctaTxt, !canAdvance && styles.ctaTxtDisabled]}>
+            {isLast ? (saving ? "Salvo…" : "Crea casa") : "Avanti"}
+          </Text>
+          {!saving && isLast && canAdvance && (
+            <Animated.View style={sparkStyle}>
+              <Svg width={18} height={18} viewBox="0 0 18 18">
+                <Path
+                  d="M9 1 L10.2 7.2 L16 9 L10.2 10.8 L9 17 L7.8 10.8 L2 9 L7.8 7.2 Z"
+                  fill="#fff"
+                />
+              </Svg>
+            </Animated.View>
+          )}
+          {!saving && !isLast && canAdvance && (
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          )}
+        </Pressable>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+// Map picker modal — full-screen sheet with a static center pin.
+// User pans the map under the pin, taps "Conferma" → reverse-geocode
+// the center coordinate via expo-location and bubble both the coord and
+// the formatted address up to the wizard.
+function MapPicker({
+  visible, initial, onClose, onPick,
+}: {
+  visible: boolean;
+  initial: { latitude: number; longitude: number } | null;
+  onClose: () => void;
+  onPick: (coord: { latitude: number; longitude: number }, formatted: string) => void;
+}) {
+  const [center, setCenter] = useState(
+    initial ?? { latitude: 45.4642, longitude: 9.1900 } // default Milano
+  );
+  const [resolving, setResolving] = useState(false);
+  const [previewAddress, setPreviewAddress] = useState<string>("");
+
+  // Search state — Google Places autocomplete just like in step 4 input.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<AddressSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef    = useRef<AbortController | null>(null);
+  const mapRef = useRef<MapView>(null);
+  // Suppress reverse-geocoding while the map is animating to a search
+  // result, so the preview card doesn't flicker between intermediate
+  // coordinates picked up from onRegionChangeComplete during the fly-to.
+  const ignoreNextRegionChangeRef = useRef(false);
+
+  // Re-center the map when the modal re-opens with a fresh initial coord.
+  useEffect(() => {
+    if (visible && initial) setCenter(initial);
+  }, [visible, initial]);
+
+  // Reset search state every time the modal closes so the next open is clean.
+  useEffect(() => {
+    if (!visible) {
+      setSearchQuery("");
+      setSearchResults([]);
+    }
+  }, [visible]);
+
+  // Reverse-geocode the current center every time the user stops panning,
+  // so the bottom card shows what address they're hovering on.
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setResolving(true);
+    (async () => {
+      try {
+        const results = await Location.reverseGeocodeAsync({
+          latitude: center.latitude,
+          longitude: center.longitude,
+        });
+        if (cancelled) return;
+        const r = results[0];
+        const formatted = formatReverseGeocode(r);
+        setPreviewAddress(formatted || "Indirizzo non riconosciuto");
+      } catch {
+        if (!cancelled) setPreviewAddress("Indirizzo non riconosciuto");
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [center, visible]);
+
+  // ── Search autocomplete (debounced, abortable) ──────────────
+  const onSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    if (text.trim().length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      searchAbortRef.current = ctrl;
+      setSearching(true);
+      try {
+        const results = await searchAddresses(text, ctrl.signal);
+        if (!ctrl.signal.aborted) setSearchResults(results);
+      } catch {
+        // user is still typing
+      } finally {
+        if (!ctrl.signal.aborted) setSearching(false);
+      }
+    }, 300);
+  };
+
+  const pickSearchResult = (s: AddressSuggestion) => {
+    const target = { latitude: s.latitude, longitude: s.longitude };
+    const fullLabel = s.secondaryText
+      ? `${s.mainText}, ${s.secondaryText}`
+      : s.mainText;
+    // Update the preview immediately so the user doesn't see stale text
+    // while the map flies to the new coordinate.
+    setPreviewAddress(fullLabel);
+    setResolving(false);
+    setSearchResults([]);
+    setSearchQuery(fullLabel);
+    ignoreNextRegionChangeRef.current = true;
+    mapRef.current?.animateToRegion({
+      ...target,
+      latitudeDelta: 0.012,
+      longitudeDelta: 0.012,
+    }, 600);
+    // Update center after the animation so subsequent reverse-geocodes
+    // start from the chosen point.
+    setTimeout(() => {
+      setCenter(target);
+      ignoreNextRegionChangeRef.current = false;
+    }, 650);
+  };
+
+  const handleConfirm = () => {
+    onPick(center, previewAddress);
+  };
+
+  // Mount MapView only while the modal is open. RN Modal keeps children
+  // mounted with visible=false unless we gate them ourselves; an idle
+  // MapView in the background still consumes location/GPU.
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.mapModalRoot} edges={["top", "bottom"]}>
+        <View style={styles.mapModalHeader}>
+          <Pressable onPress={onClose} hitSlop={10} style={styles.mapModalClose}>
+            <Ionicons name="close" size={22} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.mapModalTitle}>Scegli sulla mappa</Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <MapView
+            ref={mapRef}
+            style={StyleSheet.absoluteFillObject}
+            initialRegion={{
+              latitude: center.latitude,
+              longitude: center.longitude,
+              latitudeDelta: 0.012,
+              longitudeDelta: 0.012,
+            }}
+            onRegionChangeComplete={(r) => {
+              if (ignoreNextRegionChangeRef.current) return;
+              setCenter({ latitude: r.latitude, longitude: r.longitude });
+            }}
+            showsUserLocation
+            showsMyLocationButton
+          />
+          {/* Static center pin overlaying the map */}
+          <View pointerEvents="none" style={styles.mapPinAnchor}>
+            <View style={styles.mapPinShadow} />
+            <Ionicons name="location" size={42} color={Colors.secondary} />
+          </View>
+
+          {/* Search bar floating on top of the map (Google-Maps style) */}
+          <View style={styles.mapSearchBar}>
+            <Ionicons name="search" size={18} color={Colors.textSecondary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={onSearchChange}
+              placeholder="Cerca indirizzo, città, locale…"
+              placeholderTextColor={Colors.textTertiary}
+              style={styles.mapSearchInput}
+              autoCapitalize="none"
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable
+                onPress={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Search suggestions dropdown */}
+          {(searching || searchResults.length > 0) && searchQuery.length >= 3 && (
+            <View style={styles.mapSearchResults}>
+              {searching && searchResults.length === 0 && (
+                <Text style={styles.mapSearchLoading}>Cerco…</Text>
+              )}
+              {searchResults.slice(0, 6).map((s) => (
+                <Pressable
+                  key={s.placeId}
+                  onPress={() => pickSearchResult(s)}
+                  style={({ pressed }) => [
+                    styles.mapSearchRow,
+                    pressed && { backgroundColor: Colors.surfaceElevated },
+                  ]}
+                >
+                  <Ionicons name="location-outline" size={16} color={Colors.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mapSearchRowMain} numberOfLines={1}>
+                      {s.mainText}
+                    </Text>
+                    {!!s.secondaryText && (
+                      <Text style={styles.mapSearchRowSub} numberOfLines={1}>
+                        {s.secondaryText}
+                      </Text>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.mapPreviewCard}>
+          <Ionicons
+            name={resolving ? "search-outline" : "location"}
+            size={20}
+            color={resolving ? Colors.textTertiary : Colors.secondary}
+          />
+          <Text style={styles.mapPreviewTxt} numberOfLines={2}>
+            {resolving ? "Cerco indirizzo…" : previewAddress}
+          </Text>
+        </View>
+
+        <View style={styles.mapModalFooter}>
+          <Pressable
+            onPress={handleConfirm}
+            disabled={resolving || !previewAddress}
+            style={({ pressed }) => [
+              styles.mapConfirmBtn,
+              (resolving || !previewAddress) && styles.mapConfirmBtnDisabled,
+              pressed && { opacity: 0.92 },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.mapConfirmTxt}>Conferma indirizzo</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// Build a single-line address string from expo-location's reverseGeocode
+// result. The shape varies by provider (Apple/Google) — we pick the most
+// useful fields and skip anything missing.
+function formatReverseGeocode(r: Location.LocationGeocodedAddress | undefined): string {
+  if (!r) return "";
+  const street = r.street ?? r.name ?? "";
+  const num = r.streetNumber ? ` ${r.streetNumber}` : "";
+  const city = r.city ?? r.subregion ?? "";
+  const region = r.region ? `, ${r.region}` : "";
+  const parts = [
+    `${street}${num}`.trim(),
+    city,
+  ].filter(Boolean);
+  return parts.join(", ") + region;
+}
+
+// What's missing on each step — drives the reminder shown when the user
+// taps "Avanti" before completing the current step.
+function missingHintForStep(step: number, propertyType: PropertyType | null): string {
+  switch (step) {
+    case 1: return "Scegli il tipo di proprietà";
+    case 2: return "Scegli ogni quanto vuoi pulire";
+    case 3:
+      switch (propertyType) {
+        case "apartment":  return `Scegli tipologia e mq (min ${MIN_SQM})`;
+        case "house":      return `Superficie minima ${MIN_SQM} m²`;
+        case "office":     return `Superficie minima ${MIN_SQM} m²`;
+        case "restaurant": return `Superficie minima ${MIN_SQM} m²`;
+        case "bnb":        return "Imposta camere e bagni";
+        case "shop":       return `Superficie minima ${MIN_SQM} m²`;
+        case "other":      return `Compila descrizione e mq (min ${MIN_SQM})`;
+        default:           return "Compila i dettagli";
+      }
+    case 4: return "Inserisci nome e seleziona un indirizzo dalla lista";
+    default: return "Compila tutti i campi richiesti";
+  }
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
@@ -757,16 +1768,26 @@ function titleForType(t: PropertyType | null): string {
   }
 }
 
+// Minimum sqm to consider the input plausible. 1-12 m² values are obvious
+// garbage; a real Italian monolocale starts around 25-30 m² so we set the
+// floor at 30 to filter junk while still accepting tiny studios.
+const MIN_SQM = 30;
+const MAX_SQM = 2000;
+
 function isStep3Valid(t: PropertyType | null, d: DraftDetails): boolean {
   if (!t) return false;
+  const sqmOk = Number(d.sqm ?? 0) >= MIN_SQM && Number(d.sqm ?? 0) <= MAX_SQM;
+  // Stepper-backed fields default to a non-zero value so they can't be the
+  // only validation trigger — we require sqm ≥ MIN_SQM for every type that
+  // shows it, plus an explicit choice (typology / description) on top.
   switch (t) {
-    case "apartment":  return !!d.typology;
-    case "house":      return Number(d.floors ?? 0) >= 1;
-    case "office":     return Number(d.desks ?? 0) >= 1;
-    case "restaurant": return Number(d.covers ?? 0) >= 1;
+    case "apartment":  return !!d.typology && sqmOk;
+    case "house":      return sqmOk;
+    case "office":     return sqmOk;
+    case "restaurant": return sqmOk;
     case "bnb":        return Number(d.bedrooms ?? 0) >= 1 && Number(d.bathrooms ?? 0) >= 1;
-    case "shop":       return Number(d.sqm ?? 0) >= 1;
-    case "other":      return String(d.description ?? "").trim().length > 0;
+    case "shop":       return sqmOk;
+    case "other":      return sqmOk && String(d.description ?? "").trim().length > 0;
   }
 }
 
@@ -775,7 +1796,6 @@ function deriveNumRooms(t: PropertyType | null, d: DraftDetails): number {
     return TYPOLOGY_TO_ROOMS[d.typology] ?? 1;
   }
   if (t === "bnb") return Number(d.bedrooms ?? 1);
-  // Non-residential: pricing engine doesn't care about num_rooms; default to 1
   return 1;
 }
 
@@ -801,7 +1821,7 @@ function buildPersistedDetails(t: PropertyType, d: DraftDetails): PropertyTypeDe
         has_garden: !!d.has_garden,
       };
     case "office":
-      return { kind: "office", desks: Number(d.desks ?? 1) };
+      return { kind: "office", desks: 0 };
     case "restaurant":
       return {
         kind: "restaurant",
@@ -846,19 +1866,64 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  progressTrack: {
-    height: 3,
-    backgroundColor: Colors.borderLight,
-    marginHorizontal: 0,
+  // Segmented progress bar
+  progressWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 12,
+    paddingTop: 4,
   },
-  progressFill: {
+  progressNums: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 6,
+  },
+  progressNum: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.textTertiary,
+    letterSpacing: 0.2,
+  },
+  progressNumActive: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: Colors.secondary,
+  },
+  progressNumDone: {
+    color: Colors.accent,
+    fontWeight: "700",
+  },
+  progressSegments: {
+    flexDirection: "row",
+    gap: 5,
+  },
+  progressSegTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.borderLight,
+    overflow: "visible",
+    position: "relative",
+  },
+  progressSegFill: {
     height: "100%",
     backgroundColor: Colors.secondary,
+    borderRadius: 2,
+  },
+  progressSegGlow: {
+    position: "absolute",
+    bottom: -3,
+    left: 0,
+    right: 0,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.accent,
   },
 
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingBottom: 130,
   },
 
@@ -895,26 +1960,31 @@ const styles = StyleSheet.create({
   },
   typeCard: {
     backgroundColor: Colors.surface,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Colors.borderLight,
     borderRadius: Radius.lg,
     padding: 14,
     minHeight: 124,
-    ...Shadows.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   typeIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
   },
   typeLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
     color: Colors.text,
     marginBottom: 2,
+    lineHeight: 17,
   },
   typeSub: {
     fontSize: 11,
@@ -924,9 +1994,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -938,13 +2008,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 18,
     borderRadius: Radius.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Colors.borderLight,
     backgroundColor: Colors.surface,
-    ...Shadows.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   freqCardOn: {
     borderColor: Colors.secondary,
+    borderWidth: 2,
     backgroundColor: Colors.accentLight,
   },
   freqLabel: {
@@ -975,10 +2050,10 @@ const styles = StyleSheet.create({
 
   // Inputs
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     color: Colors.textSecondary,
-    letterSpacing: 1.2,
+    letterSpacing: 1.3,
     textTransform: "uppercase",
     marginBottom: 8,
   },
@@ -992,6 +2067,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceElevated,
+  },
+  inputWrapValidated: {
+    borderColor: Colors.accent,
+    borderWidth: 1.5,
+  },
+  inputWrapInvalid: {
+    borderColor: "#c95c5c",
+    backgroundColor: "#fff5f5",
   },
   inputText: {
     flex: 1,
@@ -1013,7 +2096,7 @@ const styles = StyleSheet.create({
   errorHint: {
     marginTop: 8,
     fontSize: 12,
-    color: "#c95c5c",
+    color: Colors.error,
   },
   suggestionsBox: {
     marginTop: 8,
@@ -1022,15 +2105,31 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
     backgroundColor: Colors.surface,
     overflow: "hidden",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   suggestionRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+  },
+  suggestionRowLast: {
+    borderBottomWidth: 0,
+  },
+  suggestionDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.accentLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   suggestionTxt: {
     fontSize: 13,
@@ -1043,14 +2142,19 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Chips (apartment typology)
+  // Chips (apartment typology) — 2-col grid. Width is set on the
+  // wrapping Animated.View because the Pressable inside doesn't get a
+  // proper parent reference for percentage widths.
   chipsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-  chip: {
+  chipWrap: {
     width: "48%",
+  },
+  chip: {
+    width: "100%",
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: Radius.md,
@@ -1060,6 +2164,7 @@ const styles = StyleSheet.create({
   },
   chipOn: {
     borderColor: Colors.secondary,
+    borderWidth: 2,
     backgroundColor: Colors.accentLight,
   },
   chipLabel: {
@@ -1088,21 +2193,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceElevated,
   },
   stepBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: Radius.sm,
     backgroundColor: Colors.surface,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   stepBtnDisabled: {
     backgroundColor: Colors.surfaceElevated,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   stepValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "900",
     color: Colors.text,
-    minWidth: 40,
+    minWidth: 44,
     textAlign: "center",
   },
 
@@ -1122,6 +2234,7 @@ const styles = StyleSheet.create({
   },
   toggleBtnOn: {
     borderColor: Colors.secondary,
+    borderWidth: 2,
     backgroundColor: Colors.secondary,
   },
   toggleTxt: {
@@ -1131,14 +2244,29 @@ const styles = StyleSheet.create({
   },
   toggleTxtOn: { color: "#fff" },
 
-  // CTA bottom
+  // CTA bottom — premium pill
   ctaWrap: {
     paddingHorizontal: Spacing.lg,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 18,
+    paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
     backgroundColor: Colors.surface,
+    position: "relative",
+  },
+  ctaGlow: {
+    position: "absolute",
+    top: 12,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.accent,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 0,
   },
   cta: {
     flexDirection: "row",
@@ -1147,15 +2275,235 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.primary,
-  },
-  ctaDisabled: {
-    backgroundColor: Colors.textTertiary,
+    backgroundColor: Colors.secondary,
+    shadowColor: Colors.secondary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
   ctaTxt: {
     fontSize: 15,
     fontWeight: "900",
     color: "#fff",
     letterSpacing: 0.5,
+  },
+  ctaDisabled: {
+    backgroundColor: Colors.borderLight,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  ctaTxtDisabled: {
+    color: Colors.textTertiary,
+  },
+  ctaHint: {
+    position: "absolute",
+    top: -8,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#ffe4e4",
+    borderWidth: 1,
+    borderColor: "#f5b8b8",
+    transform: [{ translateY: -36 }],
+  },
+  ctaHintTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#c95c5c",
+  },
+
+  // Map picker entry point on Step 4
+  mapDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 22,
+    marginBottom: 12,
+  },
+  mapDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.borderLight,
+  },
+  mapDividerTxt: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.textTertiary,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  mapPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceElevated,
+  },
+  mapPickerTxt: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+
+  // Map picker modal
+  mapModalRoot: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+  },
+  mapModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  mapModalClose: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+  mapPinAnchor: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginLeft: -21,
+    marginTop: -42, // anchor pin tip at the geographic center
+    alignItems: "center",
+  },
+  mapPinShadow: {
+    position: "absolute",
+    bottom: -2,
+    width: 12,
+    height: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  mapPreviewCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.sm,
+  },
+  mapPreviewTxt: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  mapModalFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    backgroundColor: Colors.surface,
+  },
+  mapConfirmBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.secondary,
+    ...Shadows.md,
+  },
+  mapConfirmBtnDisabled: {
+    backgroundColor: Colors.borderLight,
+  },
+  mapConfirmTxt: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+
+  // Map search bar (floats over the MapView, Google-Maps style)
+  mapSearchBar: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.md,
+  },
+  mapSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.text,
+    paddingVertical: 0,
+  },
+  mapSearchResults: {
+    position: "absolute",
+    top: 68,
+    left: 12,
+    right: 12,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    paddingVertical: 4,
+    ...Shadows.lg,
+  },
+  mapSearchLoading: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: "italic",
+  },
+  mapSearchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  mapSearchRowMain: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  mapSearchRowSub: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 1,
   },
 });
