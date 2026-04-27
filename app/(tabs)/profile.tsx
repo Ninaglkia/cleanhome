@@ -14,9 +14,7 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
-// ImagePicker caricato dinamicamente — richiede rebuild nativo
-let ImagePicker: any = null;
-try { ImagePicker = require("expo-image-picker"); } catch {}
+import * as ImagePicker from "expo-image-picker";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -43,10 +41,6 @@ function useAvatarActions(
   const [previewVisible, setPreviewVisible] = useState(false);
 
   const requestPermission = async (type: "camera" | "gallery"): Promise<boolean> => {
-    if (!ImagePicker) {
-      Alert.alert("Non disponibile", "La funzionalità foto richiede un rebuild dell'app.");
-      return false;
-    }
     if (type === "camera") {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
@@ -63,7 +57,7 @@ function useAvatarActions(
     return true;
   };
 
-  const handlePickResult = async (result: any) => {
+  const handlePickResult = async (result: ImagePicker.ImagePickerResult) => {
     if (result.canceled || !result.assets?.length || !userId) return;
     const uri = result.assets[0].uri;
     setUploading(true);
@@ -290,6 +284,9 @@ function MenuRow({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={sublabel ? `${label}. ${sublabel}` : label}
+      accessibilityHint={danger ? "Azione irreversibile" : undefined}
       style={({ pressed }) => [
         styles.menuRow,
         cardStyle && styles.menuRowCard,
@@ -474,68 +471,28 @@ function CleanerView({
         />
       </View>
 
-      {/* ── Esci dall'account ── */}
-      <Pressable
-        onPress={onSignOut}
-        accessibilityLabel="Esci dall'account"
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          marginHorizontal: 16,
-          marginTop: 8,
-          marginBottom: 8,
-          paddingVertical: 16,
-          borderRadius: 14,
-          borderWidth: 1.5,
-          borderColor: "#E53E3E",
-          backgroundColor: "transparent",
-          transform: [{ scale: pressed ? 0.96 : 1 }],
-          opacity: pressed ? 0.7 : 1,
-        })}
-      >
-        <Ionicons name="log-out-outline" size={20} color="#E53E3E" />
-        <Text style={{ fontSize: 15, fontWeight: "700", color: "#E53E3E" }}>
-          Esci dall'account
-        </Text>
-      </Pressable>
+      {/* ── Zona Account ── */}
+      <View style={dangerStyles.section}>
+        <Text style={dangerStyles.sectionLabel}>ACCOUNT</Text>
 
-      {/* ── Elimina account (GDPR + App Store requirement) ── */}
-      <Pressable
-        onPress={onDeleteAccount}
-        accessibilityLabel="Elimina account permanentemente"
-        style={({ pressed }) => ({
-          alignSelf: "center",
-          marginTop: 4,
-          marginBottom: 16,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          opacity: pressed ? 0.5 : 0.7,
-        })}
-      >
-        <Text
-          style={{
-            fontSize: 12,
-            color: C.outline,
-            textDecorationLine: "underline",
-          }}
-        >
-          Elimina definitivamente l'account
-        </Text>
-      </Pressable>
+        <MenuRow
+          icon="log-out-outline"
+          label="Esci dall'account"
+          sublabel="Termina la sessione su questo dispositivo"
+          onPress={onSignOut}
+          danger
+          cardStyle
+        />
 
-      <Text
-        style={{
-          fontSize: 11,
-          color: "#a0a8a6",
-          textAlign: "center",
-          marginTop: 12,
-          marginBottom: 20,
-        }}
-      >
-        CleanHome v1.0.0
-      </Text>
+        <MenuRow
+          icon="trash-outline"
+          label="Elimina account"
+          sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
+          onPress={onDeleteAccount}
+          danger
+          cardStyle
+        />
+      </View>
 
     </>
   );
@@ -696,54 +653,28 @@ function ClientView({
         />
       </View>
 
-      {/* ── Esci dall'account — bottone in fondo ── */}
-      <Pressable
-        onPress={onSignOut}
-        accessibilityLabel="Esci dall'account"
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          marginHorizontal: 16,
-          marginTop: 24,
-          marginBottom: 16,
-          paddingVertical: 14,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: "#E53E3E",
-          backgroundColor: "transparent",
-          opacity: pressed ? 0.6 : 1,
-        })}
-      >
-        <Ionicons name="log-out-outline" size={18} color="#E53E3E" />
-        <Text style={{ fontSize: 15, fontWeight: "600", color: "#E53E3E" }}>
-          Esci dall'account
-        </Text>
-      </Pressable>
+      {/* ── Zona Account ── */}
+      <View style={dangerStyles.section}>
+        <Text style={dangerStyles.sectionLabel}>ACCOUNT</Text>
 
-      {/* ── Elimina account (GDPR + App Store requirement) ── */}
-      <Pressable
-        onPress={onDeleteAccount}
-        accessibilityLabel="Elimina account permanentemente"
-        style={({ pressed }) => ({
-          alignSelf: "center",
-          marginBottom: 24,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          opacity: pressed ? 0.5 : 0.7,
-        })}
-      >
-        <Text
-          style={{
-            fontSize: 12,
-            color: C.outline,
-            textDecorationLine: "underline",
-          }}
-        >
-          Elimina definitivamente l'account
-        </Text>
-      </Pressable>
+        <MenuRow
+          icon="log-out-outline"
+          label="Esci dall'account"
+          sublabel="Termina la sessione su questo dispositivo"
+          onPress={onSignOut}
+          danger
+          cardStyle
+        />
+
+        <MenuRow
+          icon="trash-outline"
+          label="Elimina account"
+          sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
+          onPress={onDeleteAccount}
+          danger
+          cardStyle
+        />
+      </View>
 
     </>
   );
@@ -1488,5 +1419,22 @@ const clientStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: C.error,
+  },
+});
+
+// ─── Danger zone styles (logout + delete account) ───────────────────────────
+const dangerStyles = StyleSheet.create({
+  section: {
+    paddingHorizontal: 20,
+    marginTop: 28,
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.outline,
+    letterSpacing: 1.4,
+    marginLeft: 4,
+    marginBottom: 4,
   },
 });

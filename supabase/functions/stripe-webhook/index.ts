@@ -23,6 +23,56 @@ import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Looks up a booking by stripe_payment_intent_id.
+ * Works for both direct PaymentIntent IDs and charge objects where we
+ * need to resolve through `payment_intent`.
+ */
+async function findBookingByPaymentIntent(
+  supabase: ReturnType<typeof createClient>,
+  paymentIntentId: string
+): Promise<{ id: string; client_id: string; cleaner_id: string } | null> {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, client_id, cleaner_id")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+  if (error) {
+    console.error("[findBookingByPaymentIntent]", error.message);
+    return null;
+  }
+  return data ?? null;
+}
+
+/**
+ * Inserts a push notification record via service-role (bypasses RLS INSERT
+ * restriction). The notifications table only allows SELECT/UPDATE for users;
+ * all writes come from server-side functions.
+ */
+async function insertNotification(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  type: string,
+  title: string,
+  body: string | null,
+  linkPath: string | null,
+  metadata: Record<string, unknown> = {}
+) {
+  const { error } = await supabase.from("notifications").insert({
+    user_id: userId,
+    type,
+    title,
+    body,
+    link_path: linkPath,
+    metadata,
+  });
+  if (error) {
+    console.error("[insertNotification]", error.message);
+  }
+}
+
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -124,6 +174,211 @@ serve(async (req: Request) => {
             stripe_details_submitted: !!acc.details_submitted,
           })
           .eq("stripe_account_id", acc.id);
+        break;
+      }
+
+      // ── Refund: total or partial ──────────────────────────────
+      // Fires after a successful refund. We find the booking via the
+      // PaymentIntent ID (stored on the charge object), update
+      // payment_status and refund_amount, and notify the cleaner.
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const piId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : (charge.payment_intent as Stripe.PaymentIntent | null)?.id;
+        if (!piId) break;
+
+        const booking = await findBookingByPaymentIntent(supabase, piId);
+        if (!booking) {
+          console.error("[charge.refunded] booking not found for PI", piId);
+          break;
+        }
+
+        // amount_refunded is in the smallest currency unit (cents/eurocents).
+        const refundAmount = charge.amount_refunded / 100;
+
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            payment_status: "refunded",
+            refund_amount: refundAmount,
+          })
+          .eq("id", booking.id);
+
+        if (updateErr) {
+          console.error("[charge.refunded] DB update failed:", updateErr.message);
+        }
+
+        // Notify the cleaner that the booking was refunded.
+        await insertNotification(
+          supabase,
+          booking.cleaner_id,
+          "payment_refunded",
+          "Rimborso effettuato",
+          `Una prenotazione è stata rimborsata di €${refundAmount.toFixed(2)}.`,
+          `/booking/${booking.id}`,
+          { booking_id: booking.id, refund_amount: refundAmount }
+        );
+        break;
+      }
+
+      // ── Chargeback opened ─────────────────────────────────────
+      // A customer has disputed a charge. We mark the booking as
+      // "disputed", block automatic payouts, and notify both parties.
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const piId =
+          typeof dispute.payment_intent === "string"
+            ? dispute.payment_intent
+            : (dispute.payment_intent as Stripe.PaymentIntent | null)?.id;
+        if (!piId) break;
+
+        const booking = await findBookingByPaymentIntent(supabase, piId);
+        if (!booking) {
+          console.error("[charge.dispute.created] booking not found for PI", piId);
+          break;
+        }
+
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            status: "disputed",
+            dispute_id: dispute.id,
+            payout_blocked: true,
+          })
+          .eq("id", booking.id);
+
+        if (updateErr) {
+          console.error(
+            "[charge.dispute.created] DB update failed:",
+            updateErr.message
+          );
+        }
+
+        // Notify both client and cleaner.
+        const disputeTitle = "Contestazione aperta";
+        const disputeBody =
+          "Una contestazione è stata aperta su questa prenotazione. Il nostro team la esaminerà.";
+        const disputePath = `/booking/${booking.id}`;
+        await Promise.all([
+          insertNotification(
+            supabase,
+            booking.client_id,
+            "booking_disputed",
+            disputeTitle,
+            disputeBody,
+            disputePath,
+            { booking_id: booking.id, dispute_id: dispute.id }
+          ),
+          insertNotification(
+            supabase,
+            booking.cleaner_id,
+            "booking_disputed",
+            disputeTitle,
+            disputeBody,
+            disputePath,
+            { booking_id: booking.id, dispute_id: dispute.id }
+          ),
+        ]);
+        break;
+      }
+
+      // ── Chargeback resolved ───────────────────────────────────
+      // The dispute has been closed. If the merchant won, restore the
+      // booking status to its previous state (completed) and unblock
+      // the payout. If lost, keep disputed but sync the outcome.
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const piId =
+          typeof dispute.payment_intent === "string"
+            ? dispute.payment_intent
+            : (dispute.payment_intent as Stripe.PaymentIntent | null)?.id;
+        if (!piId) break;
+
+        const booking = await findBookingByPaymentIntent(supabase, piId);
+        if (!booking) {
+          console.error("[charge.dispute.closed] booking not found for PI", piId);
+          break;
+        }
+
+        const won = dispute.status === "won";
+
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            // Restore to completed if we won; otherwise mark as dispute_lost.
+            // When lost, Stripe has already transferred funds back to the
+            // cardholder, so payment_status must reflect "refunded".
+            status: won ? "completed" : "dispute_lost",
+            payout_blocked: !won,
+            dispute_outcome: dispute.status,
+            ...(won ? {} : { payment_status: "refunded" }),
+          })
+          .eq("id", booking.id);
+
+        if (updateErr) {
+          console.error(
+            "[charge.dispute.closed] DB update failed:",
+            updateErr.message
+          );
+        }
+
+        const outcomeTitle = won
+          ? "Contestazione risolta a tuo favore"
+          : "Contestazione persa";
+        const outcomeBody = won
+          ? "La contestazione è stata chiusa a tuo favore. Il pagamento verrà svincolato."
+          : "La contestazione è stata chiusa a sfavore. Il rimborso è stato inviato al cliente.";
+
+        await Promise.all([
+          insertNotification(
+            supabase,
+            booking.client_id,
+            "dispute_resolved",
+            outcomeTitle,
+            outcomeBody,
+            `/booking/${booking.id}`,
+            { booking_id: booking.id, dispute_id: dispute.id, outcome: dispute.status }
+          ),
+          insertNotification(
+            supabase,
+            booking.cleaner_id,
+            "dispute_resolved",
+            outcomeTitle,
+            outcomeBody,
+            `/booking/${booking.id}`,
+            { booking_id: booking.id, dispute_id: dispute.id, outcome: dispute.status }
+          ),
+        ]);
+        break;
+      }
+
+      // ── PaymentIntent canceled (auto-expiry or explicit cancel) ──
+      case "payment_intent.canceled": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const md = (pi.metadata || {}) as Record<string, string>;
+        if (md.booking_type !== "cleaning") break;
+
+        // Find booking — may not exist if the PI was canceled before
+        // the booking was created (e.g., user abandoned payment sheet).
+        const booking = await findBookingByPaymentIntent(supabase, pi.id);
+        if (!booking) break;
+
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            status: "auto_cancelled",
+            payment_status: "failed",
+          })
+          .eq("id", booking.id);
+
+        if (updateErr) {
+          console.error(
+            "[payment_intent.canceled] DB update failed:",
+            updateErr.message
+          );
+        }
         break;
       }
 

@@ -40,9 +40,15 @@ import Animated, {
   withSpring,
   Easing,
   interpolateColor,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
+import {
+  fetchCleanerSetupProgress,
+  saveCleanerSetupProgress,
+  type CleanerSetupProgress,
+} from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 
 // ─── Step config ───────────────────────────────────────────────────────────
@@ -111,27 +117,42 @@ export default function CleanerSetupChecklistScreen() {
   const loadStatus = useCallback(async () => {
     if (!user) return;
     try {
-      const [{ data: cp }, { count: listingCount }] = await Promise.all([
-        supabase
-          .from("cleaner_profiles")
-          .select("avatar_url, stripe_onboarding_complete, stripe_charges_enabled")
-          .eq("id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("cleaner_listings")
-          .select("id", { count: "exact", head: true })
-          .eq("cleaner_id", user.id),
-      ]);
+      const [{ data: cp }, { count: listingCount }, savedProgress] =
+        await Promise.all([
+          supabase
+            .from("cleaner_profiles")
+            .select(
+              "avatar_url, stripe_onboarding_complete, stripe_charges_enabled"
+            )
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("cleaner_listings")
+            .select("id", { count: "exact", head: true })
+            .eq("cleaner_id", user.id),
+          fetchCleanerSetupProgress(user.id).catch(
+            (): CleanerSetupProgress => ({})
+          ),
+        ]);
 
-      setStatus({
-        profile: true,
-        photo: !!cp?.avatar_url,
+      const liveStatus: Record<StepKey, boolean> = {
+        profile: true, // wizard already saved profile
+        photo: !!cp?.avatar_url || !!(savedProgress as CleanerSetupProgress).photo,
         stripe:
-          !!cp?.stripe_onboarding_complete && !!cp?.stripe_charges_enabled,
-        listing: (listingCount ?? 0) > 0,
-      });
+          (!!cp?.stripe_onboarding_complete && !!cp?.stripe_charges_enabled) ||
+          !!(savedProgress as CleanerSetupProgress).stripe,
+        listing:
+          (listingCount ?? 0) > 0 ||
+          !!(savedProgress as CleanerSetupProgress).listing,
+      };
+
+      setStatus(liveStatus);
+
+      // Persist the derived state back so it survives re-installs
+      const all = Object.values(liveStatus).every(Boolean);
+      saveCleanerSetupProgress(user.id, liveStatus, all).catch(() => {});
     } catch (err) {
-      console.error("[cleaner-checklist] load error", err);
+      // Errore silenzioso: lo stato di fallback dei task riflette i defaults (tutto incompleto)
     } finally {
       setLoading(false);
     }
@@ -167,13 +188,17 @@ export default function CleanerSetupChecklistScreen() {
 
   const handleFinish = useCallback(async () => {
     await refreshProfile();
+    if (allDone && user) {
+      // Mark setup as complete before leaving
+      saveCleanerSetupProgress(user.id, status, true).catch(() => {});
+    }
     router.replace("/(tabs)/cleaner-home");
-  }, [router, refreshProfile]);
+  }, [router, refreshProfile, allDone, user, status]);
 
   // ── Render ────────────────────────────────────────────────────
   if (loading) {
     return (
-      <SafeAreaView style={styles.root}>
+      <SafeAreaView style={styles.root} edges={["top"]}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={Colors.secondary} />
         </View>
@@ -250,6 +275,8 @@ export default function CleanerSetupChecklistScreen() {
         {/* ── Footer CTA ── */}
         <Pressable
           onPress={handleFinish}
+          accessibilityRole="button"
+          accessibilityLabel={allDone ? "Vai alla dashboard" : "Continua alla dashboard, completa dopo"}
           style={({ pressed }) => [
             styles.finishBtn,
             allDone && styles.finishBtnPrimary,
@@ -308,7 +335,10 @@ function StepCard({
       entranceDelay,
       withSpring(0, { damping: 18, stiffness: 160 })
     );
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // entranceOpacity/entranceTranslate are Reanimated shared values — stable refs,
+    // including them would trigger redundant animations on every re-render.
+  }, [entranceDelay]);
 
   useEffect(() => {
     if (isNext && !done) {
@@ -337,6 +367,10 @@ function StepCard({
       pulse.value = withTiming(0, { duration: 300 });
       fingerX.value = withTiming(0, { duration: 300 });
     }
+    return () => {
+      cancelAnimation(pulse);
+      cancelAnimation(fingerX);
+    };
   }, [isNext, done]);
 
   const entranceStyle = useAnimatedStyle(() => ({
@@ -363,7 +397,13 @@ function StepCard({
 
   return (
     <Animated.View style={[entranceStyle]}>
-      <Pressable onPress={onPress} disabled={done}>
+      <Pressable
+        onPress={onPress}
+        disabled={done}
+        accessibilityRole="button"
+        accessibilityLabel={done ? `${step.title} completato` : `${step.title}. ${step.ctaLabel}`}
+        accessibilityState={{ disabled: done }}
+      >
         <Animated.View
           style={[
             styles.card,

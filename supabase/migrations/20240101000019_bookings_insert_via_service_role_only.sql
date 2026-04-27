@@ -1,0 +1,33 @@
+-- Migration 19: bookings — remove direct client INSERT access
+-- ============================================================================
+-- Drops the "clients can insert own bookings" RLS policy.
+--
+-- WHY this is a security issue:
+--   If clients can INSERT directly into public.bookings, they can supply
+--   any total_price, base_price, client_fee, and cleaner_fee values they
+--   want. There is nothing in the database that validates these amounts
+--   against the confirmed Stripe PaymentIntent — a malicious client could
+--   create a booking for €0 while Stripe was charged correctly, or forge
+--   a booking entirely without a PaymentIntent.
+--
+-- CORRECT FLOW:
+--   All booking inserts MUST go through the stripe-booking-payment Edge
+--   Function, which:
+--     1. Creates the Stripe PaymentIntent with the server-computed price.
+--     2. Embeds amount, fees, and metadata in the PaymentIntent.
+--     3. Listens for payment_intent.amount_capturable_updated via the
+--        stripe-webhook Edge Function.
+--     4. The webhook inserts the booking row using the SERVICE ROLE KEY,
+--        reading all price fields from the verified PaymentIntent metadata.
+--
+--   This guarantees that total_price in the DB is always coherent with
+--   the amount that Stripe actually charged the client.
+--
+-- NOTE: The stripe-webhook Edge Function uses the service role and is
+-- therefore unaffected by RLS. No additional INSERT policy is needed.
+-- ============================================================================
+
+DROP POLICY IF EXISTS "clients can insert own bookings" ON public.bookings;
+
+-- No replacement INSERT policy is created here.
+-- The only writer is stripe-webhook (service role, bypasses RLS).

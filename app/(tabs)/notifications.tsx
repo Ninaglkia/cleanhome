@@ -6,9 +6,20 @@ import {
   Pressable,
   StatusBar,
   StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import { useAuth } from "../../lib/auth";
+import {
+  useNotifications,
+  type AppNotification,
+  type NotificationType,
+  type NotificationFilter,
+} from "../../lib/hooks/useNotifications";
 
 // ─── Design tokens (Stitch) ───────────────────────────────────────────────────
 
@@ -20,35 +31,16 @@ const C = {
   surfaceVariant: "#dfe3e2",
   primary: "#022420",
   secondary: "#006b55",
+  error: "#ba1a1a",
+  errorLight: "#fce8e8",
   onSurface: "#181c1c",
   onSurfaceVariant: "#414846",
   outline: "#717976",
   outlineVariant: "#c1c8c5",
 } as const;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type NotificationType = "booking" | "message" | "system";
-type NotificationFilter = "all" | "bookings" | "messages" | "system";
-
-interface AppNotification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  description: string;
-  timestamp: string;
-  isRead: boolean;
-  actionLabel?: string;
-}
-
-// Notifications are driven by the backend. Until the notifications table
-// is populated (webhook → INSERT on booking status changes, etc.) this
-// screen shows an empty state with guidance for the user.
-const INITIAL_NOTIFICATIONS: AppNotification[] = [];
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ITEM_HEIGHT = 120;
 const SEPARATOR_HEIGHT = 12;
 
 const FILTERS: { key: NotificationFilter; label: string }[] = [
@@ -73,100 +65,180 @@ function getTypeIcon(
   }
 }
 
+function formatTimestamp(created_at: string): string {
+  const date = new Date(created_at);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Adesso";
+  if (diffMin < 60) return `${diffMin} min fa`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h fa`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return `${diffD}g fa`;
+  return date.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+// ─── Skeleton card ────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <View style={[styles.card, styles.cardRead, { gap: 12 }]}>
+      <View style={[styles.iconCircle, { backgroundColor: C.surfaceContainerHigh }]} />
+      <View style={{ flex: 1, gap: 8 }}>
+        <View style={{ height: 14, width: "60%", backgroundColor: C.surfaceContainerHigh, borderRadius: 6 }} />
+        <View style={{ height: 12, width: "85%", backgroundColor: C.surfaceLow, borderRadius: 6 }} />
+        <View style={{ height: 12, width: "40%", backgroundColor: C.surfaceLow, borderRadius: 6 }} />
+      </View>
+    </View>
+  );
+}
+
 // ─── Notification card ────────────────────────────────────────────────────────
 
 interface NotificationCardProps {
   item: AppNotification;
-  onPress: (id: string) => void;
+  onPress: (id: string, linkPath: string | null) => void;
 }
 
 const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
   const iconName = getTypeIcon(item.type);
-  const isUnread = !item.isRead;
+  const isUnread = !item.read_at;
+
+  const handlePress = useCallback(() => {
+    onPress(item.id, item.link_path);
+  }, [item.id, item.link_path, onPress]);
 
   return (
-    <Pressable
-      onPress={() => onPress(item.id)}
-      style={({ pressed }) => [
-        styles.card,
-        isUnread ? styles.cardUnread : styles.cardRead,
-        pressed && styles.cardPressed,
-      ]}
-    >
-      {/* Icon circle */}
-      <View
-        style={[
-          styles.iconCircle,
-          isUnread
-            ? styles.iconCircleUnread
-            : styles.iconCircleRead,
+    <Animated.View entering={FadeInDown.springify().damping(20)} layout={Layout.springify()}>
+      <Pressable
+        onPress={handlePress}
+        style={({ pressed }) => [
+          styles.card,
+          isUnread ? styles.cardUnread : styles.cardRead,
+          pressed && styles.cardPressed,
         ]}
+        accessibilityLabel={`Notifica: ${item.title}`}
+        accessibilityRole="button"
       >
-        <Ionicons
-          name={iconName}
-          size={24}
-          color={isUnread ? C.secondary : C.primary}
-        />
-      </View>
-
-      {/* Content */}
-      <View style={styles.cardContent}>
-        {/* Title row + timestamp */}
-        <View style={styles.cardTopRow}>
-          <Text
-            style={[
-              styles.cardTitle,
-              isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
-            ]}
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
-          <View style={styles.timestampWrap}>
-            {isUnread && <View style={styles.unreadDot} />}
-            <Text
-              style={[
-                styles.cardTimestamp,
-                !isUnread && styles.cardTimestampRead,
-              ]}
-            >
-              {item.timestamp}
-            </Text>
-          </View>
+        {/* Icon circle */}
+        <View
+          style={[
+            styles.iconCircle,
+            isUnread ? styles.iconCircleUnread : styles.iconCircleRead,
+          ]}
+        >
+          <Ionicons
+            name={iconName}
+            size={24}
+            color={isUnread ? C.secondary : C.primary}
+          />
         </View>
 
-        {/* Description */}
-        <Text
-          style={[
-            styles.cardDescription,
-            !isUnread && styles.cardDescriptionRead,
-          ]}
-          numberOfLines={2}
-        >
-          {item.description}
-        </Text>
-
-        {/* Action button */}
-        {item.actionLabel ? (
-          <View style={styles.actionWrap}>
-            <View style={styles.actionBtn}>
-              <Text style={styles.actionBtnText}>{item.actionLabel}</Text>
+        {/* Content */}
+        <View style={styles.cardContent}>
+          <View style={styles.cardTopRow}>
+            <Text
+              style={[
+                styles.cardTitle,
+                isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
+              ]}
+              numberOfLines={1}
+            >
+              {item.title}
+            </Text>
+            <View style={styles.timestampWrap}>
+              {isUnread && <View style={styles.unreadDot} />}
+              <Text
+                style={[
+                  styles.cardTimestamp,
+                  !isUnread && styles.cardTimestampRead,
+                ]}
+              >
+                {formatTimestamp(item.created_at)}
+              </Text>
             </View>
           </View>
-        ) : null}
-      </View>
-    </Pressable>
+
+          <Text
+            style={[
+              styles.cardDescription,
+              !isUnread && styles.cardDescriptionRead,
+            ]}
+            numberOfLines={2}
+          >
+            {item.body}
+          </Text>
+
+          {item.link_path ? (
+            <View style={styles.actionWrap}>
+              <View style={styles.actionBtn}>
+                <Text style={styles.actionBtnText}>Vai</Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 };
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState({ filter }: { filter: NotificationFilter }) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconWrap}>
+        <Ionicons
+          name="notifications-off-outline"
+          size={34}
+          color={C.outlineVariant}
+        />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {filter === "all" ? "Nessuna notifica" : "Nessuna notifica in questa categoria"}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {filter === "all"
+          ? "Le notifiche appariranno qui quando ci saranno aggiornamenti sulle tue prenotazioni."
+          : "Torna alla categoria \"Tutte\" per vedere tutte le notifiche."}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Error banner ─────────────────────────────────────────────────────────────
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.errorBanner}>
+      <Ionicons name="alert-circle-outline" size={18} color={C.error} />
+      <Text style={styles.errorText} numberOfLines={2}>{message}</Text>
+      <Pressable onPress={onRetry} style={styles.retryBtn}>
+        <Text style={styles.retryText}>Riprova</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NotificationsScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
-  const [notifications, setNotifications] =
-    useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+
+  const {
+    data: notifications,
+    isLoading,
+    error,
+    refetch,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications(user?.id);
 
   const filtered = useMemo(() => {
+    if (!notifications) return [];
     if (activeFilter === "all") return notifications;
     const typeMap: Record<NotificationFilter, NotificationType | null> = {
       all: null,
@@ -179,30 +251,21 @@ export default function NotificationsScreen() {
   }, [notifications, activeFilter]);
 
   const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.isRead).length,
+    () => (notifications ?? []).filter((n) => !n.read_at).length,
     [notifications]
   );
 
-  const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  }, []);
-
-  const handlePress = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
-  }, []);
+  const handlePress = useCallback(
+    (id: string, linkPath: string | null) => {
+      markAsRead(id);
+      if (linkPath) {
+        router.push(linkPath as never);
+      }
+    },
+    [markAsRead, router]
+  );
 
   const keyExtractor = useCallback((item: AppNotification) => item.id, []);
-
-  const getItemLayout = useCallback(
-    (_: ArrayLike<AppNotification> | null | undefined, index: number) => ({
-      length: ITEM_HEIGHT + SEPARATOR_HEIGHT,
-      offset: (ITEM_HEIGHT + SEPARATOR_HEIGHT) * index,
-      index,
-    }),
-    []
-  );
 
   const renderItem = useCallback(
     ({ item }: { item: AppNotification }) => (
@@ -215,39 +278,58 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
-      {/* ── TopAppBar: "Sanctuary" italic serif + notification bell ── */}
+      {/* ── TopAppBar ── */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
-          <Text style={styles.topBarBrand}>Sanctuary</Text>
+          <Ionicons name="leaf" size={20} color={C.primary} />
+          <Text style={styles.topBarBrand}>CleanHome</Text>
         </View>
         <View style={styles.topBarRight}>
-          <Pressable style={styles.bellBtn}>
+          <Pressable
+            style={styles.bellBtn}
+            accessibilityLabel="Notifiche"
+            accessibilityRole="button"
+          >
             <Ionicons name="notifications-outline" size={22} color={C.primary} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {unreadCount > 9 ? "9+" : String(unreadCount)}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
 
-      {/* ── Editorial header: "Your Activity" overline + "Notifications" h1 ── */}
+      {/* ── Editorial header ── */}
       <View style={styles.editorialHeader}>
         <View style={styles.editorialHeaderRow}>
           <View>
             <Text style={styles.overlineText}>Your Activity</Text>
-            <Text style={styles.headlineText}>Notifications</Text>
+            <Text style={styles.headlineText}>Notifiche</Text>
           </View>
-          {unreadCount > 0 && (
+          {unreadCount > 0 && !isLoading && (
             <Pressable
-              onPress={handleMarkAllRead}
+              onPress={markAllAsRead}
               style={styles.markAllBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Segna tutte come lette"
+              accessibilityRole="button"
             >
               <Ionicons name="checkmark-done-outline" size={16} color={C.primary} />
-              <Text style={styles.markAllText}>Mark all as read</Text>
+              <Text style={styles.markAllText}>Segna tutte lette</Text>
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* ── Filter chips: "All Updates" active, others bg-surface-container-high ── */}
+      {/* ── Error banner ── */}
+      {error && !isLoading && (
+        <ErrorBanner message={error.message} onRetry={refetch} />
+      )}
+
+      {/* ── Filter chips ── */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -265,6 +347,8 @@ export default function NotificationsScreen() {
                 isActive && styles.filterChipActive,
                 pressed && !isActive && { opacity: 0.7 },
               ]}
+              accessibilityLabel={`Filtra: ${filter.label}`}
+              accessibilityRole="button"
             >
               <Text
                 style={[
@@ -280,26 +364,21 @@ export default function NotificationsScreen() {
       />
 
       {/* ── Content ── */}
-      {filtered.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconWrap}>
-            <Ionicons
-              name="notifications-off-outline"
-              size={34}
-              color={C.outlineVariant}
-            />
-          </View>
-          <Text style={styles.emptyTitle}>Nessuna notifica</Text>
-          <Text style={styles.emptySubtitle}>
-            Le notifiche appariranno qui
-          </Text>
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={{ marginBottom: SEPARATOR_HEIGHT }}>
+              <SkeletonCard />
+            </View>
+          ))}
         </View>
+      ) : filtered.length === 0 ? (
+        <EmptyState filter={activeFilter} />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={getItemLayout}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => (
             <View style={{ height: SEPARATOR_HEIGHT }} />
@@ -308,6 +387,14 @@ export default function NotificationsScreen() {
           removeClippedSubviews
           maxToRenderPerBatch={10}
           windowSize={5}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={refetch}
+              tintColor={C.secondary}
+              colors={[C.secondary]}
+            />
+          }
         />
       )}
     </SafeAreaView>
@@ -334,17 +421,16 @@ const styles = StyleSheet.create({
   topBarLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   topBarRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  // "Sanctuary" — italic serif bold text-2xl
   topBarBrand: {
     fontFamily: "NotoSerif_700Bold",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     fontStyle: "italic",
     color: C.primary,
@@ -356,6 +442,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: C.error,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
   },
 
   // ── Editorial header ──────────────────────────────────────────────────────────
@@ -370,7 +473,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  // "Your Activity" — overline uppercase bold tracking-widest text-secondary
   overlineText: {
     fontSize: 10,
     fontWeight: "700",
@@ -379,7 +481,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
     marginBottom: 4,
   },
-  // "Notifications" — font-headline text-4xl
   headlineText: {
     fontFamily: "NotoSerif_700Bold",
     fontSize: 36,
@@ -397,6 +498,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: C.primary,
+  },
+
+  // ── Error banner ──────────────────────────────────────────────────────────────
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 24,
+    marginBottom: 12,
+    backgroundColor: "#fce8e8",
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: C.error,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: C.error,
+    lineHeight: 18,
+  },
+  retryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: C.error,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
   },
 
   // ── Filter chips ──────────────────────────────────────────────────────────────
@@ -439,9 +571,8 @@ const styles = StyleSheet.create({
     gap: 16,
     borderRadius: 16,
     padding: 20,
-    minHeight: ITEM_HEIGHT,
+    minHeight: 80,
   },
-  // Unread: white bg + left border-l-4 border-secondary + shadow
   cardUnread: {
     backgroundColor: C.surface,
     borderLeftWidth: 4,
@@ -452,15 +583,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 2,
   },
-  // Read: surface-container-low, muted
   cardRead: {
     backgroundColor: C.surfaceLow,
   },
   cardPressed: {
     opacity: 0.85,
   },
-
-  // Icon circle: w-14 h-14 rounded-full
   iconCircle: {
     width: 56,
     height: 56,
@@ -475,7 +603,6 @@ const styles = StyleSheet.create({
   iconCircleRead: {
     backgroundColor: C.surfaceVariant,
   },
-
   cardContent: {
     flex: 1,
     gap: 4,

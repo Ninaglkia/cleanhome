@@ -63,6 +63,8 @@ interface TopicRowProps {
 function TopicRow({ item, onPress }: TopicRowProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${item.label}. ${item.description}`}
       style={({ pressed }) => [styles.topicRow, pressed && styles.topicRowPressed]}
       onPress={() => onPress(item.id)}
     >
@@ -85,10 +87,10 @@ export default function SupportScreen() {
   const [searchText, setSearchText] = useState("");
 
   const handleTopicPress = useCallback(
-    (_id: string) => {
-      // Navigazione futura verso sottocategorie
+    (id: string) => {
+      router.push(`/support/faq/${id}` as never);
     },
-    []
+    [router]
   );
 
   const handleStartAIChat = useCallback(() => {
@@ -157,6 +159,8 @@ export default function SupportScreen() {
 
             <View style={styles.aiButtons}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Inizia chat con assistente AI"
                 style={({ pressed }) => [styles.btnPrimary, pressed && styles.btnPressed]}
                 onPress={handleStartAIChat}
               >
@@ -164,6 +168,8 @@ export default function SupportScreen() {
                 <Text style={styles.btnPrimaryText}>Inizia Chat AI</Text>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Parla con il concierge"
                 style={({ pressed }) => [styles.btnOutline, pressed && styles.btnPressed]}
                 onPress={handleTalkToConcierge}
               >
@@ -175,8 +181,8 @@ export default function SupportScreen() {
 
           {/* ── Topics section ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>BROWSE BY TOPICS</Text>
-            <Text style={styles.sectionTitle}>Booking & Scheduling</Text>
+            <Text style={styles.sectionLabel}>SFOGLIA PER ARGOMENTO</Text>
+            <Text style={styles.sectionTitle}>Domande frequenti</Text>
             <View style={styles.topicsCard}>
               {TOPICS.map((topic, index) => (
                 <View key={topic.id}>
@@ -195,6 +201,8 @@ export default function SupportScreen() {
             </Text>
             <View style={styles.stillButtons}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Invia email al supporto"
                 style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
                 onPress={() => Linking.openURL("mailto:support@cleanhome.app")}
               >
@@ -202,6 +210,8 @@ export default function SupportScreen() {
                 <Text style={styles.stillBtnText}>Supporto Email</Text>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Chat dal vivo con il supporto"
                 style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
                 onPress={handleTalkToConcierge}
               >
@@ -213,11 +223,11 @@ export default function SupportScreen() {
 
           {/* ── Footer links ── */}
           <View style={styles.footer}>
-            <Pressable onPress={() => router.push("/legal/terms")}>
+            <Pressable accessibilityRole="link" onPress={() => router.push("/legal/terms")}>
               <Text style={styles.footerLink}>Termini di Servizio</Text>
             </Pressable>
             <View style={styles.footerDot} />
-            <Pressable onPress={() => router.push("/legal/privacy")}>
+            <Pressable accessibilityRole="link" onPress={() => router.push("/legal/privacy")}>
               <Text style={styles.footerLink}>Privacy</Text>
             </Pressable>
           </View>

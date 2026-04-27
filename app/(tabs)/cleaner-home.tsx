@@ -19,7 +19,7 @@ import {
 } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 
-// ─── Design tokens — tema verde/blu professionista ──────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
 
 const PRIMARY = "#006b55";
 const PRIMARY_CONTAINER = "#022420";
@@ -30,49 +30,13 @@ const SURFACE_LOW = "#f0f4f3";
 const OUTLINE = "#717976";
 const CLEANER_LIGHT = "#e6f4f1";
 
-// ─── Static mock data ─────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface MockRequest {
-  id: string;
-  clientName: string;
-  address: string;
-  date: string;
-  timeSlot: string;
-  serviceType: string;
-}
-
-interface MockAppointment {
-  id: string;
-  dayAbbrev: string;
-  dayNum: number;
-  title: string;
-  timeRange: string;
-}
-
-// Italian short day labels (Mon → Dom)
 const IT_DAY_ABBREV = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
 
-function bookingToRequest(b: Booking): MockRequest {
-  const d = new Date(b.date);
-  return {
-    id: b.id,
-    clientName: b.address ? `Prenotazione · ${b.address}` : `Cliente`,
-    address: b.address ?? "Indirizzo non specificato",
-    date: `${IT_DAY_ABBREV[d.getDay()]} ${d.getDate()}`,
-    timeSlot: b.time_slot,
-    serviceType: b.service_type,
-  };
-}
-
-function bookingToAppointment(b: Booking): MockAppointment {
-  const d = new Date(b.date);
-  return {
-    id: b.id,
-    dayAbbrev: IT_DAY_ABBREV[d.getDay()],
-    dayNum: d.getDate(),
-    title: `${b.address ?? "Cliente"} — ${b.service_type}`,
-    timeRange: b.time_slot,
-  };
+function formatBookingDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${IT_DAY_ABBREV[d.getDay()]} ${d.getDate()}`;
 }
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -97,60 +61,80 @@ function StatCard({ value, label, iconName, iconColor, iconBg }: StatCardProps) 
   );
 }
 
-// ─── Request card ─────────────────────────────────────────────────────────────
+// ─── Request card — riceve un Booking direttamente ────────────────────────────
 
 interface RequestCardProps {
-  item: MockRequest;
+  booking: Booking;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
 }
 
-function RequestCard({ item, onAccept, onDecline }: RequestCardProps) {
-  const handleAccept = useCallback(() => onAccept(item.id), [item.id, onAccept]);
-  const handleDecline = useCallback(() => onDecline(item.id), [item.id, onDecline]);
+function RequestCard({ booking, onAccept, onDecline }: RequestCardProps) {
+  const handleAccept = useCallback(
+    () => onAccept(booking.id),
+    [booking.id, onAccept]
+  );
+  const handleDecline = useCallback(
+    () => onDecline(booking.id),
+    [booking.id, onDecline]
+  );
+
+  const dateLabel = formatBookingDate(booking.date);
 
   return (
     <View style={styles.requestCard}>
-      {/* Top row: avatar + name/location + time */}
+      {/* Top row: avatar + address/service + date/time */}
       <View style={styles.requestTop}>
         <View style={styles.avatarCircle}>
           <Ionicons name="person" size={20} color={OUTLINE} />
         </View>
         <View style={styles.requestInfo}>
           <Text style={styles.requestName} numberOfLines={1}>
-            {item.clientName}
+            {booking.address
+              ? `Prenotazione · ${booking.address}`
+              : "Nuova prenotazione"}
           </Text>
           <View style={styles.locationRow}>
             <Ionicons name="location-sharp" size={12} color={OUTLINE} />
             <Text style={styles.locationText} numberOfLines={1}>
-              {item.address}
+              {booking.address ?? "Indirizzo non specificato"}
             </Text>
           </View>
         </View>
         <View style={styles.requestTimeWrap}>
-          <Text style={styles.requestDate}>{item.date}</Text>
-          <Text style={styles.requestTime}>{item.timeSlot}</Text>
+          <Text style={styles.requestDate}>{dateLabel}</Text>
+          <Text style={styles.requestTime}>{booking.time_slot}</Text>
         </View>
       </View>
 
       {/* Service badge */}
       <View style={styles.serviceBadgeRow}>
         <View style={styles.serviceBadge}>
-          <Text style={styles.serviceBadgeText}>{item.serviceType}</Text>
+          <Text style={styles.serviceBadgeText}>{booking.service_type}</Text>
         </View>
       </View>
 
       {/* Action buttons */}
       <View style={styles.actionRow}>
         <Pressable
-          style={({ pressed }) => [styles.btnDecline, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [
+            styles.btnDecline,
+            pressed && { opacity: 0.75 },
+          ]}
           onPress={handleDecline}
+          accessibilityLabel={`Rifiuta prenotazione del ${dateLabel}`}
+          accessibilityRole="button"
         >
           <Text style={styles.btnDeclineText}>Rifiuta</Text>
         </Pressable>
         <Pressable
-          style={({ pressed }) => [styles.btnAccept, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [
+            styles.btnAccept,
+            pressed && { opacity: 0.85 },
+          ]}
           onPress={handleAccept}
+          accessibilityLabel={`Accetta prenotazione del ${dateLabel}`}
+          accessibilityRole="button"
         >
           <Text style={styles.btnAcceptText}>Accetta</Text>
         </Pressable>
@@ -159,31 +143,46 @@ function RequestCard({ item, onAccept, onDecline }: RequestCardProps) {
   );
 }
 
-// ─── Appointment row ──────────────────────────────────────────────────────────
+// ─── Appointment row — riceve un Booking direttamente ────────────────────────
 
 interface AppointmentRowProps {
-  item: MockAppointment;
+  booking: Booking;
+  onPress: () => void;
 }
 
-function AppointmentRow({ item }: AppointmentRowProps) {
+function AppointmentRow({ booking, onPress }: AppointmentRowProps) {
+  const d = new Date(booking.date);
+  const dayAbbrev = IT_DAY_ABBREV[d.getDay()];
+  const dayNum = d.getDate();
+  const title = `${booking.address ?? "Cliente"} — ${booking.service_type}`;
+
   return (
-    <View style={styles.appointmentRow}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Prenotazione del ${dayAbbrev} ${dayNum}, ${title}`}
+      style={({ pressed }) => [styles.appointmentRow, pressed && { opacity: 0.7 }]}
+    >
       {/* Date card */}
       <View style={styles.appointmentDateCard}>
-        <Text style={styles.appointmentDayAbbrev}>{item.dayAbbrev}</Text>
-        <Text style={styles.appointmentDayNum}>{item.dayNum}</Text>
+        <Text style={styles.appointmentDayAbbrev}>{dayAbbrev}</Text>
+        <Text style={styles.appointmentDayNum}>{dayNum}</Text>
       </View>
 
       {/* Body */}
       <View style={styles.appointmentBody}>
         <Text style={styles.appointmentTitle} numberOfLines={1}>
-          {item.title}
+          {title}
         </Text>
-        <Text style={styles.appointmentTime}>{item.timeRange}</Text>
+        <Text style={styles.appointmentTime}>{booking.time_slot}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color={`${ON_SURFACE_VARIANT}66`} />
-    </View>
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={`${ON_SURFACE_VARIANT}66`}
+      />
+    </Pressable>
   );
 }
 
@@ -214,36 +213,32 @@ export default function CleanerHomeScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
-
-  // Reload whenever the screen regains focus — catches new bookings
-  // created by the Stripe webhook while the user was on another tab.
   useFocusEffect(
     useCallback(() => {
       loadBookings();
     }, [loadBookings])
   );
 
-  const pendingRequests = useMemo(
-    () => bookings.filter((b) => b.status === "pending").map(bookingToRequest),
+  const pendingBookings = useMemo(
+    () => bookings.filter((b) => b.status === "pending"),
     [bookings]
   );
-  const upcomingAppointments = useMemo(
+
+  const upcomingBookings = useMemo(
     () =>
       bookings
         .filter((b) => ["accepted", "work_done"].includes(b.status))
         .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, 3)
-        .map(bookingToAppointment),
+        .slice(0, 3),
     [bookings]
   );
+
   const stats = useMemo(
     () => ({
       inAttesa: bookings.filter((b) => b.status === "pending").length,
-      attive: bookings.filter((b) => ["accepted", "work_done"].includes(b.status))
-        .length,
+      attive: bookings.filter((b) =>
+        ["accepted", "work_done"].includes(b.status)
+      ).length,
       completate: bookings.filter((b) => b.status === "completed").length,
     }),
     [bookings]
@@ -266,7 +261,10 @@ export default function CleanerHomeScreen() {
         }
         loadBookings();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Impossibile accettare la richiesta";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Impossibile accettare la richiesta";
         Alert.alert("Errore", msg);
       }
     },
@@ -288,7 +286,8 @@ export default function CleanerHomeScreen() {
                 await cleanerBookingAction(id, "cancel");
                 const booking = bookings.find((b) => b.id === id);
                 if (booking) {
-                  const { title, body } = NotificationMessages.bookingDeclined();
+                  const { title, body } =
+                    NotificationMessages.bookingDeclined();
                   sendPushNotification(booking.client_id, title, body, {
                     screen: "bookings",
                     bookingId: id,
@@ -296,7 +295,8 @@ export default function CleanerHomeScreen() {
                 }
                 loadBookings();
               } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : "Impossibile rifiutare";
+                const msg =
+                  err instanceof Error ? err.message : "Impossibile rifiutare";
                 Alert.alert("Errore", msg);
               }
             },
@@ -314,9 +314,8 @@ export default function CleanerHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* ── Header ── */}
         <View style={styles.header}>
-          {/* Top bar: CleanHome logo + avatar */}
           <View style={styles.headerTop}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Ionicons name="leaf" size={22} color="#022420" />
@@ -326,14 +325,13 @@ export default function CleanerHomeScreen() {
               <Ionicons name="person" size={18} color={PRIMARY_CONTAINER} />
             </View>
           </View>
-          {/* Greeting */}
           <Text style={styles.greeting}>
             {greeting}, {firstName}
           </Text>
           <Text style={styles.greetingSub}>La tua giornata</Text>
         </View>
 
-        {/* ── Stats grid ──────────────────────────────────────────────────── */}
+        {/* ── Stats grid ── */}
         <View style={styles.statsRow}>
           <StatCard
             value={stats.inAttesa}
@@ -358,12 +356,14 @@ export default function CleanerHomeScreen() {
           />
         </View>
 
-        {/* ── Richieste in arrivo ──────────────────────────────────────────── */}
+        {/* ── Richieste in arrivo ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
           <Pressable
             onPress={() => router.push("/cleaner/jobs" as never)}
             style={({ pressed }) => [pressed && { opacity: 0.6 }]}
+            accessibilityLabel="Vedi tutte le richieste"
+            accessibilityRole="button"
           >
             <View style={styles.sectionLinkRow}>
               <Text style={styles.sectionLink}>Vedi tutte</Text>
@@ -372,21 +372,19 @@ export default function CleanerHomeScreen() {
           </Pressable>
         </View>
 
-        {pendingRequests.length === 0 ? (
+        {pendingBookings.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Ionicons name="mail-open-outline" size={28} color={OUTLINE} />
-            <Text style={styles.emptyText}>
-              Nessuna richiesta in attesa
-            </Text>
+            <Text style={styles.emptyText}>Nessuna richiesta in attesa</Text>
             <Text style={styles.emptySubtext}>
               Le nuove richieste appariranno qui in tempo reale
             </Text>
           </View>
         ) : (
-          pendingRequests.map((req) => (
-            <View key={req.id} style={styles.cardWrapper}>
+          pendingBookings.map((booking) => (
+            <View key={booking.id} style={styles.cardWrapper}>
               <RequestCard
-                item={req}
+                booking={booking}
                 onAccept={handleAccept}
                 onDecline={handleDecline}
               />
@@ -394,27 +392,27 @@ export default function CleanerHomeScreen() {
           ))
         )}
 
-        {/* ── Prossimi appuntamenti ────────────────────────────────────────── */}
+        {/* ── Prossimi appuntamenti ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
         </View>
 
-        {upcomingAppointments.length === 0 ? (
+        {upcomingBookings.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Ionicons name="calendar-outline" size={28} color={OUTLINE} />
-            <Text style={styles.emptyText}>
-              Nessun appuntamento in programma
-            </Text>
+            <Text style={styles.emptyText}>Nessun appuntamento in programma</Text>
           </View>
         ) : (
-          upcomingAppointments.map((apt) => (
-            <View key={apt.id} style={styles.cardWrapper}>
-              <AppointmentRow item={apt} />
+          upcomingBookings.map((booking) => (
+            <View key={booking.id} style={styles.cardWrapper}>
+              <AppointmentRow
+                booking={booking}
+                onPress={() => router.push(`/booking/${booking.id}` as never)}
+              />
             </View>
           ))
         )}
 
-        {/* Bottom spacer for tab bar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
@@ -687,8 +685,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 13,
     borderRadius: 9999,
-    // soul-gradient fallback: solid primary-container
-    // (LinearGradient richiederebbe expo-linear-gradient — non installato)
     backgroundColor: PRIMARY_CONTAINER,
     shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 4 },

@@ -792,6 +792,61 @@ export async function markCleanerOnboarded(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── Cleaner setup checklist progress ─────────────────────────────────────────
+
+export type CleanerSetupStepKey = "profile" | "photo" | "stripe" | "listing";
+
+export type CleanerSetupProgress = Partial<Record<CleanerSetupStepKey, boolean>>;
+
+/**
+ * Load the persisted setup progress for a cleaner from profiles.cleaner_setup_progress.
+ * Returns an empty object if the column doesn't exist yet (pre-migration).
+ */
+export async function fetchCleanerSetupProgress(
+  userId: string
+): Promise<CleanerSetupProgress> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("cleaner_setup_progress")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    // Column may not exist yet on older schema
+    if (
+      error.code === "42703" ||
+      error.message?.includes("does not exist")
+    ) {
+      return {};
+    }
+    throw error;
+  }
+  return (data?.cleaner_setup_progress as CleanerSetupProgress) ?? {};
+}
+
+/**
+ * Persist a step completion and optionally flip cleaner_setup_complete.
+ */
+export async function saveCleanerSetupProgress(
+  userId: string,
+  progress: CleanerSetupProgress,
+  allDone: boolean
+): Promise<void> {
+  const patch: Record<string, unknown> = {
+    cleaner_setup_progress: progress,
+  };
+  if (allDone) {
+    patch.cleaner_setup_complete = true;
+  }
+  const { error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export async function updateProfileName(
   userId: string,
   fullName: string
@@ -945,6 +1000,142 @@ export async function uploadCleanerCover(
 
   return publicUrl;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Documents
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DocumentKind =
+  | "id_card"
+  | "passport"
+  | "driving_license"
+  | "tax_code"
+  | "other";
+
+export interface UserDocument {
+  id: string;
+  user_id: string;
+  kind: DocumentKind;
+  name: string;
+  file_url: string;
+  storage_path: string;
+  size_bytes: number;
+  mime_type: string;
+  created_at: string;
+}
+
+export async function getDocumentSignedUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("user-documents")
+    .createSignedUrl(storagePath, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function fetchUserDocuments(
+  userId: string
+): Promise<UserDocument[]> {
+  const { data, error } = await supabase
+    .from("user_documents")
+    .select("id, user_id, kind, name, file_url, storage_path, size_bytes, mime_type, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    // Table may not exist yet — return empty array gracefully
+    if (
+      error.code === "42P01" ||
+      error.message?.includes("does not exist")
+    ) {
+      return [];
+    }
+    throw error;
+  }
+  return (data as UserDocument[]) ?? [];
+}
+
+export async function deleteUserDocument(documentId: string, userId: string): Promise<void> {
+  // Fetch storage_path before deleting so we can clean up Storage
+  const { data: doc, error: fetchError } = await supabase
+    .from("user_documents")
+    .select("storage_path")
+    .eq("id", documentId)
+    .eq("user_id", userId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const { error } = await supabase
+    .from("user_documents")
+    .delete()
+    .eq("id", documentId)
+    .eq("user_id", userId);
+  if (error) throw error;
+
+  // Best-effort storage cleanup — do not throw if this fails
+  if (doc?.storage_path) {
+    await supabase.storage.from("user-documents").remove([doc.storage_path]);
+  }
+}
+
+export async function uploadUserDocument(
+  userId: string,
+  localUri: string,
+  mimeType: string,
+  fileName: string,
+  kind: DocumentKind,
+  onProgress?: (percent: number) => void
+): Promise<UserDocument> {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "pdf";
+  const storagePath = `${userId}/${Date.now()}-${fileName}`;
+
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const sizeBytes = blob.size;
+
+  const MAX_BYTES = 10 * 1024 * 1024;
+  if (sizeBytes > MAX_BYTES) throw new Error("Il file supera il limite di 10 MB.");
+
+  // Upload to storage
+  const { error: uploadError } = await supabase.storage
+    .from("user-documents")
+    .upload(storagePath, blob, {
+      contentType: mimeType || `application/${ext}`,
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+  onProgress?.(80);
+
+  // Generate a 1-hour signed URL (bucket is private — no public URLs)
+  const signedUrl = await getDocumentSignedUrl(storagePath);
+  onProgress?.(90);
+
+  // Save record to DB
+  const { data, error: insertError } = await supabase
+    .from("user_documents")
+    .insert({
+      user_id: userId,
+      kind,
+      name: fileName,
+      file_url: signedUrl,
+      storage_path: storagePath,
+      size_bytes: sizeBytes,
+      mime_type: mimeType || `application/${ext}`,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    // Clean up storage on DB failure
+    await supabase.storage.from("user-documents").remove([storagePath]);
+    throw insertError;
+  }
+
+  onProgress?.(100);
+  return data as UserDocument;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Toggles the cleaner's availability flag. Used by the active/inactive
