@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -21,8 +22,8 @@ import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fetchClientProperties } from "../../lib/api";
-import type { ClientProperty } from "../../lib/types";
+import { fetchClientProperties, searchListingsNearPoint } from "../../lib/api";
+import type { ClientProperty, ListingSearchResult } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,8 +36,20 @@ const TIME_WINDOW_OPTIONS = [
 type TimeWindow = (typeof TIME_WINDOW_OPTIONS)[number]["key"];
 
 const ROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
-const FEE_RATE = 0.09;
-const TOTAL_STEPS = 4;
+import { calculatePrice, FEE_RATE } from "../../lib/pricing";
+const TOTAL_STEPS = 5; // 0:date 1:details 2:cleaners 3:summary → pay
+const MAX_PREFERRED_CLEANERS = 6;
+
+// Property size presets — lets the client pick their typical house
+// without guessing the exact sqm. Custom option falls back to a
+// numeric input. Numbers are Italian market averages.
+const SIZE_PRESETS = [
+  { key: "mono",  label: "Monolocale",    sqm: 35,  rooms: 1, icon: "home-outline" as const },
+  { key: "bi",    label: "Bilocale",      sqm: 60,  rooms: 2, icon: "home-outline" as const },
+  { key: "tri",   label: "Trilocale",     sqm: 90,  rooms: 3, icon: "home-outline" as const },
+  { key: "quad",  label: "Quadrilocale",  sqm: 120, rooms: 4, icon: "home-outline" as const },
+  { key: "villa", label: "Casa grande",   sqm: 160, rooms: 5, icon: "home-outline" as const },
+] as const;
 
 const SERVICE_OPTIONS: ReadonlyArray<{ key: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: "Pulizia ordinaria", label: "Pulizia ordinaria", icon: "sparkles-outline" },
@@ -302,10 +315,16 @@ export default function NewBookingScreen() {
     SERVICE_OPTIONS[0].key
   );
   const [numRooms, setNumRooms] = useState(2);
+  const [sqm, setSqm] = useState(50);
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
+
+  // Dispatch multi-cleaner state
+  const [nearbyListings, setNearbyListings] = useState<ListingSearchResult[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [preferredCleanerIds, setPreferredCleanerIds] = useState<string[]>([]);
 
   // Saved properties ("Le mie case") — lets the client pick a pre-filled
   // address/rooms/notes instead of retyping everything. `propertyId` is
@@ -347,6 +366,10 @@ export default function NewBookingScreen() {
           setSelectedPropertyId(preferred.id);
           setAddress(preferred.address);
           setNumRooms(preferred.num_rooms);
+          // Pre-load surface from the saved property so the pricing
+          // engine quotes against the user's real apartment, not the
+          // 50 mq default. Falls back silently if the column is null.
+          if (preferred.sqm) setSqm(preferred.sqm);
           if (preferred.notes) setNotes(preferred.notes);
         }
       } catch (err) {
@@ -373,6 +396,7 @@ export default function NewBookingScreen() {
       if (!p) return;
       setAddress(p.address);
       setNumRooms(p.num_rooms);
+      if (p.sqm) setSqm(p.sqm);
       if (p.notes) setNotes(p.notes);
     },
     [properties]
@@ -409,12 +433,15 @@ export default function NewBookingScreen() {
     };
   }, [cleanerId]);
 
-  const rate = parseFloat(hourlyRate || "25");
-  const estimatedHours = Math.max(1, numRooms * 0.75);
-  const basePrice = rate * estimatedHours;
-  const clientFee = Math.round(basePrice * FEE_RATE * 100) / 100;
-  const cleanerFee = Math.round(basePrice * FEE_RATE * 100) / 100;
-  const totalPrice = basePrice + clientFee;
+  // Pricing now driven by square meters (sqm), not hours.
+  // Formula: max(€50, sqm × €1.30). Server re-validates.
+  // Hours shown are only an estimate for the cleaner (~25 mq/h).
+  const breakdown = useMemo(() => calculatePrice(sqm), [sqm]);
+  const basePrice = breakdown.basePrice;
+  const clientFee = breakdown.clientFee;
+  const cleanerFee = breakdown.cleanerFee;
+  const totalPrice = breakdown.totalClient;
+  const estimatedHours = Math.max(1.5, Math.round((sqm / 25) * 2) / 2);
 
   const displayName = cleanerName || "Professionista";
 
@@ -429,35 +456,97 @@ export default function NewBookingScreen() {
     return opt ? opt.subtitle : "";
   }, [selectedWindow]);
 
+  // Load nearby listings when entering step 2 (cleaner picker)
+  // Uses coordinates from the selected property if available, else skips spatial search
+  useEffect(() => {
+    if (step !== 2 || cleanerId) return; // skip for single-cleaner backward-compat flow
+    const prop = properties.find((p) => p.id === selectedPropertyId);
+    const lat = prop?.latitude;
+    const lng = prop?.longitude;
+    if (!lat || !lng) return;
+    let cancelled = false;
+    setListingsLoading(true);
+    searchListingsNearPoint(lat, lng)
+      .then((results) => {
+        if (!cancelled) setNearbyListings(results.slice(0, 20));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setListingsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, cleanerId, properties, selectedPropertyId]);
+
+  const handleToggleCleaner = useCallback(
+    (cleanerIdToToggle: string) => {
+      setPreferredCleanerIds((prev) => {
+        if (prev.includes(cleanerIdToToggle)) {
+          return prev.filter((id) => id !== cleanerIdToToggle);
+        }
+        if (prev.length >= MAX_PREFERRED_CLEANERS) {
+          Alert.alert(
+            "Limite raggiunto",
+            `Puoi selezionare al massimo ${MAX_PREFERRED_CLEANERS} preferiti.`
+          );
+          return prev;
+        }
+        return [...prev, cleanerIdToToggle];
+      });
+    },
+    []
+  );
+
   const canProceed = useCallback((): boolean => {
     // Block the entire flow if the cleaner can't accept payments
     if (cleanerStripeReady === false) return false;
     if (step === 0) return !!selectedDate && !!selectedWindow;
-    if (step === 1) return numRooms > 0 && !!address.trim();
+    if (step === 1) return sqm >= 15 && !!address.trim();
+    // step 2 = cleaner picker — always can proceed (0 selected is valid)
     return true;
-  }, [step, selectedDate, selectedWindow, numRooms, address, cleanerStripeReady]);
+  }, [step, selectedDate, selectedWindow, sqm, address, cleanerStripeReady]);
 
   const handleSubmit = useCallback(async () => {
-    if (!user || !cleanerId || !selectedDate || !selectedWindow) return;
+    if (!user || !selectedDate || !selectedWindow) return;
     setLoading(true);
     try {
+      // Resolve property coordinates for dispatch mode
+      const prop = properties.find((p) => p.id === selectedPropertyId);
+
+      // Build body — backward compat: single cleanerId param preserved
+      // when arriving from a cleaner profile page
+      const body: Record<string, unknown> = {
+        service_type: selectedService,
+        date: selectedDate,
+        time_slot: timeSlotString,
+        num_rooms: numRooms,
+        estimated_hours: estimatedHours,
+        base_price: basePrice,
+        address,
+        notes: notes || undefined,
+        property_id: selectedPropertyId ?? undefined,
+      };
+
+      if (cleanerId) {
+        // Legacy single-cleaner flow (arrived from cleaner profile)
+        body.cleaner_id = cleanerId;
+      } else {
+        // Dispatch flow
+        if (preferredCleanerIds.length > 0) {
+          body.preferred_cleaner_ids = preferredCleanerIds;
+        } else {
+          // Auto-dispatch: send property coords so backend finds nearest
+          if (prop?.latitude) body.search_lat = prop.latitude;
+          if (prop?.longitude) body.search_lng = prop.longitude;
+        }
+      }
+
       // 1) Call Edge Function to create PaymentIntent with destination
       //    charge (platform fee split). The server recalculates fees
       //    so the client can't tamper with amounts.
       const { data: invokeData, error: invokeError } =
-        await supabase.functions.invoke("stripe-booking-payment", {
-          body: {
-            cleaner_id: cleanerId,
-            service_type: selectedService,
-            date: selectedDate,
-            time_slot: timeSlotString,
-            num_rooms: numRooms,
-            estimated_hours: estimatedHours,
-            base_price: basePrice,
-            address,
-            notes,
-          },
-        });
+        await supabase.functions.invoke("stripe-booking-payment", { body });
 
       if (invokeError) {
         type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
@@ -473,6 +562,8 @@ export default function NewBookingScreen() {
         customer?: string;
         ephemeralKey?: string;
         paymentIntent?: string;
+        paymentIntentId?: string;
+        booking_id?: string;
         error?: string;
       };
 
@@ -501,16 +592,24 @@ export default function NewBookingScreen() {
         return; // User cancelled — no booking created
       }
 
-      // 3) Payment succeeded — the webhook will create the booking
-      //    row in the DB. Send push notification to the cleaner.
-      const { title, body } = NotificationMessages.newBooking(selectedService);
-      await sendPushNotification(cleanerId, title, body, { screen: "cleaner-home" }).catch(() => {});
+      // 3) Payment succeeded
+      const bookingId = payload.booking_id;
 
-      Alert.alert(
-        "Prenotazione confermata!",
-        `Il pagamento è andato a buon fine. ${displayName} riceverà la tua richiesta.`,
-        [{ text: "OK", onPress: () => router.replace("/(tabs)/bookings") }]
-      );
+      if (cleanerId) {
+        // Legacy single-cleaner: send push and go to bookings
+        const { title: notifTitle, body: notifBody } = NotificationMessages.newBooking(selectedService);
+        await sendPushNotification(cleanerId, notifTitle, notifBody, { screen: "cleaner-home" }).catch(() => {});
+        Alert.alert(
+          "Prenotazione confermata!",
+          `Il pagamento è andato a buon fine. ${displayName} riceverà la tua richiesta.`,
+          [{ text: "OK", onPress: () => router.replace("/(tabs)/bookings") }]
+        );
+      } else if (bookingId) {
+        // Dispatch flow: navigate to waiting screen
+        router.replace(`/booking/${bookingId}/waiting` as never);
+      } else {
+        router.replace("/(tabs)/bookings");
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Impossibile creare la prenotazione";
       Alert.alert("Errore", message);
@@ -520,17 +619,20 @@ export default function NewBookingScreen() {
   }, [
     user, cleanerId, selectedDate, selectedWindow, timeSlotString,
     numRooms, estimatedHours, basePrice, selectedService,
-    address, notes, displayName, router,
+    address, notes, selectedPropertyId, properties,
+    preferredCleanerIds, displayName, router,
     initPaymentSheet, presentPaymentSheet,
   ]);
 
   const handleContinue = useCallback(() => {
-    if (step < TOTAL_STEPS - 1) {
+    // 4 steps in dispatch flow (no preselected cleaner), 3 otherwise.
+    const stepsCount = !cleanerId ? 4 : 3;
+    if (step < stepsCount - 1) {
       setStep((s) => s + 1);
     } else {
       handleSubmit();
     }
-  }, [step, handleSubmit]);
+  }, [step, cleanerId, handleSubmit]);
 
   // ── Step 0: Date & Time ───────────────────────────────────────────────────────
   const renderDateStep = () => (
@@ -706,7 +808,7 @@ export default function NewBookingScreen() {
       {propertiesLoaded && properties.length === 0 && (
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => router.push("/properties/edit")}
+          onPress={() => router.push("/properties/new")}
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -790,27 +892,85 @@ export default function NewBookingScreen() {
       </View>
 
       <View>
-        <Text style={s.sectionLabel}>Numero di stanze</Text>
-        <View style={s.roomRow}>
-          {ROOM_OPTIONS.map((n) => {
-            const selected = numRooms === n;
+        <Text style={s.sectionLabel}>Dimensione casa</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingRight: 4 }}
+        >
+          {SIZE_PRESETS.map((p) => {
+            const selected = sqm === p.sqm;
             return (
               <TouchableOpacity
-                key={n}
-                onPress={() => setNumRooms(n)}
-                activeOpacity={0.8}
-                style={[s.roomChip, selected && s.roomChipSelected]}
+                key={p.key}
+                onPress={() => {
+                  setSqm(p.sqm);
+                  setNumRooms(p.rooms);
+                }}
+                activeOpacity={0.85}
+                style={{
+                  minWidth: 120,
+                  padding: 14,
+                  borderRadius: Radius.lg,
+                  backgroundColor: selected ? Colors.secondary : Colors.surface,
+                  borderWidth: 1.5,
+                  borderColor: selected ? Colors.secondary : Colors.border,
+                  alignItems: "center",
+                  ...Shadows.sm,
+                }}
               >
-                <Text style={[s.roomChipText, selected && s.roomChipTextSelected]}>
-                  {n}
+                <Ionicons
+                  name={p.icon}
+                  size={22}
+                  color={selected ? "#fff" : Colors.secondary}
+                  style={{ marginBottom: 6 }}
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "800",
+                    color: selected ? "#fff" : Colors.text,
+                    marginBottom: 2,
+                  }}
+                >
+                  {p.label}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "600",
+                    color: selected ? "rgba(255,255,255,0.85)" : Colors.textTertiary,
+                  }}
+                >
+                  ~{p.sqm} mq
                 </Text>
               </TouchableOpacity>
             );
           })}
+        </ScrollView>
+
+        {/* Custom mq input — lets the user tweak to the exact value */}
+        <View style={{ marginTop: Spacing.md }}>
+          <Text style={[s.sectionLabel, { marginBottom: 6 }]}>Metri quadri esatti</Text>
+          <View style={s.inputWrap}>
+            <Ionicons name="resize-outline" size={18} color={Colors.textTertiary} />
+            <TextInput
+              style={s.input}
+              placeholder="es. 75"
+              placeholderTextColor={Colors.textTertiary}
+              keyboardType="number-pad"
+              value={String(sqm)}
+              onChangeText={(t) => {
+                const n = parseInt(t.replace(/[^0-9]/g, ""), 10);
+                setSqm(Number.isNaN(n) ? 0 : Math.min(500, n));
+              }}
+            />
+            <Text style={{ fontSize: 13, color: Colors.textSecondary, fontWeight: "600" }}>mq</Text>
+          </View>
+          <Text style={[s.roomHint, { marginTop: 8 }]}>
+            Durata stimata: {estimatedHours.toFixed(1)}h · Cleaner riceve €{breakdown.cleanerReceives.toFixed(2)}
+          </Text>
         </View>
-        <Text style={s.roomHint}>
-          Durata stimata: {estimatedHours.toFixed(1)}h
-        </Text>
       </View>
 
       <View>
@@ -872,7 +1032,7 @@ export default function NewBookingScreen() {
         {[
           { icon: "calendar-outline" as const, label: "Data", value: formatDateIT(selectedDate) },
           { icon: "time-outline" as const, label: "Fascia", value: `${windowLabel} (${timeSlotString})` },
-          { icon: "home-outline" as const, label: "Stanze", value: `${numRooms} stanze · ${estimatedHours.toFixed(1)}h stimate` },
+          { icon: "home-outline" as const, label: "Casa", value: `${sqm} mq · ${numRooms} stanze · ${estimatedHours.toFixed(1)}h stimate` },
           { icon: "location-outline" as const, label: "Indirizzo", value: address },
         ].map((row) => (
           <View key={row.label} style={s.summaryRow}>
@@ -915,9 +1075,141 @@ export default function NewBookingScreen() {
     </View>
   );
 
-  const stepContent = [renderDateStep, renderDetailsStep, renderSummaryStep];
-  const stepTitles = ["Quando?", "Dettagli", "Riepilogo"];
-  const ctaLabel = step < TOTAL_STEPS - 2 ? "Continua ai dettagli" : step === TOTAL_STEPS - 2 ? "Vedi riepilogo" : "Conferma e paga";
+  // ── Step 2: Cleaner picker (dispatch flow only) ───────────────────────────────
+  const renderCleanerPickerStep = () => {
+    const prop = properties.find((p) => p.id === selectedPropertyId);
+    const hasCoords = !!(prop?.latitude && prop?.longitude);
+
+    return (
+      <View style={{ gap: Spacing.xl }}>
+        {/* Skip link */}
+        <TouchableOpacity
+          onPress={() => {
+            setPreferredCleanerIds([]);
+            setStep((s) => s + 1);
+          }}
+          activeOpacity={0.75}
+          style={s.skipLink}
+        >
+          <Text style={s.skipLinkText}>Lascia decidere a CleanHome</Text>
+          <Ionicons name="arrow-forward" size={14} color={Colors.secondary} />
+        </TouchableOpacity>
+
+        {/* Info about auto-dispatch */}
+        {preferredCleanerIds.length === 0 && (
+          <View style={s.infoBox}>
+            <Ionicons name="information-circle-outline" size={18} color={Colors.secondary} />
+            <Text style={s.infoBoxText}>
+              Invieremo la richiesta ai 6 cleaner più vicini disponibili nella tua zona
+            </Text>
+          </View>
+        )}
+
+        <Text style={s.sectionLabel}>
+          Scegli i tuoi preferiti{preferredCleanerIds.length > 0 ? ` (${preferredCleanerIds.length}/${MAX_PREFERRED_CLEANERS})` : " (opzionale)"}
+        </Text>
+
+        {!hasCoords && (
+          <View style={s.infoBox}>
+            <Ionicons name="warning-outline" size={18} color={Colors.warning} />
+            <Text style={[s.infoBoxText, { color: Colors.warning }]}>
+              Salva la posizione della tua casa per vedere i professionisti vicini
+            </Text>
+          </View>
+        )}
+
+        {listingsLoading && (
+          <ActivityIndicator color={Colors.secondary} size="small" />
+        )}
+
+        {!listingsLoading && nearbyListings.length === 0 && hasCoords && (
+          <View style={s.emptyListings}>
+            <Ionicons name="person-outline" size={28} color={Colors.textTertiary} />
+            <Text style={s.emptyListingsText}>
+              Nessun professionista trovato nella tua zona.{"\n"}CleanHome cercherà automaticamente.
+            </Text>
+          </View>
+        )}
+
+        {nearbyListings.map((listing) => {
+          const isSelected = preferredCleanerIds.includes(listing.cleaner_id);
+          const stars = listing.avg_rating.toFixed(1);
+          const initials = listing.cleaner_name.slice(0, 2).toUpperCase();
+          return (
+            <TouchableOpacity
+              key={listing.listing_id}
+              onPress={() => handleToggleCleaner(listing.cleaner_id)}
+              activeOpacity={0.85}
+              style={[s.cleanerCard, isSelected && s.cleanerCardSelected]}
+            >
+              {/* Checkbox top-right */}
+              <View style={[s.checkCircle, isSelected && s.checkCircleSelected]}>
+                {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+
+              {/* Avatar */}
+              {listing.cover_url ? (
+                <Image
+                  source={{ uri: listing.cover_url }}
+                  style={s.cleanerAvatar}
+                />
+              ) : (
+                <View style={[s.cleanerAvatar, s.cleanerAvatarFallback]}>
+                  <Text style={s.cleanerAvatarText}>{initials}</Text>
+                </View>
+              )}
+
+              {/* Info */}
+              <View style={{ flex: 1 }}>
+                <Text style={[s.cleanerName, isSelected && { color: Colors.secondary }]} numberOfLines={1}>
+                  {listing.cleaner_name}
+                </Text>
+                <View style={s.cleanerMeta}>
+                  <Ionicons name="star" size={12} color="#f59e0b" />
+                  <Text style={s.cleanerMetaText}>{stars}</Text>
+                  <Text style={s.cleanerMetaDot}>·</Text>
+                  <Text style={s.cleanerMetaText}>
+                    {listing.review_count} rec.
+                  </Text>
+                  {listing.city && (
+                    <>
+                      <Text style={s.cleanerMetaDot}>·</Text>
+                      <Text style={s.cleanerMetaText} numberOfLines={1}>{listing.city}</Text>
+                    </>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // In single-cleaner backward-compat mode, skip the picker step entirely
+  const isDispatchFlow = !cleanerId;
+  const stepRenderers = isDispatchFlow
+    ? [renderDateStep, renderDetailsStep, renderCleanerPickerStep, renderSummaryStep]
+    : [renderDateStep, renderDetailsStep, renderSummaryStep];
+  const stepTitlesList = isDispatchFlow
+    ? ["Quando?", "Dettagli", "Scegli cleaner", "Riepilogo"]
+    : ["Quando?", "Dettagli", "Riepilogo"];
+  const totalDisplaySteps = stepRenderers.length;
+
+  const stepContent = stepRenderers;
+  const stepTitles = stepTitlesList;
+  const ctaLabel =
+    step < totalDisplaySteps - 1
+      ? step === 0
+        ? "Continua ai dettagli"
+        : step === 1
+        ? isDispatchFlow
+          ? "Scegli i tuoi cleaner"
+          : "Vedi riepilogo"
+        : step === 2 && isDispatchFlow
+        ? "Vedi riepilogo"
+        : "Conferma e paga"
+      : "Conferma e paga";
 
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
@@ -939,13 +1231,13 @@ export default function NewBookingScreen() {
           <Text style={s.headerTitle}>{stepTitles[step]}</Text>
         </View>
         <View style={s.stepCounter}>
-          <Text style={s.stepCounterText}>{step + 1}/{TOTAL_STEPS - 1}</Text>
+          <Text style={s.stepCounterText}>{step + 1}/{totalDisplaySteps}</Text>
         </View>
       </View>
 
       {/* ── Progress bar ── */}
       <View style={s.progressTrack}>
-        <View style={[s.progressFill, { width: `${((step + 1) / (TOTAL_STEPS - 1)) * 100}%` }]} />
+        <View style={[s.progressFill, { width: `${((step + 1) / totalDisplaySteps) * 100}%` }]} />
       </View>
 
       {/* Price indicator */}
@@ -1003,7 +1295,7 @@ export default function NewBookingScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {(stepContent[step] ?? renderSummaryStep)()}
+          {(stepContent[step] ?? stepContent[stepContent.length - 1])()}
           <View style={{ height: 32 }} />
         </ScrollView>
 
@@ -1021,7 +1313,7 @@ export default function NewBookingScreen() {
               <>
                 <Text style={s.ctaBtnText}>{ctaLabel}</Text>
                 <Ionicons
-                  name={step === TOTAL_STEPS - 2 ? "card-outline" : "arrow-forward"}
+                  name={step === totalDisplaySteps - 1 ? "card-outline" : "arrow-forward"}
                   size={18}
                   color={Colors.textOnDark}
                 />
@@ -1384,6 +1676,113 @@ const s = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     lineHeight: 20,
+  },
+
+  // Cleaner picker
+  skipLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  skipLinkText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.secondary,
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.secondary,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  cleanerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    ...Shadows.sm,
+  },
+  cleanerCardSelected: {
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.accentLight,
+  },
+  checkCircle: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkCircleSelected: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondary,
+  },
+  cleanerAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  cleanerAvatarFallback: {
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cleanerAvatarText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.accent,
+  },
+  cleanerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  cleanerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  cleanerMetaText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: "500",
+  },
+  cleanerMetaDot: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  emptyListings: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+  },
+  emptyListingsText: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: "center",
+    lineHeight: 19,
   },
 
   // CTA
