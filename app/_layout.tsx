@@ -8,11 +8,14 @@ import * as Sentry from "@sentry/react-native";
 // Initialize Sentry — replace the DSN with your project's DSN from
 // https://sentry.io when you create a project. Until then crash
 // reports are only logged to console.
+const ENV = process.env.EXPO_PUBLIC_ENV ?? "local";
+
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
-  // Disable in dev to avoid noise during development
-  enabled: !__DEV__,
-  tracesSampleRate: 0.2,
+  environment: ENV,
+  // Disabled only in local dev to avoid noise. Staging and production always send.
+  enabled: ENV !== "local",
+  tracesSampleRate: ENV === "production" ? 1.0 : 0.1,
 });
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
