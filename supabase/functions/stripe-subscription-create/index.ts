@@ -243,25 +243,10 @@ serve(async (req: Request) => {
       subscriptionId: subscription.id,
     });
   } catch (err: any) {
-    // Pre-launch: return the underlying error so the client can show it.
-    // Once we go live we should switch back to a generic message.
     const msg = err?.message ?? String(err);
     console.error("[stripe-subscription-create error]", msg);
     return json(
-      {
-        error: "Impossibile creare l'abbonamento. Riprova più tardi.",
-        debug: msg,
-        env_check: {
-          has_secret_key: !!STRIPE_SECRET_KEY,
-          has_price_id: !!STRIPE_LISTING_PRICE_ID,
-          price_id_prefix: STRIPE_LISTING_PRICE_ID?.slice(0, 12) ?? null,
-          secret_key_mode: STRIPE_SECRET_KEY?.startsWith("sk_live_")
-            ? "live"
-            : STRIPE_SECRET_KEY?.startsWith("sk_test_")
-            ? "test"
-            : "unknown",
-        },
-      },
+      { error: "Impossibile creare l'abbonamento. Riprova più tardi." },
       500
     );
   }
