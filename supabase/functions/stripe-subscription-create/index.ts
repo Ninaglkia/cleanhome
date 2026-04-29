@@ -160,6 +160,24 @@ serve(async (req: Request) => {
       .single();
 
     let customerId = profile?.stripe_customer_id as string | null;
+
+    // Validate the cached customer still exists in the current Stripe
+    // account/mode. A stale id would happen if the project's Stripe
+    // keys are rotated or the test/live mode is swapped — the cus_xxx
+    // we stored points to a customer that no longer exists from the
+    // current key's perspective. We detect and self-heal.
+    if (customerId) {
+      try {
+        await stripeFetch(`customers/${customerId}`);
+      } catch (_e) {
+        customerId = null;
+        await supabase
+          .from("profiles")
+          .update({ stripe_customer_id: null })
+          .eq("id", user.id);
+      }
+    }
+
     if (!customerId) {
       const customer = await stripeFetch("customers", {
         email: user.email ?? "",
@@ -225,13 +243,24 @@ serve(async (req: Request) => {
       subscriptionId: subscription.id,
     });
   } catch (err: any) {
-    // Log the full error server-side for debugging, but return a
-    // generic message to the client to avoid leaking internals.
+    // Pre-launch: return the underlying error so the client can show it.
+    // Once we go live we should switch back to a generic message.
     const msg = err?.message ?? String(err);
     console.error("[stripe-subscription-create error]", msg);
     return json(
       {
         error: "Impossibile creare l'abbonamento. Riprova più tardi.",
+        debug: msg,
+        env_check: {
+          has_secret_key: !!STRIPE_SECRET_KEY,
+          has_price_id: !!STRIPE_LISTING_PRICE_ID,
+          price_id_prefix: STRIPE_LISTING_PRICE_ID?.slice(0, 12) ?? null,
+          secret_key_mode: STRIPE_SECRET_KEY?.startsWith("sk_live_")
+            ? "live"
+            : STRIPE_SECRET_KEY?.startsWith("sk_test_")
+            ? "test"
+            : "unknown",
+        },
       },
       500
     );
