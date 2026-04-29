@@ -17,10 +17,10 @@ Requisiti per chiudere la milestone "Pre-launch hardening" e arrivare alla submi
 
 ### Security Hardening
 
-- [ ] **SEC-01**: Edge Function `stripe-subscription-create` non restituisce più `debug` né `env_check` al client (solo messaggio generico)
-- [ ] **SEC-02**: Audit di tutte le Edge Functions per assicurarsi che nessun errore ritorni dettagli interni (raw error, key prefix, env mode)
-- [ ] **SEC-03**: `.env.local` non committato e contenente chiavi LIVE solo localmente; `.gitignore` verificato
-- [ ] **SEC-04**: Sentry attivo in produzione (build production) con DSN configurato e source maps caricate
+- [x] **SEC-01**: Edge Function `stripe-subscription-create` non restituisce più `debug` né `env_check` al client (solo messaggio generico)
+- [x] **SEC-02**: Audit di tutte le Edge Functions per assicurarsi che nessun errore ritorni dettagli interni (raw error, key prefix, env mode)
+- [x] **SEC-03**: `.env.local` non committato e contenente chiavi LIVE solo localmente; `.gitignore` verificato
+- [x] **SEC-04**: Sentry attivo in produzione (build production) con DSN configurato e source maps caricate
 
 ### Escrow
 
@@ -100,10 +100,10 @@ Deferred a milestone successiva.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 1: Sicurezza | Pending |
-| SEC-02 | Phase 1: Sicurezza | Pending |
-| SEC-03 | Phase 1: Sicurezza | Pending |
-| SEC-04 | Phase 1: Sicurezza | Pending |
+| SEC-01 | Phase 1: Sicurezza | Complete |
+| SEC-02 | Phase 1: Sicurezza | Complete |
+| SEC-03 | Phase 1: Sicurezza | Complete |
+| SEC-04 | Phase 1: Sicurezza | Complete |
 | ESCROW-01 | Phase 2: Escrow | Pending |
 | ESCROW-02 | Phase 2: Escrow | Pending |
 | ESCROW-03 | Phase 2: Escrow | Pending |

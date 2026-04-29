@@ -12,7 +12,7 @@ Portare CleanHome dall'attuale stato pre-launch (tutto in test mode, nessun docu
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Sicurezza** - Rimuovere il debug leak nelle Edge Functions e verificare igiene secrets
+- [x] **Phase 1: Sicurezza** - Rimuovere il debug leak nelle Edge Functions e verificare igiene secrets (completed 2026-04-29)
 - [ ] **Phase 2: Escrow** - Implementare il flusso conferma-completamento con release payout al cleaner
 - [ ] **Phase 3: Chat Anti-Bypass** - Bloccare condivisione contatti diretti nella chat
 - [ ] **Phase 4: Documenti Legali** - Pubblicare Privacy, Terms, Refund Policy su URL pubblici
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Rimuovere debug/env_check da stripe-subscription-create e audit di tutte le Edge Functions (SEC-01, SEC-02)
+- [x] 01-01-PLAN.md — Rimuovere debug/env_check da stripe-subscription-create e audit di tutte le Edge Functions (SEC-01, SEC-02)
 - [ ] 01-02-PLAN.md — Verificare .gitignore, .env.local e configurare Sentry production (SEC-03, SEC-04)
 
 ### Phase 2: Escrow
@@ -139,7 +139,7 @@ Phases 1-3 can partially overlap (Phase 3 and 4 independent of each other). Phas
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sicurezza | 0/2 | Not started | - |
+| 1. Sicurezza | 2/2 | Complete   | 2026-04-29 |
 | 2. Escrow | 0/2 | Not started | - |
 | 3. Chat Anti-Bypass | 0/1 | Not started | - |
 | 4. Documenti Legali | 0/2 | Not started | - |
