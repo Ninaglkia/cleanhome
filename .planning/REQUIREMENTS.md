@@ -98,17 +98,51 @@ Deferred a milestone successiva.
 
 ## Traceability
 
-Da popolare durante creazione roadmap.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (popolato dal roadmapper) | — | Pending |
+| SEC-01 | Phase 1: Sicurezza | Pending |
+| SEC-02 | Phase 1: Sicurezza | Pending |
+| SEC-03 | Phase 1: Sicurezza | Pending |
+| SEC-04 | Phase 1: Sicurezza | Pending |
+| ESCROW-01 | Phase 2: Escrow | Pending |
+| ESCROW-02 | Phase 2: Escrow | Pending |
+| ESCROW-03 | Phase 2: Escrow | Pending |
+| ESCROW-04 | Phase 2: Escrow | Pending |
+| ESCROW-05 | Phase 2: Escrow | Pending |
+| CHAT-01 | Phase 3: Chat Anti-Bypass | Pending |
+| CHAT-02 | Phase 3: Chat Anti-Bypass | Pending |
+| CHAT-03 | Phase 3: Chat Anti-Bypass | Pending |
+| CHAT-04 | Phase 3: Chat Anti-Bypass | Pending |
+| LEGAL-01 | Phase 4: Documenti Legali | Pending |
+| LEGAL-02 | Phase 4: Documenti Legali | Pending |
+| LEGAL-03 | Phase 4: Documenti Legali | Pending |
+| LEGAL-04 | Phase 4: Documenti Legali | Pending |
+| LEGAL-05 | Phase 4: Documenti Legali | Pending |
+| LEGAL-06 | Phase 4: Documenti Legali | Pending |
+| STRIPE-01 | Phase 5: Stripe LIVE | Pending |
+| STRIPE-02 | Phase 5: Stripe LIVE | Pending |
+| STRIPE-03 | Phase 5: Stripe LIVE | Pending |
+| STRIPE-04 | Phase 5: Stripe LIVE | Pending |
+| STRIPE-05 | Phase 5: Stripe LIVE | Pending |
+| STORE-01 | Phase 6: Submission iOS | Pending |
+| STORE-02 | Phase 6: Submission iOS | Pending |
+| STORE-03 | Phase 6: Submission iOS | Pending |
+| STORE-04 | Phase 6: Submission iOS | Pending |
+| STORE-05 | Phase 6: Submission iOS | Pending |
+| STORE-06 | Phase 6: Submission iOS | Pending |
+| STORE-07 | Phase 6: Submission iOS | Pending |
+| STORE-08 | Phase 6: Submission iOS | Pending |
+| STORE-09 | Phase 7: Submission Android | Pending |
+| STORE-10 | Phase 7: Submission Android | Pending |
+| STORE-11 | Phase 7: Submission Android | Pending |
+| STORE-12 | Phase 7: Submission Android | Pending |
+| STORE-13 | Phase 7: Submission Android | Pending |
 
 **Coverage:**
 - v1 requirements: 35 totali
-- Mapped to phases: 0 (in attesa di roadmap)
-- Unmapped: 35
+- Mapped to phases: 35/35
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-29*
-*Last updated: 2026-04-29 after initial definition*
+*Last updated: 2026-04-29 — traceability popolata da roadmapper*
