@@ -31,11 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Tutte le Edge Functions non restituiscono raw error message, key prefix o env mode al client in nessun caso di errore
   3. Il file `.gitignore` blocca `.env.local`; nessuna chiave LIVE (sk_live_, pk_live_) appare nel repo git
   4. Sentry e' attivo sulla build production, riceve eventi e carica le source maps correttamente
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Rimuovere debug/env_check da stripe-subscription-create e audit di tutte le Edge Functions
-- [ ] 01-02: Verificare .gitignore, .env.local e configurare Sentry production
+- [ ] 01-01-PLAN.md — Rimuovere debug/env_check da stripe-subscription-create e audit di tutte le Edge Functions (SEC-01, SEC-02)
+- [ ] 01-02-PLAN.md — Verificare .gitignore, .env.local e configurare Sentry production (SEC-03, SEC-04)
 
 ### Phase 2: Escrow
 **Goal**: Il flusso di denaro dal cliente al cleaner passa per un gate di conferma — il payout e' rilasciato solo quando il cliente conferma il servizio (o dopo 48h di silenzio)
