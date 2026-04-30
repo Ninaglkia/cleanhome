@@ -273,6 +273,8 @@ serve(async (req: Request) => {
       "metadata[notes]": (body.notes ?? "").slice(0, 450),
       "metadata[listing_id]": body.listing_id ?? "",
       "metadata[property_id]": body.property_id ?? "",
+      "metadata[search_lat]": String(body.search_lat ?? ""),
+      "metadata[search_lng]": String(body.search_lng ?? ""),
     };
 
     if (dispatchMode === "legacy") {

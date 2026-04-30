@@ -273,7 +273,11 @@ serve(async (req: Request) => {
         if (existing) break;
 
         const isLegacy = md.dispatch_mode === "legacy" || (!md.dispatch_mode && md.cleaner_id);
-        const deadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        // Fast dispatch: 10-min initial window. Auto-cancel cron escalates after.
+        const deadline = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+        const searchLat = parseFloat(md.search_lat || "");
+        const searchLng = parseFloat(md.search_lng || "");
 
         // Build booking insert payload
         const bookingInsert: Record<string, any> = {
@@ -292,6 +296,10 @@ serve(async (req: Request) => {
           stripe_payment_intent_id: pi.id,
           cleaner_deadline: deadline,
           payout_blocked: true, // always escrow until explicit release
+          search_lat: Number.isFinite(searchLat) ? searchLat : null,
+          search_lng: Number.isFinite(searchLng) ? searchLng : null,
+          broadcast_step: 0,
+          last_broadcast_at: new Date().toISOString(),
         };
 
         if (isLegacy) {
@@ -338,14 +346,15 @@ serve(async (req: Request) => {
               console.error("[webhook offers insert]", offersErr.message);
             }
 
-            // Notify each cleaner
+            // Notify each cleaner — show NET earnings, not gross, to avoid disillusionment
+            const cleanerNet = parseFloat(md.base_price || "0") - parseFloat(md.cleaner_fee || "0");
             await Promise.all(
               cleanerIds.map((cid) =>
                 insertNotification(
                   cid,
                   "new_booking_request",
                   "Nuova richiesta di pulizia",
-                  "Hai ricevuto una nuova richiesta. Accetta entro 24h!",
+                  `Guadagni netti: €${cleanerNet.toFixed(2)} — Accetta entro 10 min`,
                   `/booking/${newBooking.id}`,
                   { booking_id: newBooking.id }
                 )
