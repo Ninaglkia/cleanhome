@@ -1,7 +1,8 @@
-import { useEffect, useCallback } from "react";
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { useEffect, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -68,6 +69,9 @@ function Sparkle({ x, y, size, delay, duration }: SparkleProps) {
 export default function SplashScreenView() {
   const { isLoading, user, profile } = useAuth();
   const router = useRouter();
+
+  // Lottie ref
+  const lottieRef = useRef<LottieView>(null);
 
   // Animation values
   const logoOpacity = useSharedValue(0);
@@ -206,10 +210,14 @@ export default function SplashScreenView() {
           <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
           <Animated.View style={[styles.haloInner, haloInnerStyle]} />
           <Animated.View style={[styles.logoWrap, logoStyle]}>
-            <Image
+            <LottieView
+              ref={lottieRef}
               // eslint-disable-next-line @typescript-eslint/no-require-imports
-              source={require("../assets/icon.png")}
-              style={styles.logoImg}
+              source={require("../assets/lottie/cleaning.json")}
+              autoPlay
+              loop
+              style={styles.lottie}
+              resizeMode="contain"
             />
           </Animated.View>
         </View>
@@ -311,10 +319,9 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
   },
-  logoImg: {
-    width: LOGO_SIZE - 16,
-    height: LOGO_SIZE - 16,
-    borderRadius: 18,
+  lottie: {
+    width: LOGO_SIZE - 8,
+    height: LOGO_SIZE - 8,
   },
   brandName: {
     color: "#ffffff",

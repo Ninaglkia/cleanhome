@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>CleanHome — Splash preview</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #111; }
+  body {
+    display: grid;
+    place-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  /* iPhone 16 Pro frame */
+  .device {
+    position: relative;
+    width: 393px;
+    height: 852px;
+    background: #022420;
+    border-radius: 56px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 12px #1a1a1a,
+      0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Notch */
+  .device::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 36px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 10;
+  }
+
+  /* Background ambient blobs */
+  .blob-top {
+    position: absolute;
+    top: -157px;
+    left: -118px;
+    width: 472px;
+    height: 472px;
+    border-radius: 50%;
+    background: rgba(79, 196, 163, 0.10);
+  }
+  .blob-mid {
+    position: absolute;
+    top: 85px;
+    left: 20px;
+    width: 354px;
+    height: 354px;
+    border-radius: 50%;
+    background: rgba(26, 82, 72, 0.55);
+    filter: blur(8px);
+  }
+  .blob-bottom {
+    position: absolute;
+    bottom: -118px;
+    right: -118px;
+    width: 393px;
+    height: 393px;
+    border-radius: 50%;
+    background: rgba(10, 58, 50, 0.6);
+  }
+
+  /* Bottom shimmer */
+  .shimmer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    background: rgba(130, 244, 209, 0.06);
+    border-top-left-radius: 200px;
+    border-top-right-radius: 200px;
+  }
+
+  /* Center content */
+  .center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 5;
+  }
+
+  /* Halo system */
+  .halo-slot {
+    width: 220px;
+    height: 220px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    margin-bottom: 28px;
+  }
+  .halo-outer, .halo-inner {
+    position: absolute;
+    border-radius: 50%;
+  }
+  .halo-outer {
+    width: 220px;
+    height: 220px;
+    background: rgba(79, 196, 163, 0.10);
+    border: 1px solid rgba(130, 244, 209, 0.10);
+    animation: pulse-outer 2.4s ease-in-out infinite alternate;
+  }
+  .halo-inner {
+    width: 150px;
+    height: 150px;
+    background: rgba(79, 196, 163, 0.18);
+    animation: pulse-inner 2.4s ease-in-out infinite alternate;
+    animation-delay: 0.2s;
+  }
+  @keyframes pulse-outer {
+    from { opacity: 0.25; transform: scale(1); }
+    to   { opacity: 0.55; transform: scale(1.18); }
+  }
+  @keyframes pulse-inner {
+    from { opacity: 0.4; transform: scale(1); }
+    to   { opacity: 0.7; transform: scale(1.08); }
+  }
+
+  /* Logo */
+  .logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(130, 244, 209, 0.20);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 20px rgba(130, 244, 209, 0.4);
+    z-index: 2;
+    animation: logo-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    opacity: 0;
+    animation-fill-mode: forwards;
+  }
+  .logo .lottie-container {
+    width: 88px;
+    height: 88px;
+  }
+  @keyframes logo-in {
+    0%   { opacity: 0; transform: scale(0.7); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* Brand */
+  .brand {
+    color: #fff;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 16px rgba(130, 244, 209, 0.25);
+    opacity: 0;
+    animation: brand-in 0.5s cubic-bezier(0.215, 0.61, 0.355, 1) 0.5s forwards;
+    transform: translateY(16px);
+  }
+  @keyframes brand-in {
+    0%   { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tagline */
+  .tagline {
+    color: #82f4d1;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 22px;
+    opacity: 0;
+    animation: fade-in 0.6s ease-out 0.9s forwards;
+  }
+  @keyframes fade-in {
+    to { opacity: 0.8; }
+  }
+
+  /* Sparkles */
+  .sparkle {
+    position: absolute;
+    background: #82f4d1;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #82f4d1;
+    opacity: 0;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-timing-function: ease-in-out;
+  }
+  @keyframes float-sparkle {
+    0%   { opacity: 0; transform: translateY(0) scale(0.6); }
+    50%  { opacity: 1; transform: translateY(-10px) scale(1); }
+    100% { opacity: 0; transform: translateY(-20px) scale(0.6); }
+  }
+
+  /* HUD */
+  .hud {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    color: #82f4d1;
+    font-size: 12px;
+    font-family: ui-monospace, "SF Mono", monospace;
+    background: rgba(0,0,0,0.6);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #82f4d1;
+  }
+  .replay {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: #82f4d1;
+    color: #022420;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="hud">
+    CleanHome — splash preview · 393×852 (iPhone 16 Pro)<br/>
+    Logo entra 0–700ms · Brand 500–1000ms · Tagline 900–1500ms · Halo + sparkles loop infinito
+  </div>
+  <button class="replay" onclick="location.reload()">⟲ Replay</button>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+
+  <div class="device" id="device">
+    <div class="blob-top"></div>
+    <div class="blob-mid"></div>
+    <div class="blob-bottom"></div>
+
+    <!-- Sparkles will be injected by JS -->
+
+    <div class="center">
+      <div class="halo-slot">
+        <div class="halo-outer"></div>
+        <div class="halo-inner"></div>
+        <div class="logo"><div class="lottie-container" id="lottie-anim"></div></div>
+      </div>
+      <div class="brand">CleanHome</div>
+      <div class="tagline">La tua casa al meglio.<br>Sempre.</div>
+    </div>
+
+    <div class="shimmer"></div>
+  </div>
+
+  <script>
+    // Generate sparkles matching the React Native version
+    const sparkles = [
+      { x: 0.18, y: 0.32, size: 4, delay: 600,  duration: 2200 },
+      { x: 0.78, y: 0.28, size: 3, delay: 900,  duration: 2600 },
+      { x: 0.12, y: 0.52, size: 5, delay: 1100, duration: 2400 },
+      { x: 0.84, y: 0.55, size: 4, delay: 750,  duration: 2800 },
+      { x: 0.25, y: 0.70, size: 3, delay: 1300, duration: 2300 },
+      { x: 0.70, y: 0.72, size: 5, delay: 800,  duration: 2700 },
+      { x: 0.50, y: 0.18, size: 3, delay: 1500, duration: 2500 },
+      { x: 0.45, y: 0.85, size: 4, delay: 1700, duration: 2400 },
+    ];
+    const W = 393, H = 852;
+    const device = document.getElementById('device');
+    // Load Lottie cleaning animation
+    lottie.loadAnimation({
+      container: document.getElementById('lottie-anim'),
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      path: './assets/lottie/cleaning.json',
+    });
+
+    sparkles.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.style.width = s.size + 'px';
+      el.style.height = s.size + 'px';
+      el.style.left = (s.x * W) + 'px';
+      el.style.top = (s.y * H) + 'px';
+      el.style.animationName = 'float-sparkle';
+      el.style.animationDuration = s.duration + 'ms';
+      el.style.animationDelay = s.delay + 'ms';
+      device.appendChild(el);
+    });
+  </script>
+</body>
+</html>
