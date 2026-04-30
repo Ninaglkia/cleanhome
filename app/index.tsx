@@ -2,7 +2,6 @@ import { useEffect, useCallback } from "react";
 import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -186,21 +185,10 @@ export default function SplashScreenView() {
 
   return (
     <View style={styles.container} onLayout={onLayoutReady}>
-      {/* Layered radial gradient via stacked LinearGradients */}
-      <LinearGradient
-        colors={["#022420", "#0a3a32", "#1a5248"]}
-        locations={[0, 0.6, 1]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={["transparent", "rgba(79, 196, 163, 0.18)", "transparent"]}
-        locations={[0, 0.5, 1]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Layered ambient blobs for depth (no gradient lib required) */}
+      <View style={styles.bgBlobTop} />
+      <View style={styles.bgBlobMid} />
+      <View style={styles.bgBlobBottom} />
 
       {/* Floating sparkles in the background */}
       {sparkles.map((s, i) => (
@@ -234,11 +222,7 @@ export default function SplashScreenView() {
       </View>
 
       {/* Subtle bottom shimmer */}
-      <LinearGradient
-        colors={["transparent", "rgba(130, 244, 209, 0.12)"]}
-        style={styles.bottomShimmer}
-        pointerEvents="none"
-      />
+      <View style={styles.bottomShimmer} pointerEvents="none" />
     </View>
   );
 }
@@ -254,6 +238,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  bgBlobTop: {
+    position: "absolute",
+    top: -SCREEN_W * 0.4,
+    left: -SCREEN_W * 0.3,
+    width: SCREEN_W * 1.2,
+    height: SCREEN_W * 1.2,
+    borderRadius: SCREEN_W * 0.6,
+    backgroundColor: "rgba(79, 196, 163, 0.10)",
+  },
+  bgBlobMid: {
+    position: "absolute",
+    width: SCREEN_W * 0.9,
+    height: SCREEN_W * 0.9,
+    borderRadius: SCREEN_W * 0.45,
+    backgroundColor: "rgba(26, 82, 72, 0.55)",
+    top: SCREEN_H * 0.1,
+    left: SCREEN_W * 0.05,
+  },
+  bgBlobBottom: {
+    position: "absolute",
+    bottom: -SCREEN_W * 0.3,
+    right: -SCREEN_W * 0.3,
+    width: SCREEN_W * 1.0,
+    height: SCREEN_W * 1.0,
+    borderRadius: SCREEN_W * 0.5,
+    backgroundColor: "rgba(10, 58, 50, 0.6)",
   },
   centerContent: {
     alignItems: "center",
@@ -334,5 +345,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 200,
+    backgroundColor: "rgba(130, 244, 209, 0.06)",
+    borderTopLeftRadius: SCREEN_W * 0.5,
+    borderTopRightRadius: SCREEN_W * 0.5,
   },
 });
