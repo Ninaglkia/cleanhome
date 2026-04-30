@@ -255,7 +255,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ctaBtnOuter: {
-    height: 56,
     backgroundColor: C.primary,
     borderRadius: 16,
     overflow: "hidden",
@@ -266,10 +265,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   ctaBtnTap: {
-    flex: 1,
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
     gap: 10,
   },
   ctaText: {

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import {
   View,
@@ -717,14 +718,20 @@ export default function ProfileScreen() {
         text: "Esci",
         style: "destructive",
         onPress: () => {
-          // Show the bye-bye animation, then sign out after it plays
           setShowLogoutAnim(true);
           logoutTimerRef.current = setTimeout(async () => {
             logoutTimerRef.current = null;
+            // Mark the marketing onboarding as seen so logout sends the
+            // user straight to login instead of the welcome tour again.
+            try {
+              await AsyncStorage.setItem("cleanhome.onboarding_seen", "true");
+            } catch {
+              // non-fatal
+            }
             await signOut();
             setShowLogoutAnim(false);
             router.replace("/(auth)/login");
-          }, 2800);
+          }, 1800);
         },
       },
     ]);
@@ -912,10 +919,10 @@ export default function ProfileScreen() {
           }}
         >
           <LottieView
-            source={require("../../assets/lottie/rocket.json")}
+            source={require("../../assets/lottie/cleaning.json")}
             autoPlay
-            loop={false}
-            speed={0.8}
+            loop
+            speed={1}
             style={{ width: 280, height: 280 }}
           />
           <Animated.Text
