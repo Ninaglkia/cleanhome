@@ -1,248 +1,338 @@
 import { useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withDelay,
+  withRepeat,
   withSequence,
   Easing,
+  interpolate,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../lib/auth";
 
-// AsyncStorage key that records whether the user has seen the pre-login
-// marketing onboarding. Set when the user taps the CTA on the last slide
-// of the tour. Guards against re-showing the tour on every cold start.
 const ONBOARDING_SEEN_KEY = "cleanhome.onboarding_seen";
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const PROGRESS_BAR_WIDTH = 48;
-
-// Keep native splash visible until we're ready
 SplashScreen.preventAutoHideAsync();
+
+// ─── Floating sparkle particle ────────────────────────────────────────────────
+
+interface SparkleProps {
+  x: number;
+  y: number;
+  size: number;
+  delay: number;
+  duration: number;
+}
+
+function Sparkle({ x, y, size, delay, duration }: SparkleProps) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration, easing: Easing.inOut(Easing.quad) }),
+        -1,
+        true
+      )
+    );
+  }, [delay, duration, progress]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.5, 1], [0, 1, 0]),
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [0, -20]) },
+      { scale: interpolate(progress.value, [0, 0.5, 1], [0.6, 1, 0.6]) },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.sparkle,
+        { left: x, top: y, width: size, height: size, borderRadius: size / 2 },
+        style,
+      ]}
+    />
+  );
+}
+
+// ─── Splash screen ────────────────────────────────────────────────────────────
 
 export default function SplashScreenView() {
   const { isLoading, user, profile } = useAuth();
   const router = useRouter();
 
-  const opacity = useSharedValue(1); // Start visible immediately
-  const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.4);
-  const progressWidth = useSharedValue(0);
-  const bottomOpacity = useSharedValue(1);
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
-  const bottomStyle = useAnimatedStyle(() => ({
-    opacity: bottomOpacity.value,
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: progressWidth.value,
-  }));
+  // Animation values
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.7);
+  const haloPulse = useSharedValue(0);
+  const brandOpacity = useSharedValue(0);
+  const brandTranslateY = useSharedValue(16);
+  const taglineOpacity = useSharedValue(0);
 
   // Hide native splash as soon as our view mounts
   const onLayoutReady = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
 
+  // Entrance choreography
   useEffect(() => {
-    // Animate progress bar from 0 → 70% quickly, then slow to ~90%
-    progressWidth.value = withSequence(
-      withTiming(PROGRESS_BAR_WIDTH * 0.7, {
-        duration: 1500,
-        easing: Easing.out(Easing.quad),
-      }),
-      withTiming(PROGRESS_BAR_WIDTH * 0.9, {
-        duration: 1000,
-        easing: Easing.out(Easing.cubic),
-      })
+    // Logo: fade + scale up
+    logoOpacity.value = withTiming(1, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
+    logoScale.value = withTiming(1, {
+      duration: 700,
+      easing: Easing.out(Easing.back(1.4)),
+    });
+
+    // Halo: continuous breathing pulse
+    haloPulse.value = withDelay(
+      400,
+      withRepeat(
+        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      )
+    );
+
+    // Brand name: slide-up + fade after logo
+    brandOpacity.value = withDelay(
+      500,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+    );
+    brandTranslateY.value = withDelay(
+      500,
+      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+    );
+
+    // Tagline: fade in last
+    taglineOpacity.value = withDelay(
+      900,
+      withTiming(0.8, { duration: 600, easing: Easing.out(Easing.cubic) })
     );
   }, []);
 
+  // Navigate when auth resolved
   useEffect(() => {
     if (isLoading) return;
 
-    // Data loaded — fill the progress bar a bit more slowly so the splash
-    // doesn't feel rushed. Users barely see the brand at 600ms: 1.6s of
-    // fill + 200ms pause reads as intentional branding without being slow.
-    progressWidth.value = withTiming(
-      PROGRESS_BAR_WIDTH,
-      { duration: 1600, easing: Easing.out(Easing.cubic) }
-    );
-
     const timer = setTimeout(async () => {
       if (!user) {
-        // Not authenticated. First-time visitors see the marketing tour
-        // (features → security → login) while returning visitors skip
-        // straight to the login screen. The AsyncStorage flag is set
-        // when the user completes the tour, so it only shows once.
         let seen = false;
         try {
           seen = (await AsyncStorage.getItem(ONBOARDING_SEEN_KEY)) === "true";
         } catch {
-          // Storage failure is non-fatal — treat as "not seen" so the
-          // user at least sees the tour in the worst case.
           seen = false;
         }
         router.replace(seen ? "/(auth)/login" : "/onboarding/features");
       } else if (!profile || !profile.cleaner_onboarded) {
-        // First login OR profile row not yet created by the DB trigger.
-        // Both go to /onboarding/welcome which collects the role AND
-        // marks the profile as onboarded in a single unified flow.
         router.replace("/onboarding/welcome");
       } else if (profile.active_role === "cleaner") {
         router.replace("/(tabs)/cleaner-home");
       } else {
         router.replace("/(tabs)/home");
       }
-    }, 1800);
+    }, 1700);
 
     return () => clearTimeout(timer);
   }, [isLoading, user, profile]);
 
+  // Animated styles
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const haloOuterStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(haloPulse.value, [0, 1], [0.25, 0.55]),
+    transform: [{ scale: interpolate(haloPulse.value, [0, 1], [1, 1.18]) }],
+  }));
+
+  const haloInnerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(haloPulse.value, [0, 1], [0.4, 0.7]),
+    transform: [{ scale: interpolate(haloPulse.value, [0, 1], [1, 1.08]) }],
+  }));
+
+  const brandStyle = useAnimatedStyle(() => ({
+    opacity: brandOpacity.value,
+    transform: [{ translateY: brandTranslateY.value }],
+  }));
+
+  const taglineStyle = useAnimatedStyle(() => ({
+    opacity: taglineOpacity.value,
+  }));
+
+  // Sparkle positions: scattered around logo, off the central area
+  const sparkles: SparkleProps[] = [
+    { x: SCREEN_W * 0.18, y: SCREEN_H * 0.32, size: 4, delay: 600, duration: 2200 },
+    { x: SCREEN_W * 0.78, y: SCREEN_H * 0.28, size: 3, delay: 900, duration: 2600 },
+    { x: SCREEN_W * 0.12, y: SCREEN_H * 0.52, size: 5, delay: 1100, duration: 2400 },
+    { x: SCREEN_W * 0.84, y: SCREEN_H * 0.55, size: 4, delay: 750, duration: 2800 },
+    { x: SCREEN_W * 0.25, y: SCREEN_H * 0.7, size: 3, delay: 1300, duration: 2300 },
+    { x: SCREEN_W * 0.7, y: SCREEN_H * 0.72, size: 5, delay: 800, duration: 2700 },
+    { x: SCREEN_W * 0.5, y: SCREEN_H * 0.18, size: 3, delay: 1500, duration: 2500 },
+    { x: SCREEN_W * 0.45, y: SCREEN_H * 0.85, size: 4, delay: 1700, duration: 2400 },
+  ];
+
   return (
     <View style={styles.container} onLayout={onLayoutReady}>
-      {/* Ambient glow */}
-      <Animated.View style={[styles.glowTopLeft, glowStyle]} />
-      <Animated.View style={[styles.glowBottomRight, glowStyle]} />
+      {/* Layered radial gradient via stacked LinearGradients */}
+      <LinearGradient
+        colors={["#022420", "#0a3a32", "#1a5248"]}
+        locations={[0, 0.6, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={["transparent", "rgba(79, 196, 163, 0.18)", "transparent"]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Center content — visible immediately */}
-      <Animated.View style={[styles.centerContent, contentStyle]}>
-        {/* Logo icon */}
-        <View style={styles.iconWrapper}>
-          <View style={styles.iconInnerGlow} />
-          <Ionicons name="leaf" size={52} color="#4fc4a3" />
-          <View style={styles.sparkleWrap}>
-            <Ionicons name="sparkles" size={18} color="#4fc4a3" />
-          </View>
+      {/* Floating sparkles in the background */}
+      {sparkles.map((s, i) => (
+        <Sparkle key={i} {...s} />
+      ))}
+
+      {/* Center brand block */}
+      <View style={styles.centerContent}>
+        {/* Logo with breathing halo */}
+        <View style={styles.logoSlot}>
+          <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
+          <Animated.View style={[styles.haloInner, haloInnerStyle]} />
+          <Animated.View style={[styles.logoWrap, logoStyle]}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require("../assets/icon.png")}
+              style={styles.logoImg}
+            />
+          </Animated.View>
         </View>
 
-        {/* Brand name */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons name="leaf" size={28} color="#022420" />
-          <Text style={styles.brandName}>CleanHome</Text>
-        </View>
+        {/* Brand wordmark */}
+        <Animated.Text style={[styles.brandName, brandStyle]}>
+          CleanHome
+        </Animated.Text>
 
         {/* Tagline */}
-        <Text style={styles.tagline}>
-          L'eccellenza nella cura domestica
-        </Text>
-      </Animated.View>
+        <Animated.Text style={[styles.tagline, taglineStyle]}>
+          La tua casa al meglio.{"\n"}Sempre.
+        </Animated.Text>
+      </View>
 
-      {/* Bottom — progress bar + label */}
-      <Animated.View style={[styles.bottomArea, bottomStyle]}>
-        <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFill, progressStyle]} />
-        </View>
-        <Text style={styles.initLabel}>Inizializzazione</Text>
-      </Animated.View>
+      {/* Subtle bottom shimmer */}
+      <LinearGradient
+        colors={["transparent", "rgba(130, 244, 209, 0.12)"]}
+        style={styles.bottomShimmer}
+        pointerEvents="none"
+      />
     </View>
   );
 }
 
+const LOGO_SIZE = 96;
+const HALO_OUTER_SIZE = 220;
+const HALO_INNER_SIZE = 150;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a3a35",
+    backgroundColor: "#022420",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-  },
-  glowTopLeft: {
-    position: "absolute",
-    top: "-10%",
-    left: "-10%",
-    width: SCREEN_W * 0.7,
-    height: SCREEN_W * 0.7,
-    borderRadius: SCREEN_W * 0.35,
-    backgroundColor: "rgba(79, 196, 163, 0.08)",
-  },
-  glowBottomRight: {
-    position: "absolute",
-    bottom: "-10%",
-    right: "-10%",
-    width: SCREEN_W * 0.6,
-    height: SCREEN_W * 0.6,
-    borderRadius: SCREEN_W * 0.3,
-    backgroundColor: "rgba(79, 196, 163, 0.04)",
   },
   centerContent: {
     alignItems: "center",
+    paddingHorizontal: 32,
   },
-  iconWrapper: {
-    width: 128,
-    height: 128,
-    borderRadius: 16,
-    backgroundColor: "rgba(2, 36, 32, 0.20)",
+  logoSlot: {
+    width: HALO_OUTER_SIZE,
+    height: HALO_OUTER_SIZE,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 32,
+    marginBottom: 28,
+  },
+  haloOuter: {
+    position: "absolute",
+    width: HALO_OUTER_SIZE,
+    height: HALO_OUTER_SIZE,
+    borderRadius: HALO_OUTER_SIZE / 2,
+    backgroundColor: "rgba(79, 196, 163, 0.10)",
     borderWidth: 1,
     borderColor: "rgba(130, 244, 209, 0.10)",
   },
-  iconInnerGlow: {
+  haloInner: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(79, 196, 163, 0.10)",
+    width: HALO_INNER_SIZE,
+    height: HALO_INNER_SIZE,
+    borderRadius: HALO_INNER_SIZE / 2,
+    backgroundColor: "rgba(79, 196, 163, 0.18)",
   },
-  sparkleWrap: {
-    position: "absolute",
-    top: -4,
-    right: -4,
+  logoWrap: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(130, 244, 209, 0.20)",
+    shadowColor: "#82f4d1",
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  logoImg: {
+    width: LOGO_SIZE - 16,
+    height: LOGO_SIZE - 16,
+    borderRadius: 18,
   },
   brandName: {
     color: "#ffffff",
-    fontSize: 48,
+    fontSize: 44,
     fontWeight: "700",
-    letterSpacing: -0.5,
+    letterSpacing: -1,
     marginBottom: 16,
+    textShadowColor: "rgba(130, 244, 209, 0.25)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
   },
   tagline: {
-    color: "#83a49d",
-    fontSize: 18,
+    color: "#82f4d1",
+    fontSize: 13,
     fontWeight: "500",
-    letterSpacing: 3.5,
-    textTransform: "uppercase",
-    textAlign: "center",
-    paddingHorizontal: 24,
-    lineHeight: 26,
-  },
-  bottomArea: {
-    position: "absolute",
-    bottom: 80,
-    alignItems: "center",
-    gap: 16,
-  },
-  progressTrack: {
-    width: PROGRESS_BAR_WIDTH,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "rgba(130, 244, 209, 0.30)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4fc4a3",
-    borderRadius: 1,
-  },
-  initLabel: {
-    color: "rgba(79, 196, 163, 0.60)",
-    fontSize: 10,
-    fontWeight: "600",
     letterSpacing: 4,
     textTransform: "uppercase",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  sparkle: {
+    position: "absolute",
+    backgroundColor: "#82f4d1",
+    shadowColor: "#82f4d1",
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  bottomShimmer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 200,
   },
 });
