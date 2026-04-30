@@ -8,11 +8,20 @@ import {
   StatusBar,
   StyleSheet,
   Alert,
+  Dimensions,
+  Platform,
+  LayoutChangeEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../../lib/auth";
+import CoachMarkOverlay, {
+  CoachMarkStep,
+} from "../../components/CoachMarks/CoachMarkOverlay";
+
+const { width: SW, height: SH } = Dimensions.get("window");
 import {
   fetchBookings,
   fetchPendingOffersForCleaner,
@@ -382,6 +391,73 @@ export default function CleanerHomeScreen() {
   const [pendingOffers, setPendingOffers] = useState<BookingOffer[]>([]);
   const offerChannelRef = useRef<RealtimeChannel | null>(null);
 
+  // ── Coach marks ────────────────────────────────────────────────────────────
+  const [showCoachMarks, setShowCoachMarks] = useState(false);
+  const [coachSteps, setCoachSteps] = useState<CoachMarkStep[]>([]);
+  // Rects measured via onLayout on real DOM elements
+  const [createListingRect, setCreateListingRect] = useState<{
+    x: number; y: number; width: number; height: number;
+  } | null>(null);
+  const [calendarRect, setCalendarRect] = useState<{
+    x: number; y: number; width: number; height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem("cleanhome.first_run_tour_done")
+      .then((done) => {
+        if (!done) setShowCoachMarks(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build cleaner coach steps once rect data is available
+  useEffect(() => {
+    if (!showCoachMarks) return;
+    // We need at least the first two rects before building steps.
+    // The profile tab rect is always computable from screen dimensions.
+    const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
+    const tabBarTop = SH - tabBarHeight;
+    const tabWidth = SW / 4;
+    const profileTabRect = {
+      x: tabWidth * 3,
+      y: tabBarTop + 10,
+      width: tabWidth,
+      height: tabBarHeight - 20,
+    };
+
+    const steps: CoachMarkStep[] = [];
+    if (createListingRect) {
+      steps.push({
+        rect: createListingRect,
+        title: "Crea il tuo primo annuncio",
+        description:
+          "Pubblica i tuoi servizi e la zona di copertura per ricevere richieste dai clienti.",
+      });
+    }
+    if (calendarRect) {
+      steps.push({
+        rect: calendarRect,
+        title: "Calendario disponibilità",
+        description:
+          "Imposta i giorni e gli orari in cui sei disponibile per lavorare.",
+      });
+    }
+    steps.push({
+      rect: profileTabRect,
+      title: "Verifica identità",
+      description:
+        "Carica i tuoi documenti per ottenere il badge verificato e aumentare le prenotazioni.",
+    });
+
+    if (steps.length >= 1) {
+      setCoachSteps(steps);
+    }
+  }, [showCoachMarks, createListingRect, calendarRect]);
+
+  const handleCoachMarkDone = useCallback(() => {
+    setShowCoachMarks(false);
+  }, []);
+
   const firstName =
     profile?.full_name?.split(" ")[0] ??
     user?.user_metadata?.full_name?.split(" ")[0] ??
@@ -636,7 +712,13 @@ export default function CleanerHomeScreen() {
         </View>
 
         {/* ── Richieste in arrivo ── */}
-        <View style={styles.sectionHeader}>
+        <View
+          style={styles.sectionHeader}
+          onLayout={(e: LayoutChangeEvent) => {
+            const { x, y, width, height } = e.nativeEvent.layout;
+            setCreateListingRect({ x, y, width, height });
+          }}
+        >
           <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
           <Pressable
             onPress={() => router.push("/cleaner/jobs" as never)}
@@ -684,7 +766,13 @@ export default function CleanerHomeScreen() {
         )}
 
         {/* ── Prossimi appuntamenti ── */}
-        <View style={styles.sectionHeader}>
+        <View
+          style={styles.sectionHeader}
+          onLayout={(e: LayoutChangeEvent) => {
+            const { x, y, width, height } = e.nativeEvent.layout;
+            setCalendarRect({ x, y, width, height });
+          }}
+        >
           <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
         </View>
 
@@ -706,6 +794,15 @@ export default function CleanerHomeScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* ── Coach mark first-run overlay ── */}
+      {showCoachMarks && coachSteps.length >= 1 && (
+        <CoachMarkOverlay
+          steps={coachSteps}
+          storageKey="cleanhome.first_run_tour_done"
+          onDone={handleCoachMarkDone}
+        />
+      )}
     </SafeAreaView>
   );
 }

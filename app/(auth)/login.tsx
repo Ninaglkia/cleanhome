@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  Image,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +14,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
@@ -40,16 +42,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Prefer router.back() so the user returns to whichever onboarding step
-  // pushed them here (features, security, deep link, etc.). Fall back to
-  // the marketing onboarding root when there's no history — e.g. the app
-  // was cold-started directly on /login via a deep link.
+  // Always return to security.tsx (slide 2 of onboarding) instead of going
+  // all the way back to features.tsx (slide 1) — better UX since security
+  // is the immediate previous slide in the marketing tour.
   const handleBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/onboarding/features");
-    }
+    router.replace("/onboarding/security");
   }, [router]);
 
   const handleLogin = useCallback(async () => {
@@ -66,6 +63,16 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signInWithEmail(trimmedEmail, password);
+      // Check first-login flag: if not set, route to rocket welcome screen.
+      // The root layout's onAuthStateChange will also fire, but since we
+      // navigate explicitly here first, the layout redirect won't double-fire
+      // because hasRedirected.current prevents it on subsequent renders.
+      const firstLoginDone = await AsyncStorage.getItem("cleanhome.first_login_done");
+      if (!firstLoginDone) {
+        router.replace("/(auth)/welcome-rocket");
+      }
+      // If flag IS already set, the root layout handles the redirect to home
+      // as usual — no action needed here.
     } catch (err: unknown) {
       const raw = err instanceof Error ? err.message : "Login fallito";
       // Translate common Supabase auth errors to friendly Italian
@@ -82,7 +89,7 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [email, password, signInWithEmail]);
+  }, [email, password, signInWithEmail, router]);
 
   const handleGoogleSignIn = useCallback(async () => {
     try {
@@ -136,15 +143,18 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back + Brand */}
+          {/* Brand bar (centered, back button absolute) */}
           <View style={styles.topBar}>
             <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={10}>
               <Ionicons name="arrow-back" size={20} color={C.primary} />
-              <Text style={styles.backText}>Indietro</Text>
             </Pressable>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="leaf" size={20} color="#022420" />
-              <Text style={styles.brandMark}>CleanHome</Text>
+            <View style={styles.brandCenter}>
+              <Image
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                source={require("../../assets/icon.png")}
+                style={styles.brandLogo}
+              />
+              <Text style={styles.brandText}>CleanHome</Text>
             </View>
           </View>
 
@@ -281,10 +291,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: Platform.OS === "ios" ? 60 : 48,
     paddingBottom: 12,
+    height: Platform.OS === "ios" ? 108 : 96,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  backBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  backText: { fontSize: 15, fontWeight: "600", color: C.primary },
-  brandMark: { fontSize: 24, fontWeight: "900", color: C.primaryContainer, letterSpacing: -0.5 },
+  backBtn: {
+    position: "absolute",
+    left: 24,
+    top: Platform.OS === "ios" ? 60 : 48,
+    bottom: 12,
+    justifyContent: "center",
+    paddingRight: 8,
+  },
+  brandCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandLogo: { width: 26, height: 26, borderRadius: 6 },
+  brandText: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: C.primary,
+    letterSpacing: -0.3,
+  },
 
   card: {
     marginHorizontal: 16,

@@ -13,10 +13,14 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  LayoutChangeEvent,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import CoachMarkOverlay, {
+  CoachMarkStep,
+} from "../../components/CoachMarks/CoachMarkOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -38,7 +42,7 @@ import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, Shadows, SpringConfig } from "../../lib/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, width: SW, height: SH } = Dimensions.get("window");
 
 // Card dimensions — 260px wide with 16px gap, peek of next card visible
 const CARD_WIDTH = 260;
@@ -481,6 +485,67 @@ export default function HomeScreen() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
 
+  // ── Coach marks ────────────────────────────────────────────────────────────
+  const [showCoachMarks, setShowCoachMarks] = useState(false);
+  const [coachSteps, setCoachSteps] = useState<CoachMarkStep[]>([]);
+  // Rect memos for measurable elements
+  const [searchBarRect, setSearchBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Check first-run flag on mount
+  useEffect(() => {
+    AsyncStorage.getItem("cleanhome.first_run_tour_done")
+      .then((done) => {
+        if (!done) setShowCoachMarks(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build coach steps once we have the search bar rect and screen dimensions
+  useEffect(() => {
+    if (!showCoachMarks || !searchBarRect) return;
+    const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
+    const tabBarTop = SH - tabBarHeight;
+    // Tab bar is 4 tabs wide — distribute equally
+    const tabWidth = SW / 4;
+    // "Prenotazioni" is tab index 2 (0-based), "Profilo" is tab index 3
+    const bookingsTabRect = {
+      x: tabWidth * 2,
+      y: tabBarTop + 10,
+      width: tabWidth,
+      height: tabBarHeight - 20,
+    };
+    const profileTabRect = {
+      x: tabWidth * 3,
+      y: tabBarTop + 10,
+      width: tabWidth,
+      height: tabBarHeight - 20,
+    };
+    setCoachSteps([
+      {
+        rect: searchBarRect,
+        title: "Cerca la tua zona",
+        description:
+          "Inserisci la tua città per trovare i pulitori vicini a te.",
+      },
+      {
+        rect: bookingsTabRect,
+        title: "Le tue prenotazioni",
+        description:
+          "Qui troverai tutti i tuoi servizi attivi e completati.",
+      },
+      {
+        rect: profileTabRect,
+        title: "Il tuo profilo",
+        description:
+          "Aggiungi metodi di pagamento e gestisci il tuo account.",
+      },
+    ]);
+  }, [showCoachMarks, searchBarRect]);
+
+  const handleCoachMarkDone = useCallback(() => {
+    setShowCoachMarks(false);
+  }, []);
+
   // The client's saved houses rendered as distinct pins on the map.
   // Only shown to the owning client (RLS on client_properties enforces
   // this server-side). Refreshed on screen focus so a house added from
@@ -858,6 +923,12 @@ export default function HomeScreen() {
       {/* ── Floating header pill (Stitch spec) ── */}
       {/* bg-white/80 backdrop-blur rounded-full mx-4 mt-4 shadow-2xl */}
       <Animated.View
+        onLayout={(e: LayoutChangeEvent) => {
+          const { x, y, width, height } = e.nativeEvent.layout;
+          // layout coords are relative to parent (the View at flex:1).
+          // The parent starts at top:0, so y IS the screen y.
+          setSearchBarRect({ x, y, width, height });
+        }}
         style={[
           searchBarStyle,
           {
@@ -1298,6 +1369,15 @@ export default function HomeScreen() {
       >
         <Ionicons name="navigate" size={20} color={Colors.secondary} />
       </TouchableOpacity>
+
+      {/* ── Coach mark first-run overlay ── */}
+      {showCoachMarks && coachSteps.length === 3 && (
+        <CoachMarkOverlay
+          steps={coachSteps}
+          storageKey="cleanhome.first_run_tour_done"
+          onDone={handleCoachMarkDone}
+        />
+      )}
 
       {/* ── Bottom carousel ── */}
       <View
