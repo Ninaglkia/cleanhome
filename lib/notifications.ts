@@ -204,4 +204,20 @@ export const NotificationMessages = {
     title: "Lavoro completato!",
     body: `${cleanerName} ha terminato il lavoro. Conferma per rilasciare il pagamento.`,
   }),
+  searchWidening: () => ({
+    title: "Stiamo allargando la ricerca",
+    body: "Cerchiamo in un'area più ampia. Ti aggiorniamo entro 10 minuti.",
+  }),
+  payoutReleased: (amountEur: number) => ({
+    title: "Pagamento rilasciato!",
+    body: `Sono stati trasferiti €${amountEur.toFixed(2)} sul tuo conto Stripe.`,
+  }),
+  bookingDisputed: () => ({
+    title: "Contestazione aperta",
+    body: "Il cliente ha aperto una contestazione. CleanHome sta esaminando il caso.",
+  }),
+  bookingAutoCancelled: () => ({
+    title: "Nessun cleaner disponibile",
+    body: "Ti abbiamo rimborsato l'intero importo. Accredito in 5-10 giorni lavorativi.",
+  }),
 };

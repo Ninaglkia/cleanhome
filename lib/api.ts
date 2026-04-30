@@ -1542,6 +1542,36 @@ export async function openBookingDispute(
 }
 
 /**
+ * Pre-validation: count active+verified cleaners covering this lat/lng.
+ * Called from the booking screen BEFORE payment to warn the user if the
+ * area is empty (avoiding a booking that would auto-refund).
+ */
+export async function countAvailableCleaners(
+  lat: number,
+  lng: number,
+  radiusKm = 15
+): Promise<{
+  total: number;
+  within_5km: number;
+  within_15km: number;
+  avg_rating: number | null;
+}> {
+  const { data, error } = await supabase.rpc("count_available_cleaners", {
+    lat,
+    lng,
+    radius_km: radiusKm,
+  });
+  if (error) throw error;
+  const obj = (data as Record<string, unknown>) ?? {};
+  return {
+    total: Number(obj.total ?? 0),
+    within_5km: Number(obj.within_5km ?? 0),
+    within_15km: Number(obj.within_15km ?? 0),
+    avg_rating: obj.avg_rating != null ? Number(obj.avg_rating) : null,
+  };
+}
+
+/**
  * Fetch all approved photos for a booking, optionally filtered by type.
  */
 export async function fetchBookingPhotos(

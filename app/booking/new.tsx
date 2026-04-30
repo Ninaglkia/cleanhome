@@ -22,7 +22,11 @@ import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fetchClientProperties, searchListingsNearPoint } from "../../lib/api";
+import {
+  fetchClientProperties,
+  searchListingsNearPoint,
+  countAvailableCleaners,
+} from "../../lib/api";
 import type { ClientProperty, ListingSearchResult } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -324,6 +328,9 @@ export default function NewBookingScreen() {
   // Dispatch multi-cleaner state
   const [nearbyListings, setNearbyListings] = useState<ListingSearchResult[]>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
+  // Pre-validation: # of cleaners covering this lat/lng (15km), checked before payment
+  const [availableCount, setAvailableCount] = useState<number | null>(null);
+  const [availableCountLoading, setAvailableCountLoading] = useState(false);
   const [preferredCleanerIds, setPreferredCleanerIds] = useState<string[]>([]);
 
   // Saved properties ("Le mie case") — lets the client pick a pre-filled
@@ -473,6 +480,35 @@ export default function NewBookingScreen() {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) setListingsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, cleanerId, properties, selectedPropertyId]);
+
+  // Pre-validation: count cleaners covering the area (15km) before payment.
+  // Triggered when user reaches the summary/payment step with valid coords.
+  useEffect(() => {
+    if (cleanerId) return; // single-cleaner flow doesn't need the count
+    if (step < 1) return; // wait until property is chosen
+    const prop = properties.find((p) => p.id === selectedPropertyId);
+    const lat = prop?.latitude;
+    const lng = prop?.longitude;
+    if (!lat || !lng) {
+      setAvailableCount(null);
+      return;
+    }
+    let cancelled = false;
+    setAvailableCountLoading(true);
+    countAvailableCleaners(lat, lng, 15)
+      .then((res) => {
+        if (!cancelled) setAvailableCount(res.total);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAvailableCountLoading(false);
       });
     return () => {
       cancelled = true;
@@ -1299,6 +1335,39 @@ export default function NewBookingScreen() {
           <View style={{ height: 32 }} />
         </ScrollView>
 
+        {/* ── Pre-validation banner: cleaner availability (only on summary step, dispatch flow) ── */}
+        {!cleanerId && step === totalDisplaySteps - 1 && availableCount !== null && (
+          <View style={[
+            s.availabilityBanner,
+            availableCount === 0 ? s.availabilityBannerEmpty :
+              availableCount < 3 ? s.availabilityBannerWarn :
+                s.availabilityBannerOk,
+          ]}>
+            <Ionicons
+              name={availableCount === 0 ? "alert-circle" : availableCount < 3 ? "warning" : "checkmark-circle"}
+              size={18}
+              color={
+                availableCount === 0 ? "#dc2626" :
+                  availableCount < 3 ? "#9a6c00" :
+                    Colors.success
+              }
+            />
+            <Text style={s.availabilityBannerText}>
+              {availableCount === 0
+                ? "Nessun cleaner disponibile nella tua zona oggi. Riceverai il rimborso completo se nessuno accetta."
+                : availableCount < 3
+                  ? `Solo ${availableCount} cleaner ${availableCount === 1 ? "disponibile" : "disponibili"} nella zona. Tempo di attesa più lungo.`
+                  : `${availableCount} cleaner disponibili nella tua zona`}
+            </Text>
+          </View>
+        )}
+        {!cleanerId && step === totalDisplaySteps - 1 && availableCountLoading && (
+          <View style={s.availabilityBannerLoading}>
+            <ActivityIndicator size="small" color={Colors.textSecondary} />
+            <Text style={s.availabilityBannerText}>Verifica disponibilità...</Text>
+          </View>
+        )}
+
         {/* ── CTA ── */}
         <View style={s.ctaWrap}>
           <TouchableOpacity
@@ -1783,6 +1852,48 @@ const s = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: "center",
     lineHeight: 19,
+  },
+
+  // Availability banner (pre-validation)
+  availabilityBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: 10,
+    marginHorizontal: Spacing.base,
+    marginBottom: 4,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  availabilityBannerOk: {
+    backgroundColor: Colors.successLight,
+    borderColor: Colors.success,
+  },
+  availabilityBannerWarn: {
+    backgroundColor: Colors.warningLight,
+    borderColor: Colors.warning,
+  },
+  availabilityBannerEmpty: {
+    backgroundColor: Colors.errorLight,
+    borderColor: Colors.error,
+  },
+  availabilityBannerLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: 10,
+    marginHorizontal: Spacing.base,
+    marginBottom: 4,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceElevated,
+  },
+  availabilityBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.text,
+    lineHeight: 18,
   },
 
   // CTA
