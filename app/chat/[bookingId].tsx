@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -21,6 +22,7 @@ import {
   fetchBooking,
   fetchMessages,
   fetchProfile,
+  MessageBlockedError,
   sendMessage,
   subscribeToMessages,
 } from "../../lib/api";
@@ -342,8 +344,15 @@ export default function ChatScreen() {
           bookingId,
         }).catch(() => {});
       }
-    } catch {
+    } catch (err) {
       setText(content);
+      if (err instanceof MessageBlockedError) {
+        Alert.alert(
+          "Messaggio non inviato",
+          err.friendlyMessage,
+          [{ text: "Ho capito", style: "default" }]
+        );
+      }
     } finally {
       setSending(false);
     }

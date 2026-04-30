@@ -1,8 +1,7 @@
 import { useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { HouseLogo } from "../components/splash/HouseLogo";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -207,7 +206,11 @@ export default function SplashScreenView() {
           <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
           <Animated.View style={[styles.haloInner, haloInnerStyle]} />
           <Animated.View style={[styles.logoWrap, logoStyle]}>
-            <HouseLogo size={LOGO_SIZE - 12} />
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require("../assets/icon.png")}
+              style={styles.logoImg}
+            />
           </Animated.View>
         </View>
 
@@ -308,9 +311,10 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
   },
-  lottie: {
-    width: LOGO_SIZE - 8,
-    height: LOGO_SIZE - 8,
+  logoImg: {
+    width: LOGO_SIZE - 16,
+    height: LOGO_SIZE - 16,
+    borderRadius: 18,
   },
   brandName: {
     color: "#ffffff",

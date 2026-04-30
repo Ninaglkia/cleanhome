@@ -24,9 +24,15 @@
         "NSPhotoLibraryAddUsageDescription": "CleanHome può salvare ricevute e conferme nella tua libreria foto quando glielo chiedi.",
         "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità e per le pulizie.",
         "NSUserTrackingUsageDescription": "CleanHome non traccia la tua attività tra app di terze parti.",
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["tel", "mailto", "https"]
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "https"
+        ]
       }
     },
     "android": {
@@ -48,8 +54,15 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [{ "scheme": "cleanhome" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "cleanhome"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -78,7 +91,8 @@
           "enableGooglePay": false
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-secure-store"
     ],
     "extra": {
       "router": {},

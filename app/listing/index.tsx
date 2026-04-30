@@ -262,8 +262,6 @@ const INITIAL_DAYS: DayAvailability[] = [
   { day: "Domenica", short: "Dom", available: false },
 ];
 
-const LISTING_STATUS: ListingStatus = "active";
-
 const STATUS_CONFIG: Record<
   ListingStatus,
   { label: string; color: string; bg: string }
@@ -517,6 +515,15 @@ export default function ListingScreen() {
   const [draftCity, setDraftCity] = useState("");
   const [draftRadiusKm, setDraftRadiusKm] = useState(10);
   const [centerCoords, setCenterCoords] = useState(ROME_COORDS);
+  // Ref holding the map's initial region. Set once after hydrate (from saved
+  // coverage coords) so cleaners outside Rome don't see the wrong city.
+  // Falls back to ROME_COORDS only if no saved zone exists.
+  const initialMapRegionRef = useRef<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
   // Persistence state for the "Salva" button.
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
@@ -545,6 +552,9 @@ export default function ListingScreen() {
   // Freeform drawing state
   const [isDrawingActive, setIsDrawingActive] = useState(false);
   const [hasDrawnOnce, setHasDrawnOnce] = useState(false);
+  // Guard to prevent handleOverlayTouchEnd from running twice when both
+  // .onEnd and .onFinalize fire for the same gesture (BUG 5 fix).
+  const touchEndCalledRef = useRef(false);
   // Live screen-space points captured SYNCHRONOUSLY during drag.
   // No async involved → no out-of-order, no lag, instant preview.
   const screenPointsRef = useRef<Array<{ x: number; y: number }>>([]);
@@ -1061,17 +1071,19 @@ export default function ListingScreen() {
   // panned/zoomed by the user OR programmatically via animateToRegion.
   // This is intentionally NOT linked to centerCoords so that dragging
   // the circle does not re-center the map under it.
-  const initialMapRegion = useMemo(
-    () => ({
+  // Computed once, using saved coverage center if available (set by hydrate).
+  // Falls back to current device location or Rome only as last resort.
+  const initialMapRegion = useMemo(() => {
+    if (initialMapRegionRef.current) return initialMapRegionRef.current;
+    return {
       latitude: ROME_COORDS.latitude,
       longitude: ROME_COORDS.longitude,
       latitudeDelta: Math.max((draftRadiusKm * 2) / 111, 0.5),
       longitudeDelta: Math.max((draftRadiusKm * 2) / 111, 0.5),
-    }),
+    };
     // intentional empty deps: only the very first value matters
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+  }, []);
 
   // Geocode city name to coordinates
   const geocodeCity = useCallback(async (city: string) => {
@@ -1305,6 +1317,8 @@ export default function ListingScreen() {
       // Hard-lock the parent ScrollView synchronously via native props so
       // the page does NOT scroll while the user is drawing the polygon.
       scrollViewRef.current?.setNativeProps({ scrollEnabled: false });
+      // Reset the double-fire guard for this new stroke (BUG 5 fix).
+      touchEndCalledRef.current = false;
       const { locationX, locationY } = e.nativeEvent;
       screenPointsRef.current = [{ x: locationX, y: locationY }];
       setLiveSvgPath(buildSvgPathFromPoints(screenPointsRef.current));
@@ -1327,9 +1341,15 @@ export default function ListingScreen() {
   );
 
   const handleOverlayTouchEnd = useCallback(async () => {
+    // Guard against double-fire from .onEnd + .onFinalize (BUG 5 fix).
+    if (touchEndCalledRef.current) return;
+    touchEndCalledRef.current = true;
     // Re-enable parent ScrollView native scroll on release.
     scrollViewRef.current?.setNativeProps({ scrollEnabled: true });
-    const raw = screenPointsRef.current;
+    // Snapshot the points immediately (BUG 4 fix): copy before any async
+    // await so a concurrent handleOverlayTouchStart cannot mutate the ref
+    // while Promise.all is running.
+    const raw = [...screenPointsRef.current];
     if (raw.length < 3) {
       Alert.alert("Zona troppo piccola", "Disegna una zona più grande.");
       screenPointsRef.current = [];
@@ -1724,27 +1744,48 @@ export default function ListingScreen() {
           existing.coverage_center_lng != null &&
           existing.coverage_radius_km != null
         ) {
+          const lat = Number(existing.coverage_center_lat);
+          const lng = Number(existing.coverage_center_lng);
+          const radiusKm = Number(existing.coverage_radius_km);
           setZoneMode("circle");
-          setCenterCoords({
-            latitude: Number(existing.coverage_center_lat),
-            longitude: Number(existing.coverage_center_lng),
-          });
-          setDraftRadiusKm(Number(existing.coverage_radius_km));
+          setCenterCoords({ latitude: lat, longitude: lng });
+          setDraftRadiusKm(radiusKm);
           setIsZoneConfirmed(true);
+          // Set initial map region to saved coverage center (BUG 3 fix)
+          const delta = Math.max((radiusKm * 2) / 111, 0.5);
+          initialMapRegionRef.current = {
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: delta,
+            longitudeDelta: delta,
+          };
         } else if (
           existing.coverage_mode === "polygon" &&
           existing.coverage_polygon &&
           existing.coverage_polygon.length >= 3
         ) {
+          const polygon = existing.coverage_polygon.map((p) => ({
+            latitude: Number(p.lat),
+            longitude: Number(p.lng),
+          }));
           setZoneMode("draw");
-          setDrawnPolygon(
-            existing.coverage_polygon.map((p) => ({
-              latitude: Number(p.lat),
-              longitude: Number(p.lng),
-            }))
-          );
+          setDrawnPolygon(polygon);
           setHasDrawnOnce(true);
           setIsZoneConfirmed(true);
+          // Center map on polygon centroid (BUG 3 fix)
+          const centroid = polygon.reduce(
+            (acc, p) => ({
+              latitude: acc.latitude + p.latitude / polygon.length,
+              longitude: acc.longitude + p.longitude / polygon.length,
+            }),
+            { latitude: 0, longitude: 0 }
+          );
+          initialMapRegionRef.current = {
+            latitude: centroid.latitude,
+            longitude: centroid.longitude,
+            latitudeDelta: 0.3,
+            longitudeDelta: 0.3,
+          };
         }
       } catch {
         // Listing not found or transient error — keep defaults.

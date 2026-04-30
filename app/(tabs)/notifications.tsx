@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
+  Image,
   FlatList,
   Pressable,
   StatusBar,
@@ -281,7 +282,11 @@ export default function NotificationsScreen() {
       {/* ── TopAppBar ── */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
-          <Ionicons name="leaf" size={20} color={C.primary} />
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require("../../assets/icon.png")}
+            style={{ width: 20, height: 20, borderRadius: 5 }}
+          />
           <Text style={styles.topBarBrand}>CleanHome</Text>
         </View>
         <View style={styles.topBarRight}>
@@ -306,7 +311,7 @@ export default function NotificationsScreen() {
       <View style={styles.editorialHeader}>
         <View style={styles.editorialHeaderRow}>
           <View>
-            <Text style={styles.overlineText}>Your Activity</Text>
+            <Text style={styles.overlineText}>La tua attività</Text>
             <Text style={styles.headlineText}>Notifiche</Text>
           </View>
           {unreadCount > 0 && !isLoading && (

@@ -142,7 +142,7 @@ export default function PropertiesListScreen() {
                 <Ionicons
                   name="add-circle-outline"
                   size={20}
-                  color={Colors.secondary}
+                  color="#d97706"
                 />
                 <Text style={styles.addAnotherText}>Aggiungi un'altra casa</Text>
               </Pressable>
@@ -186,7 +186,7 @@ function PropertyCard({
       ]}
     >
       <View style={styles.cardIconWrap}>
-        <Ionicons name="home" size={22} color={Colors.secondary} />
+        <Ionicons name="home" size={22} color="#d97706" />
       </View>
 
       <View style={{ flex: 1 }}>
@@ -329,7 +329,9 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: Radius.lg,
-    backgroundColor: Colors.accentLight,
+    // Soft amber wash matches the client-mode property card on Home —
+    // a property in client view always uses the warm orange family.
+    backgroundColor: "#fef3c7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -396,7 +398,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.base,
     borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: "#fed7aa",
     borderStyle: "dashed",
     backgroundColor: "transparent",
     marginTop: Spacing.sm,
@@ -404,7 +406,7 @@ const styles = StyleSheet.create({
   addAnotherText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: "#d97706",
   },
 
   // --- Empty state ---
@@ -461,7 +463,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: Colors.secondary,
+    backgroundColor: "#d97706",
     alignItems: "center",
     justifyContent: "center",
     ...Shadows.lg,

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
+  Image,
   Pressable,
   StyleSheet,
   Dimensions,
@@ -238,7 +239,11 @@ export default function OnboardingScreen() {
           </Pressable>
         ) : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="leaf" size={20} color="#022420" />
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require("../../assets/icon.png")}
+              style={{ width: 20, height: 20, borderRadius: 5 }}
+            />
             <Text style={styles.brand}>CleanHome</Text>
           </View>
         )}
@@ -292,7 +297,7 @@ export default function OnboardingScreen() {
             style={styles.ctaTap}
           >
             <Text style={[styles.ctaText, isLastSlide && styles.ctaTextLast]}>
-              {isLastSlide ? "Inizia" : "Next"}
+              {isLastSlide ? "Inizia" : "Avanti"}
             </Text>
             <Ionicons
               name="arrow-forward"

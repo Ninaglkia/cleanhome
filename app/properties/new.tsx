@@ -61,7 +61,7 @@ import Svg, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../lib/auth";
-import { createClientProperty, searchAddresses } from "../../lib/api";
+import { createClientProperty, fetchAddressDetails, searchAddresses } from "../../lib/api";
 import type { AddressSuggestion } from "../../lib/api";
 import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
 import type {
@@ -556,13 +556,33 @@ export default function NewPropertyWizard() {
     }, 300);
   }, []);
 
-  const pickSuggestion = useCallback((s: AddressSuggestion) => {
+  const pickSuggestion = useCallback(async (s: AddressSuggestion) => {
     const fullLabel = s.secondaryText
       ? `${s.mainText}, ${s.secondaryText}`
       : s.mainText;
     setAddress(fullLabel);
-    setAddressLatLng({ latitude: s.latitude, longitude: s.longitude });
     setAddressSuggestions([]);
+
+    // Google Places autocomplete returns lat=0/lng=0 — resolve via placeId
+    const hasCoords = Math.abs(s.latitude) > 0.001 || Math.abs(s.longitude) > 0.001;
+    if (hasCoords) {
+      setAddressLatLng({ latitude: s.latitude, longitude: s.longitude });
+    } else {
+      setSearchingAddress(true);
+      try {
+        const details = await fetchAddressDetails(s.placeId);
+        if (details && (Math.abs(details.latitude) > 0.001 || Math.abs(details.longitude) > 0.001)) {
+          setAddressLatLng({ latitude: details.latitude, longitude: details.longitude });
+        } else {
+          // Fallback: show error — do NOT save (0,0)
+          setAddressLatLng(null);
+        }
+      } catch {
+        setAddressLatLng(null);
+      } finally {
+        setSearchingAddress(false);
+      }
+    }
   }, []);
 
   // ── Save ─────────────────────────────────────────────────
@@ -1480,8 +1500,14 @@ function MapPicker({
   onClose: () => void;
   onPick: (coord: { latitude: number; longitude: number }, formatted: string) => void;
 }) {
+  // Reject (0,0) "Null Island" — historically arrives from stale state and
+  // strands the map in the South Atlantic until the user pans manually.
+  const isValidCoord = (c: { latitude: number; longitude: number } | null) =>
+    !!c && (Math.abs(c.latitude) > 0.001 || Math.abs(c.longitude) > 0.001);
+
+  const MILANO = { latitude: 45.4642, longitude: 9.1900 };
   const [center, setCenter] = useState(
-    initial ?? { latitude: 45.4642, longitude: 9.1900 } // default Milano
+    isValidCoord(initial) ? (initial as { latitude: number; longitude: number }) : MILANO
   );
   const [resolving, setResolving] = useState(false);
   const [previewAddress, setPreviewAddress] = useState<string>("");
@@ -1498,9 +1524,36 @@ function MapPicker({
   // coordinates picked up from onRegionChangeComplete during the fly-to.
   const ignoreNextRegionChangeRef = useRef(false);
 
-  // Re-center the map when the modal re-opens with a fresh initial coord.
+  // Re-center the map when the modal re-opens with a fresh initial coord
+  // (only if the incoming initial is a real coordinate — protects against
+  // reopening with a stale (0,0) leftover from a cancelled flow).
   useEffect(() => {
-    if (visible && initial) setCenter(initial);
+    if (visible && isValidCoord(initial)) setCenter(initial!);
+  }, [visible, initial]);
+
+  // When the modal opens without a usable initial coord, ask once for the
+  // device location and pan there — far better UX than landing on Milano
+  // for users who live elsewhere. Falls back silently to Milano on denial.
+  useEffect(() => {
+    if (!visible || isValidCoord(initial)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
+        const target = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        if (!isValidCoord(target)) return;
+        ignoreNextRegionChangeRef.current = true;
+        setCenter(target);
+        mapRef.current?.animateToRegion({ ...target, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 600);
+        setTimeout(() => { ignoreNextRegionChangeRef.current = false; }, 650);
+      } catch {
+        // Permission denied or GPS off — Milano fallback is fine.
+      }
+    })();
+    return () => { cancelled = true; };
   }, [visible, initial]);
 
   // Reset search state every time the modal closes so the next open is clean.
@@ -1560,8 +1613,7 @@ function MapPicker({
     }, 300);
   };
 
-  const pickSearchResult = (s: AddressSuggestion) => {
-    const target = { latitude: s.latitude, longitude: s.longitude };
+  const pickSearchResult = async (s: AddressSuggestion) => {
     const fullLabel = s.secondaryText
       ? `${s.mainText}, ${s.secondaryText}`
       : s.mainText;
@@ -1571,18 +1623,40 @@ function MapPicker({
     setResolving(false);
     setSearchResults([]);
     setSearchQuery(fullLabel);
+
+    // Google Places autocomplete returns lat=0/lng=0 — must resolve first
+    const hasCoords = Math.abs(s.latitude) > 0.001 || Math.abs(s.longitude) > 0.001;
+    let target = { latitude: s.latitude, longitude: s.longitude };
+    if (!hasCoords) {
+      setSearching(true);
+      try {
+        const details = await fetchAddressDetails(s.placeId);
+        if (details && (Math.abs(details.latitude) > 0.001 || Math.abs(details.longitude) > 0.001)) {
+          target = { latitude: details.latitude, longitude: details.longitude };
+        } else {
+          // No coordinates found — leave map where it is, keep preview text
+          setSearching(false);
+          return;
+        }
+      } catch {
+        setSearching(false);
+        return;
+      } finally {
+        setSearching(false);
+      }
+    }
+
     ignoreNextRegionChangeRef.current = true;
+    setCenter(target);
     mapRef.current?.animateToRegion({
       ...target,
       latitudeDelta: 0.012,
       longitudeDelta: 0.012,
     }, 600);
-    // Update center after the animation so subsequent reverse-geocodes
-    // start from the chosen point.
+    // Allow onRegionChangeComplete again after animation completes
     setTimeout(() => {
-      setCenter(target);
       ignoreNextRegionChangeRef.current = false;
-    }, 650);
+    }, 700);
   };
 
   const handleConfirm = () => {
@@ -1614,6 +1688,16 @@ function MapPicker({
               longitude: center.longitude,
               latitudeDelta: 0.012,
               longitudeDelta: 0.012,
+            }}
+            onMapReady={() => {
+              // Force animate to current center on ready so GPS-derived
+              // coords (which arrive after mount) are immediately applied.
+              mapRef.current?.animateToRegion({
+                latitude: center.latitude,
+                longitude: center.longitude,
+                latitudeDelta: 0.012,
+                longitudeDelta: 0.012,
+              }, 400);
             }}
             onRegionChangeComplete={(r) => {
               if (ignoreNextRegionChangeRef.current) return;

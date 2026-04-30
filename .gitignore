@@ -49,3 +49,7 @@ stitch-export/
 stitch-export2/
 build/
 supabase/.temp/
+
+# Firebase / Google Services config (contains API keys)
+google-services.json
+GoogleService-Info.plist

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
+  Image,
   ScrollView,
   Pressable,
   StatusBar,
@@ -12,12 +13,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings, cleanerBookingAction } from "../../lib/api";
+import {
+  fetchBookings,
+  fetchPendingOffersForCleaner,
+  cleanerOfferAction,
+  subscribeToCleanerOffers,
+} from "../../lib/api";
 import {
   NotificationMessages,
   sendPushNotification,
 } from "../../lib/notifications";
-import { Booking } from "../../lib/types";
+import { Booking, BookingOffer } from "../../lib/types";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCountdown } from "../../lib/hooks/useCountdown";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -186,6 +194,184 @@ function AppointmentRow({ booking, onPress }: AppointmentRowProps) {
   );
 }
 
+// ─── Offer countdown pill ────────────────────────────────────────────────────
+
+function CountdownPill({ expiresAt }: { expiresAt: string }) {
+  const cd = useCountdown(expiresAt);
+  return (
+    <View
+      style={[
+        offerStyles.pill,
+        cd.hours === 0 && cd.minutes < 30 ? offerStyles.pillUrgent : null,
+      ]}
+    >
+      <Ionicons name="timer-outline" size={12} color={cd.hours === 0 && cd.minutes < 30 ? "#dc2626" : OUTLINE} />
+      <Text style={[offerStyles.pillText, cd.hours === 0 && cd.minutes < 30 && { color: "#dc2626" }]}>
+        {cd.formatted}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Offer card ───────────────────────────────────────────────────────────────
+
+interface OfferCardProps {
+  offer: BookingOffer;
+  onAccept: (bookingId: string) => void;
+  onDecline: (bookingId: string) => void;
+}
+
+function OfferCard({ offer, onAccept, onDecline }: OfferCardProps) {
+  const booking = offer.booking;
+  const handleAccept = useCallback(() => onAccept(offer.booking_id), [offer.booking_id, onAccept]);
+  const handleDecline = useCallback(() => onDecline(offer.booking_id), [offer.booking_id, onDecline]);
+
+  if (!booking) return null;
+
+  const dateLabel = formatBookingDate(booking.date);
+  const netEarnings = booking.base_price - (booking.cleaner_fee ?? 0);
+
+  return (
+    <View style={offerStyles.card}>
+      {/* Header row */}
+      <View style={offerStyles.cardHeader}>
+        <View style={offerStyles.avatarCircle}>
+          <Ionicons name="flash" size={18} color={PRIMARY} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={offerStyles.cardTitle}>Nuova richiesta dispatch</Text>
+          <Text style={offerStyles.cardSub} numberOfLines={1}>
+            {booking.address ?? "Indirizzo non specificato"}
+          </Text>
+        </View>
+        <CountdownPill expiresAt={offer.expires_at} />
+      </View>
+
+      {/* Details row */}
+      <View style={offerStyles.detailRow}>
+        <View style={offerStyles.detailItem}>
+          <Ionicons name="calendar-outline" size={14} color={OUTLINE} />
+          <Text style={offerStyles.detailText}>{dateLabel}</Text>
+        </View>
+        <View style={offerStyles.detailItem}>
+          <Ionicons name="time-outline" size={14} color={OUTLINE} />
+          <Text style={offerStyles.detailText}>{booking.time_slot}</Text>
+        </View>
+        <View style={[offerStyles.detailItem, offerStyles.earningsBadge]}>
+          <Ionicons name="cash-outline" size={14} color={PRIMARY} />
+          <Text style={[offerStyles.detailText, { color: PRIMARY, fontWeight: "700" }]}>
+            €{netEarnings.toFixed(0)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Service badge */}
+      <View style={{ flexDirection: "row" }}>
+        <View style={styles.serviceBadge}>
+          <Text style={styles.serviceBadgeText}>{booking.service_type}</Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.actionRow}>
+        <Pressable
+          style={({ pressed }) => [styles.btnDecline, pressed && { opacity: 0.75 }]}
+          onPress={handleDecline}
+          accessibilityLabel="Rifiuta offerta"
+          accessibilityRole="button"
+        >
+          <Text style={styles.btnDeclineText}>Rifiuta</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.btnAccept, pressed && { opacity: 0.85 }]}
+          onPress={handleAccept}
+          accessibilityLabel="Accetta offerta"
+          accessibilityRole="button"
+        >
+          <Text style={styles.btnAcceptText}>Accetta</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const offerStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: PRIMARY_CONTAINER,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#e0f0ed",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: CLEANER_LIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: ON_SURFACE,
+    marginBottom: 2,
+  },
+  cardSub: {
+    fontSize: 12,
+    color: ON_SURFACE_VARIANT,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: SURFACE_LOW,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pillUrgent: {
+    backgroundColor: "#fee2e2",
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: OUTLINE,
+  },
+  detailRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 13,
+    color: ON_SURFACE_VARIANT,
+    fontWeight: "500",
+  },
+  earningsBadge: {
+    backgroundColor: CLEANER_LIGHT,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function CleanerHomeScreen() {
@@ -193,6 +379,8 @@ export default function CleanerHomeScreen() {
   const router = useRouter();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [pendingOffers, setPendingOffers] = useState<BookingOffer[]>([]);
+  const offerChannelRef = useRef<RealtimeChannel | null>(null);
 
   const firstName =
     profile?.full_name?.split(" ")[0] ??
@@ -213,14 +401,42 @@ export default function CleanerHomeScreen() {
     }
   }, [user]);
 
+  const loadOffers = useCallback(async () => {
+    if (!user) return;
+    try {
+      const offers = await fetchPendingOffersForCleaner(user.id);
+      setPendingOffers(offers);
+    } catch {
+      setPendingOffers([]);
+    }
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
       loadBookings();
-    }, [loadBookings])
+      loadOffers();
+    }, [loadBookings, loadOffers])
   );
 
+  // Realtime: quando un'offerta viene cancellata (altro cleaner ha vinto),
+  // rimuoviamola dalla lista senza ricaricare tutto
+  useEffect(() => {
+    if (!user) return;
+    offerChannelRef.current = subscribeToCleanerOffers(user.id, (updatedOffer) => {
+      if (updatedOffer.status === "cancelled" || updatedOffer.status === "expired") {
+        setPendingOffers((prev) => prev.filter((o) => o.id !== updatedOffer.id));
+      } else if (updatedOffer.status === "pending") {
+        // new offer arrived — reload full list to get booking join data
+        loadOffers();
+      }
+    });
+    return () => {
+      offerChannelRef.current?.unsubscribe();
+    };
+  }, [user, loadOffers]);
+
   const pendingBookings = useMemo(
-    () => bookings.filter((b) => b.status === "pending"),
+    () => bookings.filter((b) => b.status === "pending" && !!b.cleaner_id),
     [bookings]
   );
 
@@ -235,7 +451,7 @@ export default function CleanerHomeScreen() {
 
   const stats = useMemo(
     () => ({
-      inAttesa: bookings.filter((b) => b.status === "pending").length,
+      inAttesa: pendingBookings.length + pendingOffers.length,
       attive: bookings.filter((b) =>
         ["accepted", "work_done"].includes(b.status)
       ).length,
@@ -244,10 +460,16 @@ export default function CleanerHomeScreen() {
     [bookings]
   );
 
+  // Legacy single-cleaner accept (still uses stripe-booking-action with action="accept")
   const handleAccept = useCallback(
     async (id: string) => {
       try {
-        await cleanerBookingAction(id, "capture");
+        const result = await cleanerOfferAction(id, "accept");
+        if (!result.ok && result.error === "already_taken") {
+          Alert.alert("Non disponibile", "Questa prenotazione non è più disponibile.");
+          loadBookings();
+          return;
+        }
         Alert.alert("Accettato", "Il lavoro è stato aggiunto ai tuoi impegni");
         const booking = bookings.find((b) => b.id === id);
         if (booking) {
@@ -283,17 +505,8 @@ export default function CleanerHomeScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await cleanerBookingAction(id, "cancel");
-                const booking = bookings.find((b) => b.id === id);
-                if (booking) {
-                  const { title, body } =
-                    NotificationMessages.bookingDeclined();
-                  sendPushNotification(booking.client_id, title, body, {
-                    screen: "bookings",
-                    bookingId: id,
-                  }).catch(() => {});
-                }
-                loadBookings();
+                await cleanerOfferAction(id, "decline");
+                setPendingOffers((prev) => prev.filter((o) => o.booking_id !== id));
               } catch (err: unknown) {
                 const msg =
                   err instanceof Error ? err.message : "Impossibile rifiutare";
@@ -304,7 +517,69 @@ export default function CleanerHomeScreen() {
         ]
       );
     },
-    [bookings, loadBookings]
+    []
+  );
+
+  const handleOfferAccept = useCallback(
+    async (bookingId: string) => {
+      try {
+        const result = await cleanerOfferAction(bookingId, "accept");
+        if (!result.ok && result.error === "already_taken") {
+          Alert.alert(
+            "Richiesta già presa",
+            "Un altro professionista ha già accettato. Niente paura, arrivano altre richieste!"
+          );
+          setPendingOffers((prev) => prev.filter((o) => o.booking_id !== bookingId));
+          return;
+        }
+        const offer = pendingOffers.find((o) => o.booking_id === bookingId);
+        if (offer?.booking) {
+          const { title, body } = NotificationMessages.bookingAccepted(
+            profile?.full_name ?? "Il professionista"
+          );
+          sendPushNotification(offer.booking.client_id, title, body, {
+            screen: "bookings",
+            bookingId,
+          }).catch(() => {});
+        }
+        setPendingOffers((prev) => prev.filter((o) => o.booking_id !== bookingId));
+        loadBookings();
+        router.push(`/booking/${bookingId}` as never);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Impossibile accettare";
+        Alert.alert("Errore", msg);
+      }
+    },
+    [pendingOffers, profile?.full_name, loadBookings, router]
+  );
+
+  const handleOfferDecline = useCallback(
+    (bookingId: string) => {
+      Alert.alert(
+        "Rifiutare questa richiesta?",
+        "Verranno contattati altri professionisti nella tua zona.",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Rifiuta",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await cleanerOfferAction(bookingId, "decline");
+                setPendingOffers((prev) =>
+                  prev.filter((o) => o.booking_id !== bookingId)
+                );
+              } catch (err: unknown) {
+                const msg =
+                  err instanceof Error ? err.message : "Impossibile rifiutare";
+                Alert.alert("Errore", msg);
+              }
+            },
+          },
+        ]
+      );
+    },
+    []
   );
 
   return (
@@ -318,7 +593,11 @@ export default function CleanerHomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="leaf" size={22} color="#022420" />
+              <Image
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                source={require("../../assets/icon.png")}
+                style={{ width: 22, height: 22, borderRadius: 6 }}
+              />
               <Text style={styles.brandLogo}>CleanHome</Text>
             </View>
             <View style={styles.avatarPhoto}>
@@ -372,7 +651,29 @@ export default function CleanerHomeScreen() {
           </Pressable>
         </View>
 
-        {pendingBookings.length === 0 ? (
+        {/* Offerte dispatch (nuove) */}
+        {pendingOffers.map((offer) => (
+          <View key={offer.id} style={styles.cardWrapper}>
+            <OfferCard
+              offer={offer}
+              onAccept={handleOfferAccept}
+              onDecline={handleOfferDecline}
+            />
+          </View>
+        ))}
+
+        {/* Prenotazioni legacy single-cleaner */}
+        {pendingBookings.map((booking) => (
+          <View key={booking.id} style={styles.cardWrapper}>
+            <RequestCard
+              booking={booking}
+              onAccept={handleAccept}
+              onDecline={handleDecline}
+            />
+          </View>
+        ))}
+
+        {pendingBookings.length === 0 && pendingOffers.length === 0 && (
           <View style={styles.emptyBlock}>
             <Ionicons name="mail-open-outline" size={28} color={OUTLINE} />
             <Text style={styles.emptyText}>Nessuna richiesta in attesa</Text>
@@ -380,16 +681,6 @@ export default function CleanerHomeScreen() {
               Le nuove richieste appariranno qui in tempo reale
             </Text>
           </View>
-        ) : (
-          pendingBookings.map((booking) => (
-            <View key={booking.id} style={styles.cardWrapper}>
-              <RequestCard
-                booking={booking}
-                onAccept={handleAccept}
-                onDecline={handleDecline}
-              />
-            </View>
-          ))
         )}
 
         {/* ── Prossimi appuntamenti ── */}

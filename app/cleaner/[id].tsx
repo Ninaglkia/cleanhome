@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -143,7 +144,7 @@ export default function CleanerDetailScreen() {
             paddingBottom: 28,
           }}
         >
-          {/* Avatar */}
+          {/* Avatar — photo if available, initials fallback (BUG 7 fix) */}
           <View
             style={{
               width: 96,
@@ -158,13 +159,23 @@ export default function CleanerDetailScreen() {
               shadowOpacity: 0.3,
               shadowRadius: 16,
               elevation: 8,
+              overflow: "hidden",
             }}
           >
-            <Text
-              style={{ color: Colors.accent, fontSize: 32, fontWeight: "800" }}
-            >
-              {initials}
-            </Text>
+            {cleaner.avatar_url ? (
+              <Image
+                source={{ uri: cleaner.avatar_url }}
+                style={{ width: 96, height: 96, borderRadius: 30 }}
+                resizeMode="cover"
+                defaultSource={require("../../assets/icon.png")}
+              />
+            ) : (
+              <Text
+                style={{ color: Colors.accent, fontSize: 32, fontWeight: "800" }}
+              >
+                {initials}
+              </Text>
+            )}
           </View>
 
           <Text
@@ -599,7 +610,9 @@ export default function CleanerDetailScreen() {
       >
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() =>
+          disabled={!cleaner.is_available}
+          onPress={() => {
+            if (!cleaner.is_available) return;
             router.push({
               pathname: "/booking/new",
               params: {
@@ -607,8 +620,8 @@ export default function CleanerDetailScreen() {
                 cleanerName: cleaner.full_name,
                 hourlyRate: String(cleaner.hourly_rate ?? 15),
               },
-            })
-          }
+            });
+          }}
           style={{
             backgroundColor: cleaner.is_available ? Colors.secondary : Colors.textTertiary,
             borderRadius: 16,
