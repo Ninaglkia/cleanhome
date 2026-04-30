@@ -1,8 +1,15 @@
 // ============================================================================
-// Edge Function: stripe-booking-action  (v2 — multi-dispatch)
+// Edge Function: stripe-booking-action  (v3 — escrow hold-until-confirm)
 // ----------------------------------------------------------------------------
-// action=accept: race-safe first-accept-wins via single CTE
-// action=decline: marks own offer declined; triggers auto-cancel if all done
+// ESCROW model: capture is already automatic at booking-payment time.
+// Accept here only marks the booking as "accepted" and locks payout_blocked=true.
+// Transfer to cleaner happens later in booking-confirm-completion (client conf
+// or 48h auto-confirm).
+//
+// action=accept: race-safe first-accept-wins via dispatch_accept_offer RPC.
+//                NO Stripe capture/transfer — payment was already captured.
+// action=decline: marks own offer declined. If all offers are now terminal,
+//                refund the customer in full (no cleaner accepted).
 //
 // Request body: { booking_id: UUID, action: "accept" | "decline" }
 // Response:    { ok: true, status: string }
@@ -85,14 +92,22 @@ serve(async (req) => {
     if (isLegacy) {
       if (booking.cleaner_id !== user.id) return json({ error: "Not allowed" }, 403);
       if (action === "accept") {
-        await stripeFetch(`payment_intents/${booking.stripe_payment_intent_id}/capture`, {});
-        await supabase.from("bookings").update({ status: "accepted" }).eq("id", booking_id);
+        // Escrow: payment already captured; just mark accepted + lock payout
+        await supabase
+          .from("bookings")
+          .update({ status: "accepted", payout_blocked: true })
+          .eq("id", booking_id);
         return json({ ok: true, status: "accepted" });
       } else {
-        await stripeFetch(`payment_intents/${booking.stripe_payment_intent_id}/cancel`, {
-          cancellation_reason: "requested_by_customer",
+        // Cleaner declines → refund client in full (no service will be performed)
+        await stripeFetch(`refunds`, {
+          payment_intent: booking.stripe_payment_intent_id,
+          reason: "requested_by_customer",
         });
-        await supabase.from("bookings").update({ status: "declined" }).eq("id", booking_id);
+        await supabase
+          .from("bookings")
+          .update({ status: "declined", payment_status: "refunded" })
+          .eq("id", booking_id);
         return json({ ok: true, status: "declined" });
       }
     }
@@ -136,51 +151,19 @@ serve(async (req) => {
         return json({ error: "Richiesta già accettata da un altro professionista" }, 409);
       }
 
-      // ── Load cleaner's Stripe account for transfer ───────────────
+      // ── Verify cleaner has Stripe Connect ready (transfer at confirm time) ──
       const { data: cp } = await supabase
         .from("cleaner_profiles")
-        .select("stripe_account_id")
+        .select("stripe_account_id, stripe_charges_enabled, stripe_onboarding_complete")
         .eq("id", user.id)
         .single();
 
-      if (!cp?.stripe_account_id) {
-        throw new Error("Stripe account non trovato per il cleaner vincitore");
+      if (!cp?.stripe_account_id || !cp.stripe_charges_enabled || !cp.stripe_onboarding_complete) {
+        throw new Error("Stripe Connect non completo per il cleaner");
       }
 
-      // ── Capture PaymentIntent ────────────────────────────────────
-      // For multi-dispatch PIs there's no transfer_data yet.
-      // We must: capture → then create a separate transfer to cleaner.
-      const { data: bk } = await supabase
-        .from("bookings")
-        .select("base_price, client_fee, cleaner_fee, total_price")
-        .eq("id", booking_id)
-        .single();
-
-      const toCents = (eur: number) => Math.round(eur * 100);
-      const platformFee = toCents(
-        (bk?.client_fee ?? 0) + (bk?.cleaner_fee ?? 0)
-      );
-      const cleanerAmount = toCents(
-        (bk?.total_price ?? 0) - (bk?.client_fee ?? 0) - (bk?.cleaner_fee ?? 0)
-      );
-
-      // Capture
-      await stripeFetch(`payment_intents/${booking.stripe_payment_intent_id}/capture`, {
-        amount_to_capture: String(toCents(bk?.total_price ?? 0)),
-      });
-
-      // Transfer net amount to cleaner's Connect account
-      if (cleanerAmount > 0) {
-        await stripeFetch("transfers", {
-          amount: String(cleanerAmount),
-          currency: "eur",
-          destination: cp.stripe_account_id,
-          "metadata[booking_id]": booking_id,
-          "metadata[source_pi]": booking.stripe_payment_intent_id,
-        });
-      }
-
-      // Update booking: winner assigned, payout_blocked=true (escrow for review period)
+      // Escrow: payment already captured at booking-payment time. No capture/transfer here.
+      // Just claim the booking. Transfer to cleaner happens at confirm-completion.
       await supabase
         .from("bookings")
         .update({ status: "accepted", cleaner_id: user.id, payout_blocked: true })
@@ -251,13 +234,14 @@ serve(async (req) => {
         .eq("status", "pending");
 
       if (count === 0) {
-        // All declined — auto-cancel
-        await stripeFetch(`payment_intents/${booking.stripe_payment_intent_id}/cancel`, {
-          cancellation_reason: "requested_by_customer",
+        // All declined — refund client in full (payment was already captured)
+        await stripeFetch(`refunds`, {
+          payment_intent: booking.stripe_payment_intent_id,
+          reason: "requested_by_customer",
         });
         await supabase
           .from("bookings")
-          .update({ status: "auto_cancelled" })
+          .update({ status: "auto_cancelled", payment_status: "refunded" })
           .eq("id", booking_id);
 
         const { data: bkClient } = await supabase
