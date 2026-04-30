@@ -122,9 +122,9 @@ export default function SplashScreenView() {
   }, []);
 
   // Navigate when auth resolved.
-  // Hold longer in dev (5s) so Nino can review the splash design.
+  // Hold longer in dev (12s) so Nino can review the splash design.
   // Production cuts to 1.7s for a snappy launch feel.
-  const HOLD_MS = __DEV__ ? 5000 : 1700;
+  const HOLD_MS = __DEV__ ? 12000 : 1700;
 
   useEffect(() => {
     if (isLoading) return;
