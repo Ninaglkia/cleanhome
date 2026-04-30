@@ -77,6 +77,11 @@ export default function SplashScreenView() {
   const brandTranslateY = useSharedValue(16);
   const taglineOpacity = useSharedValue(0);
 
+  // Outro: zoom-into-the-door dive transition
+  const sceneScale = useSharedValue(1);
+  const sceneOpacity = useSharedValue(1);
+  const blackoutOpacity = useSharedValue(0);
+
   // Hide native splash as soon as our view mounts
   const onLayoutReady = useCallback(async () => {
     await SplashScreen.hideAsync();
@@ -126,8 +131,28 @@ export default function SplashScreenView() {
   // Production cuts to 1.7s for a snappy launch feel.
   const HOLD_MS = __DEV__ ? 12000 : 1700;
 
+  // Outro animation: zoom into the door, fade scene, blackout, then navigate
+  const ZOOM_DURATION = 800;
+
   useEffect(() => {
     if (isLoading) return;
+
+    // Start zoom-into-door 800ms before navigating
+    const zoomStartDelay = Math.max(0, HOLD_MS - ZOOM_DURATION);
+    const zoomTimer = setTimeout(() => {
+      sceneScale.value = withTiming(14, {
+        duration: ZOOM_DURATION,
+        easing: Easing.in(Easing.cubic),
+      });
+      sceneOpacity.value = withDelay(
+        ZOOM_DURATION * 0.4,
+        withTiming(0, { duration: ZOOM_DURATION * 0.6, easing: Easing.in(Easing.cubic) })
+      );
+      blackoutOpacity.value = withDelay(
+        ZOOM_DURATION * 0.6,
+        withTiming(1, { duration: ZOOM_DURATION * 0.4 })
+      );
+    }, zoomStartDelay);
 
     const timer = setTimeout(async () => {
       if (!user) {
@@ -147,7 +172,10 @@ export default function SplashScreenView() {
       }
     }, HOLD_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(zoomTimer);
+    };
   }, [isLoading, user, profile, HOLD_MS]);
 
   // Animated styles
@@ -175,6 +203,15 @@ export default function SplashScreenView() {
     opacity: taglineOpacity.value,
   }));
 
+  const sceneStyle = useAnimatedStyle(() => ({
+    opacity: sceneOpacity.value,
+    transform: [{ scale: sceneScale.value }],
+  }));
+
+  const blackoutStyle = useAnimatedStyle(() => ({
+    opacity: blackoutOpacity.value,
+  }));
+
   // Sparkle positions: scattered around logo, off the central area
   const sparkles: SparkleProps[] = [
     { x: SCREEN_W * 0.18, y: SCREEN_H * 0.32, size: 4, delay: 600, duration: 2200 },
@@ -189,18 +226,20 @@ export default function SplashScreenView() {
 
   return (
     <View style={styles.container} onLayout={onLayoutReady}>
-      {/* Layered ambient blobs for depth (no gradient lib required) */}
-      <View style={styles.bgBlobTop} />
-      <View style={styles.bgBlobMid} />
-      <View style={styles.bgBlobBottom} />
+      {/* Everything that should zoom-into-the-door wrapped here */}
+      <Animated.View style={[StyleSheet.absoluteFill, styles.scene, sceneStyle]}>
+        {/* Layered ambient blobs for depth (no gradient lib required) */}
+        <View style={styles.bgBlobTop} />
+        <View style={styles.bgBlobMid} />
+        <View style={styles.bgBlobBottom} />
 
-      {/* Floating sparkles in the background */}
-      {sparkles.map((s, i) => (
-        <Sparkle key={i} {...s} />
-      ))}
+        {/* Floating sparkles in the background */}
+        {sparkles.map((s, i) => (
+          <Sparkle key={i} {...s} />
+        ))}
 
-      {/* Center brand block */}
-      <View style={styles.centerContent}>
+        {/* Center brand block */}
+        <View style={styles.centerContent}>
         {/* Logo with breathing halo */}
         <View style={styles.logoSlot}>
           <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
@@ -225,8 +264,15 @@ export default function SplashScreenView() {
         </Animated.Text>
       </View>
 
-      {/* Subtle bottom shimmer */}
-      <View style={styles.bottomShimmer} pointerEvents="none" />
+        {/* Subtle bottom shimmer */}
+        <View style={styles.bottomShimmer} pointerEvents="none" />
+      </Animated.View>
+
+      {/* Blackout overlay that fades in as we dive into the door */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.blackout, blackoutStyle]}
+      />
     </View>
   );
 }
@@ -242,6 +288,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  scene: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  blackout: {
+    backgroundColor: "#022420",
   },
   bgBlobTop: {
     position: "absolute",
