@@ -32,7 +32,10 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const SUPPORT_EMAIL = Deno.env.get("SUPPORT_EMAIL") ?? "support@cleanhome.it";
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+// Default to Haiku 4.5 — 5x cheaper than Sonnet, quality is more than enough
+// for the kind of FAQ questions a cleaning marketplace gets. Override via
+// ANTHROPIC_MODEL env var if you want to switch up later.
+const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5";
 const MAX_HISTORY = 30;
 const MAX_INPUT_LENGTH = 4000;
 
