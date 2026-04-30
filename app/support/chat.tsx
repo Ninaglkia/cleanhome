@@ -31,7 +31,7 @@ export default function SupportChatScreen() {
   const handleEmail = useCallback(() => {
     Linking.openURL(
       "mailto:support@cleanhome.app?subject=Richiesta%20supporto&body=Ciao%20team%20CleanHome%2C"
-    );
+    ).catch(() => {});
   }, []);
 
   const handleFaq = useCallback(

@@ -263,7 +263,9 @@ export default function FaqTopicScreen() {
           </Text>
           <Pressable
             style={({ pressed }) => [styles.helpBtn, pressed && { opacity: 0.88 }]}
-            onPress={() => Linking.openURL("mailto:support@cleanhome.app")}
+            onPress={() =>
+              Linking.openURL("mailto:support@cleanhome.app").catch(() => {})
+            }
             accessibilityLabel="Invia email al supporto"
             accessibilityRole="button"
           >

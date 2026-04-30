@@ -204,7 +204,9 @@ export default function SupportScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Invia email al supporto"
                 style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
-                onPress={() => Linking.openURL("mailto:support@cleanhome.app")}
+                onPress={() =>
+                  Linking.openURL("mailto:support@cleanhome.app").catch(() => {})
+                }
               >
                 <Ionicons name="mail-outline" size={16} color={Colors.secondary} />
                 <Text style={styles.stillBtnText}>Supporto Email</Text>

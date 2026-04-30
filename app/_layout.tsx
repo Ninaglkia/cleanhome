@@ -17,6 +17,31 @@ Sentry.init({
   enabled: ENV !== "local",
   tracesSampleRate: ENV === "production" ? 1.0 : 0.1,
 });
+
+// Global safety net: catch any promise that escapes a try/catch / .catch().
+// Without this React Native LogBox surfaces "Uncaught (in promise)" warnings
+// that confuse users on dev builds. In prod, also ship to Sentry for
+// visibility instead of silently swallowing.
+if (typeof globalThis !== "undefined") {
+  type RNPromiseTracker = {
+    onUnhandled?: (id: number, err: unknown) => void;
+  };
+  const rejectionTracking =
+    (globalThis as { HermesInternal?: { promiseRejectionTrackingOptions?: RNPromiseTracker } })
+      .HermesInternal?.promiseRejectionTrackingOptions;
+  if (rejectionTracking) {
+    rejectionTracking.onUnhandled = (_id, err) => {
+      if (__DEV__) {
+        // Quiet log instead of LogBox red box — non-fatal warnings only
+        // (any actual bug should fail loud during testing)
+        // eslint-disable-next-line no-console
+        console.warn("[unhandled promise]", err);
+      } else {
+        try { Sentry.captureException(err); } catch {}
+      }
+    };
+  }
+}
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Session, User } from "@supabase/supabase-js";
@@ -59,19 +84,25 @@ export default function RootLayout() {
   }, [user]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        try {
-          const p = await fetchProfile(s.user.id);
-          setProfile(p);
-        } catch {
-          setProfile(null);
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session: s } }) => {
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          try {
+            const p = await fetchProfile(s.user.id);
+            setProfile(p);
+          } catch {
+            setProfile(null);
+          }
         }
-      }
-      setIsLoading(false);
-    });
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        if (__DEV__) console.warn("[auth] getSession failed:", err?.message ?? err);
+        setIsLoading(false);
+      });
 
     const {
       data: { subscription },
