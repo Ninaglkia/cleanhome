@@ -1,8 +1,8 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import LottieView from "lottie-react-native";
+import { HouseLogo } from "../components/splash/HouseLogo";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -69,9 +69,6 @@ function Sparkle({ x, y, size, delay, duration }: SparkleProps) {
 export default function SplashScreenView() {
   const { isLoading, user, profile } = useAuth();
   const router = useRouter();
-
-  // Lottie ref
-  const lottieRef = useRef<LottieView>(null);
 
   // Animation values
   const logoOpacity = useSharedValue(0);
@@ -210,15 +207,7 @@ export default function SplashScreenView() {
           <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
           <Animated.View style={[styles.haloInner, haloInnerStyle]} />
           <Animated.View style={[styles.logoWrap, logoStyle]}>
-            <LottieView
-              ref={lottieRef}
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              source={require("../assets/lottie/cleaning.json")}
-              autoPlay
-              loop
-              style={styles.lottie}
-              resizeMode="contain"
-            />
+            <HouseLogo size={LOGO_SIZE - 12} />
           </Animated.View>
         </View>
 
