@@ -2,17 +2,18 @@
 // Edge Function: moderate-photo
 // ----------------------------------------------------------------------------
 // Validates a photo uploaded to the booking-photos bucket against:
-//   1. OpenAI omni-moderation-latest (NSFW: sexual, violence, self-harm, etc.)
+//   1. Google Cloud Vision SafeSearch (NSFW: adult, violence, racy, medical)
 //   2. Booking participation (caller must be cleaner or client of booking)
 //
 // Flow:
 //   - Client uploads photo to Storage (booking-photos/<booking_id>/<filename>)
 //   - Client calls this function with { booking_id, storage_path, type, room_label? }
-//   - Function gets public URL, runs OpenAI moderation
+//   - Function generates a short-lived signed URL, sends it to Vision API
 //   - If flagged → DELETE file from Storage + insert rejected row + 422
 //   - If clean → insert approved row + return public URL
 //
-// OPENAI_API_KEY must be set in Supabase secrets (free moderation API).
+// GOOGLE_VISION_API_KEY must be set in Supabase secrets.
+// Free tier: 1000 SafeSearch units/month. Then $1.50/1000.
 // If missing, the function logs a warning and approves all photos
 // (graceful degradation — useful for first launch before key is configured).
 //
@@ -26,7 +27,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const GOOGLE_VISION_API_KEY = Deno.env.get("GOOGLE_VISION_API_KEY") ?? "";
 const BUCKET = "booking-photos";
 
 const ALLOWED_TYPES = new Set([
@@ -36,7 +37,19 @@ const ALLOWED_TYPES = new Set([
   "dispute_cleaner",
 ]);
 
-const REJECT_THRESHOLD = 0.5; // category score >= 0.5 → reject
+// SafeSearch likelihood scale (Google):
+// VERY_UNLIKELY=1, UNLIKELY=2, POSSIBLE=3, LIKELY=4, VERY_LIKELY=5
+// We reject at LIKELY (4) or higher for adult/violence/racy.
+// Medical and spoof are not auto-rejected (could be legitimate dirt photos).
+const LIKELIHOOD_RANK: Record<string, number> = {
+  UNKNOWN: 0,
+  VERY_UNLIKELY: 1,
+  UNLIKELY: 2,
+  POSSIBLE: 3,
+  LIKELY: 4,
+  VERY_LIKELY: 5,
+};
+const REJECT_AT_OR_ABOVE = 4; // LIKELY
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,57 +68,67 @@ function json(body: unknown, status = 200) {
 interface ModerationResult {
   flagged: boolean;
   reason?: string;
-  categories?: Record<string, number>;
+  categories?: Record<string, string>;
 }
 
-async function runOpenAIModeration(imageUrl: string): Promise<ModerationResult> {
-  if (!OPENAI_API_KEY) {
-    console.warn("[moderate-photo] OPENAI_API_KEY not set — auto-approve");
+async function runGoogleVisionModeration(imageUrl: string): Promise<ModerationResult> {
+  if (!GOOGLE_VISION_API_KEY) {
+    console.warn("[moderate-photo] GOOGLE_VISION_API_KEY not set — auto-approve");
     return { flagged: false };
   }
 
-  const res = await fetch("https://api.openai.com/v1/moderations", {
+  const endpoint = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "omni-moderation-latest",
-      input: [
-        { type: "image_url", image_url: { url: imageUrl } },
+      requests: [
+        {
+          image: { source: { imageUri: imageUrl } },
+          features: [{ type: "SAFE_SEARCH_DETECTION" }],
+        },
       ],
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[moderate-photo] OpenAI error:", res.status, errText);
-    // Fail-closed on API error during early launch is too risky for UX.
-    // Fail-open with warning — content will be reviewed manually if disputed.
+    console.error("[moderate-photo] Google Vision error:", res.status, errText);
+    // Fail-open: content will be reviewed manually if disputed.
     return { flagged: false, reason: "moderation_unavailable" };
   }
 
   const data = await res.json();
-  const result = data?.results?.[0];
-  if (!result) return { flagged: false };
+  const safeSearch = data?.responses?.[0]?.safeSearch ?? null;
+  if (!safeSearch) {
+    return { flagged: false, reason: "no_safesearch_response" };
+  }
 
-  const scores: Record<string, number> = result.category_scores ?? {};
-  // Pick highest-scoring flagged category for human-readable reason
-  const flaggedCats = Object.entries(scores)
-    .filter(([_, score]) => (score as number) >= REJECT_THRESHOLD)
-    .sort(([, a], [, b]) => (b as number) - (a as number));
+  // Capture all category likelihoods for audit
+  const categories: Record<string, string> = {
+    adult: safeSearch.adult ?? "UNKNOWN",
+    spoof: safeSearch.spoof ?? "UNKNOWN",
+    medical: safeSearch.medical ?? "UNKNOWN",
+    violence: safeSearch.violence ?? "UNKNOWN",
+    racy: safeSearch.racy ?? "UNKNOWN",
+  };
 
-  if (result.flagged || flaggedCats.length > 0) {
-    const topCategory = flaggedCats[0]?.[0] ?? "policy_violation";
+  // Reject criteria: adult, violence, or racy at LIKELY+ → block
+  // Medical and spoof are not blockers (could be legitimate dirt/stain photos)
+  const rejectCats = ["adult", "violence", "racy"] as const;
+  const flagged = rejectCats.find(
+    (cat) => (LIKELIHOOD_RANK[categories[cat]] ?? 0) >= REJECT_AT_OR_ABOVE
+  );
+
+  if (flagged) {
     return {
       flagged: true,
-      reason: topCategory,
-      categories: scores,
+      reason: flagged,
+      categories,
     };
   }
 
-  return { flagged: false, categories: scores };
+  return { flagged: false, categories };
 }
 
 serve(async (req) => {
@@ -168,8 +191,8 @@ serve(async (req) => {
     const photoUrl = pub.publicUrl;
     if (!photoUrl) return json({ error: "Cannot resolve photo URL" }, 500);
 
-    // Run moderation against the signed URL (OpenAI will fetch within the 120s TTL)
-    const moderation = await runOpenAIModeration(moderationUrl);
+    // Run Google Vision SafeSearch against the signed URL (fetched within 120s TTL)
+    const moderation = await runGoogleVisionModeration(moderationUrl);
 
     if (moderation.flagged) {
       // Delete the offending file from Storage to avoid leaving NSFW content public
@@ -229,26 +252,15 @@ serve(async (req) => {
 
 function humanReason(category?: string): string {
   switch (category) {
-    case "sexual":
-    case "sexual/minors":
-      return "La foto sembra contenere contenuto sessuale. Carica solo foto del lavoro di pulizia.";
+    case "adult":
+      return "La foto contiene contenuto per adulti. Carica solo foto del lavoro di pulizia.";
     case "violence":
-    case "violence/graphic":
       return "La foto contiene contenuto violento. Carica solo foto del lavoro di pulizia.";
-    case "hate":
-    case "hate/threatening":
-    case "harassment":
-    case "harassment/threatening":
-      return "La foto contiene contenuti d'odio o offensivi. Non è ammessa.";
-    case "self-harm":
-    case "self-harm/intent":
-    case "self-harm/instructions":
-      return "Contenuto non idoneo. Carica solo foto del lavoro di pulizia.";
-    case "illicit":
-    case "illicit/violent":
-      return "Contenuto non ammesso.";
+    case "racy":
+      return "La foto non è appropriata per il contesto. Carica solo foto del lavoro di pulizia.";
     case "moderation_unavailable":
-      return "Verifica temporaneamente non disponibile, riprova.";
+    case "no_safesearch_response":
+      return "Verifica temporaneamente non disponibile, riprova tra qualche secondo.";
     default:
       return "La foto non è adatta. Carica solo foto chiare del lavoro di pulizia o del problema riscontrato.";
   }
