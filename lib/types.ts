@@ -26,7 +26,17 @@ export interface Booking {
   address?: string;
   notes?: string;
   stripe_payment_intent_id?: string;
-  work_done_at?: string;
+  work_done_at?: string | null;
+  client_confirmed_at?: string | null;
+  client_dispute_opened_at?: string | null;
+  client_dispute_reason?: string | null;
+  stripe_transfer_id?: string | null;
+  payout_blocked?: boolean;
+  payment_status?: string | null;
+  refund_amount?: number | null;
+  broadcast_step?: number;
+  search_lat?: number | null;
+  search_lng?: number | null;
   created_at: string;
 }
 
@@ -216,6 +226,30 @@ export type NewClientProperty = Omit<
   ClientProperty,
   "id" | "client_id" | "created_at" | "updated_at"
 >;
+
+// ─── Dispatch multi-cleaner types ─────────────────────────────────────────────
+
+export type BookingOfferStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "cancelled";
+
+export interface BookingOffer {
+  id: string;
+  booking_id: string;
+  cleaner_id: string;
+  status: BookingOfferStatus;
+  expires_at: string;
+  responded_at: string | null;
+  created_at: string;
+  // Joined fields from bookings table
+  booking?: Booking;
+  // Joined fields from cleaner_profiles
+  cleaner_name?: string;
+  cleaner_avatar?: string | null;
+}
 
 export const ALL_SERVICES = [
   "Pulizia ordinaria",

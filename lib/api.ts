@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import {
   Booking,
+  BookingOffer,
   CleanerListing,
   CleanerProfile,
   ClientProperty,
@@ -711,14 +712,46 @@ export async function fetchMessages(bookingId: string): Promise<Message[]> {
   return data ?? [];
 }
 
-export async function sendMessage(bookingId: string, senderId: string, content: string) {
-  const { error } = await supabase.from("messages").insert({
-    booking_id: bookingId,
-    sender_id: senderId,
-    content,
+export class MessageBlockedError extends Error {
+  violationType: string;
+  friendlyMessage: string;
+  constructor(violationType: string, friendlyMessage: string) {
+    super(friendlyMessage);
+    this.name = "MessageBlockedError";
+    this.violationType = violationType;
+    this.friendlyMessage = friendlyMessage;
+  }
+}
+
+export async function sendMessage(bookingId: string, _senderId: string, content: string) {
+  const { data, error } = await supabase.functions.invoke("validate-message", {
+    body: { booking_id: bookingId, content },
   });
 
-  if (error) throw error;
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const payload = await ctx.json();
+        if (payload?.blocked) {
+          throw new MessageBlockedError(
+            String(payload.violation_type ?? "unknown"),
+            String(payload.message ?? "Messaggio non inviato.")
+          );
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof MessageBlockedError) throw parseErr;
+      }
+    }
+    throw error;
+  }
+
+  if (data?.blocked) {
+    throw new MessageBlockedError(
+      String(data.violation_type ?? "unknown"),
+      String(data.message ?? "Messaggio non inviato.")
+    );
+  }
 }
 
 export function subscribeToMessages(
@@ -1154,6 +1187,191 @@ export async function setCleanerAvailability(
   if (error) throw error;
 }
 
+// ─── Dispatch multi-cleaner API ───────────────────────────────────────────────
+
+/**
+ * Fetch pending booking_offers for a cleaner (status='pending', not expired).
+ * Returns offers joined with booking details for display.
+ */
+export async function fetchPendingOffersForCleaner(
+  cleanerId: string
+): Promise<BookingOffer[]> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("booking_offers")
+    .select(`
+      *,
+      booking:bookings(*)
+    `)
+    .eq("cleaner_id", cleanerId)
+    .eq("status", "pending")
+    .gt("expires_at", now)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    // Table not yet migrated — return empty gracefully
+    if (error.code === "42P01" || error.message?.includes("does not exist")) {
+      return [];
+    }
+    throw error;
+  }
+  return (data as BookingOffer[]) ?? [];
+}
+
+/**
+ * Accept or decline a booking offer via the stripe-booking-action Edge Function.
+ * Returns { ok: true, status: "accepted" } or { ok: false, error: "already_taken" }.
+ */
+export async function cleanerOfferAction(
+  bookingId: string,
+  action: "accept" | "decline"
+): Promise<{ ok: boolean; status?: string; error?: string }> {
+  const { data, error } = await supabase.functions.invoke(
+    "stripe-booking-action",
+    { body: { booking_id: bookingId, action } }
+  );
+
+  if (error) {
+    type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
+    const ctx = (error as EdgeFnError).context;
+    let details = error.message;
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        details = `${error.message}: ${await ctx.text()}`;
+      } catch {}
+    }
+    // 409 already_taken is a non-exceptional race condition — surface it
+    if (details.includes("already_taken")) {
+      return { ok: false, error: "already_taken" };
+    }
+    throw new Error(details);
+  }
+
+  return (data as { ok: boolean; status?: string; error?: string }) ?? {
+    ok: true,
+  };
+}
+
+/**
+ * Fetch a booking row + all its booking_offers for the client waiting screen.
+ */
+export async function fetchBookingWithOffers(
+  bookingId: string
+): Promise<{ booking: Booking | null; offers: BookingOffer[] }> {
+  const [bookingResult, offersResult] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select()
+      .eq("id", bookingId)
+      .maybeSingle(),
+    supabase
+      .from("booking_offers")
+      .select(`
+        *,
+        cleaner:cleaner_profiles(full_name, avatar_url)
+      `)
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (bookingResult.error) throw bookingResult.error;
+
+  // booking_offers table might not exist yet
+  const offers: BookingOffer[] =
+    offersResult.error?.code === "42P01" || offersResult.error?.message?.includes("does not exist")
+      ? []
+      : offersResult.error
+      ? (() => { throw offersResult.error; })()
+      : ((offersResult.data ?? []) as BookingOffer[]);
+
+  // Flatten joined cleaner fields into top-level for easy rendering
+  const mappedOffers = offers.map((o) => {
+    const raw = o as BookingOffer & {
+      cleaner?: { full_name: string; avatar_url: string | null };
+    };
+    return {
+      ...o,
+      cleaner_name: raw.cleaner?.full_name,
+      cleaner_avatar: raw.cleaner?.avatar_url ?? null,
+    };
+  });
+
+  return {
+    booking: bookingResult.data as Booking | null,
+    offers: mappedOffers,
+  };
+}
+
+/**
+ * Subscribe to Realtime changes on a booking row.
+ * Calls onUpdate whenever the row changes (status, cleaner_id, etc.).
+ */
+export function subscribeToBooking(
+  bookingId: string,
+  onUpdate: (booking: Booking) => void
+) {
+  return supabase
+    .channel(`booking-${bookingId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "bookings",
+        filter: `id=eq.${bookingId}`,
+      },
+      (payload) => onUpdate(payload.new as Booking)
+    )
+    .subscribe();
+}
+
+/**
+ * Subscribe to Realtime changes on booking_offers for a given booking.
+ * Calls onUpdate whenever any offer row changes.
+ */
+export function subscribeToBookingOffers(
+  bookingId: string,
+  onUpdate: (offer: BookingOffer) => void
+) {
+  return supabase
+    .channel(`booking-offers-${bookingId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "booking_offers",
+        filter: `booking_id=eq.${bookingId}`,
+      },
+      (payload) => onUpdate(payload.new as BookingOffer)
+    )
+    .subscribe();
+}
+
+/**
+ * Subscribe to Realtime changes on booking_offers for a specific cleaner.
+ * Used by the cleaner home screen to detect when offers are cancelled
+ * (another cleaner won the race) and remove them from the list live.
+ */
+export function subscribeToCleanerOffers(
+  cleanerId: string,
+  onUpdate: (offer: BookingOffer) => void
+) {
+  return supabase
+    .channel(`cleaner-offers-${cleanerId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "booking_offers",
+        filter: `cleaner_id=eq.${cleanerId}`,
+      },
+      (payload) => onUpdate(payload.new as BookingOffer)
+    )
+    .subscribe();
+}
+
 /**
  * Removes the current avatar: deletes from storage and clears avatar_url.
  */
@@ -1173,4 +1391,173 @@ export async function removeAvatar(userId: string, currentAvatarUrl: string): Pr
     .eq("id", userId);
 
   if (error) throw error;
+}
+
+// ─── Escrow + photo moderation API ────────────────────────────────────────────
+
+export type BookingPhotoType =
+  | "before"
+  | "after_cleaner"
+  | "dispute_client"
+  | "dispute_cleaner";
+
+export class PhotoRejectedError extends Error {
+  reason: string;
+  friendlyMessage: string;
+  constructor(reason: string, friendlyMessage: string) {
+    super(friendlyMessage);
+    this.name = "PhotoRejectedError";
+    this.reason = reason;
+    this.friendlyMessage = friendlyMessage;
+  }
+}
+
+/**
+ * Upload a photo to Storage and run moderation. Returns the public URL on success.
+ * Throws PhotoRejectedError if moderation flags the image (NSFW, violence, etc.).
+ *
+ * The moderation Edge Function deletes the file from Storage if rejected, so the
+ * client doesn't need to clean up.
+ */
+export async function uploadAndModerateBookingPhoto(args: {
+  bookingId: string;
+  uri: string;
+  type: BookingPhotoType;
+  roomLabel?: string;
+}): Promise<{ photoId: string; photoUrl: string }> {
+  const { bookingId, uri, type, roomLabel } = args;
+
+  // 1. Read file as Uint8Array
+  const fileResp = await fetch(uri);
+  if (!fileResp.ok) throw new Error("Cannot read photo from device");
+  const arrayBuffer = await fileResp.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+
+  // 2. Build storage path
+  const ext = uri.split(".").pop()?.toLowerCase().split("?")[0] || "jpg";
+  const fileName = `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const storagePath = `${bookingId}/${fileName}`;
+
+  // 3. Upload to Storage
+  const contentType =
+    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+  const { error: uploadErr } = await supabase.storage
+    .from("booking-photos")
+    .upload(storagePath, bytes, { contentType, upsert: false });
+
+  if (uploadErr) throw uploadErr;
+
+  // 4. Call moderation Edge Function (it inserts the booking_photos row + returns URL)
+  const { data, error } = await supabase.functions.invoke("moderate-photo", {
+    body: { booking_id: bookingId, storage_path: storagePath, type, room_label: roomLabel },
+  });
+
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const payload = await ctx.json();
+        if (payload?.rejected) {
+          throw new PhotoRejectedError(
+            String(payload.reason ?? "policy_violation"),
+            String(payload.message ?? "Foto non ammessa")
+          );
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof PhotoRejectedError) throw parseErr;
+      }
+    }
+    // Best-effort cleanup if upload landed but moderation failed
+    await supabase.storage.from("booking-photos").remove([storagePath]).catch(() => {});
+    throw error;
+  }
+
+  if (!data?.ok) {
+    if (data?.rejected) {
+      throw new PhotoRejectedError(
+        String(data.reason ?? "policy_violation"),
+        String(data.message ?? "Foto non ammessa")
+      );
+    }
+    throw new Error("Moderation failed");
+  }
+
+  return { photoId: String(data.photo_id), photoUrl: String(data.photo_url) };
+}
+
+/**
+ * Cleaner marks the work as completed. Server checks that work_done_at is null
+ * and that the caller is the assigned cleaner.
+ */
+export async function markBookingDone(bookingId: string): Promise<{ workDoneAt: string }> {
+  const { data, error } = await supabase.functions.invoke("booking-mark-done", {
+    body: { booking_id: bookingId },
+  });
+  if (error) throw error;
+  return { workDoneAt: String(data?.work_done_at) };
+}
+
+/**
+ * Client confirms the service was performed correctly. Triggers transfer to cleaner.
+ */
+export async function confirmBookingCompletion(
+  bookingId: string
+): Promise<{ transferId?: string; amountEur?: number }> {
+  const { data, error } = await supabase.functions.invoke("booking-confirm-completion", {
+    body: { booking_id: bookingId },
+  });
+  if (error) throw error;
+  return {
+    transferId: data?.transfer_id ? String(data.transfer_id) : undefined,
+    amountEur: typeof data?.amount_eur === "number" ? data.amount_eur : undefined,
+  };
+}
+
+/**
+ * Client opens an in-app dispute. Reason must be at least 20 chars.
+ * Photos should be uploaded separately via uploadAndModerateBookingPhoto with
+ * type="dispute_client" before calling this.
+ */
+export async function openBookingDispute(
+  bookingId: string,
+  reason: string
+): Promise<{ disputeOpenedAt: string }> {
+  const trimmed = reason.trim();
+  if (trimmed.length < 20) {
+    throw new Error("La motivazione deve essere di almeno 20 caratteri");
+  }
+  const { data, error } = await supabase.functions.invoke("booking-open-dispute", {
+    body: { booking_id: bookingId, reason: trimmed },
+  });
+  if (error) throw error;
+  return { disputeOpenedAt: String(data?.dispute_opened_at) };
+}
+
+/**
+ * Fetch all approved photos for a booking, optionally filtered by type.
+ */
+export async function fetchBookingPhotos(
+  bookingId: string,
+  type?: BookingPhotoType
+): Promise<{
+  id: string;
+  photo_url: string;
+  type: string;
+  room_label: string | null;
+  uploaded_by: string;
+  created_at: string;
+}[]> {
+  let q = supabase
+    .from("booking_photos")
+    .select("id, photo_url, type, room_label, uploaded_by, created_at")
+    .eq("booking_id", bookingId)
+    .eq("moderation_status", "approved")
+    .order("created_at", { ascending: true });
+
+  if (type) q = q.eq("type", type);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
 }
