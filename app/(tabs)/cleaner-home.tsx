@@ -10,7 +10,6 @@ import {
   Alert,
   Dimensions,
   Platform,
-  LayoutChangeEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +19,12 @@ import { useAuth } from "../../lib/auth";
 import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
+import ProfileCompletionBar from "../../components/ProfileCompletionBar";
+import {
+  calculateCleanerCompletion,
+  firstMissingStepLabel,
+} from "../../lib/profileCompletion";
+import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 import {
@@ -35,6 +40,7 @@ import {
 import { Booking, BookingOffer } from "../../lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCountdown } from "../../lib/hooks/useCountdown";
+import { measureInWindow } from "../../lib/measureInWindow";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -394,69 +400,110 @@ export default function CleanerHomeScreen() {
   // ── Coach marks ────────────────────────────────────────────────────────────
   const [showCoachMarks, setShowCoachMarks] = useState(false);
   const [coachSteps, setCoachSteps] = useState<CoachMarkStep[]>([]);
-  // Rects measured via onLayout on real DOM elements
-  const [createListingRect, setCreateListingRect] = useState<{
-    x: number; y: number; width: number; height: number;
-  } | null>(null);
-  const [calendarRect, setCalendarRect] = useState<{
-    x: number; y: number; width: number; height: number;
-  } | null>(null);
 
-  useEffect(() => {
-    AsyncStorage.getItem("cleanhome.first_run_tour_done")
-      .then((done) => {
-        if (!done) setShowCoachMarks(true);
-      })
-      .catch(() => {});
-  }, []);
+  // Refs for screen-absolute measurement via measureInWindow
+  const requestsSectionRef = useRef<View>(null);
+  const profileCompletionBarRef = useRef<View>(null);
+  const calendarSectionRef = useRef<View>(null);
+  const profileTabRef = useRef<View>(null);
 
-  // Build cleaner coach steps once rect data is available
+  // On focus: check if the welcome modal set the START_TOUR_KEY.
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(START_TOUR_KEY).then((val) => {
+        if (val === "1") {
+          AsyncStorage.removeItem(START_TOUR_KEY).catch(() => {});
+          setShowCoachMarks(true);
+        }
+      }).catch(() => {});
+    }, [])
+  );
+
+  // Build 2 focused coach mark steps for CLEANER:
+  //   1. Requests section header → "Verifica identita per piu richieste"
+  //   2. Profile completion bar → "Crea annuncio per iniziare a guadagnare"
   useEffect(() => {
     if (!showCoachMarks) return;
-    // We need at least the first two rects before building steps.
-    // The profile tab rect is always computable from screen dimensions.
-    const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
-    const tabBarTop = SH - tabBarHeight;
-    const tabWidth = SW / 4;
-    const profileTabRect = {
-      x: tabWidth * 3,
-      y: tabBarTop + 10,
-      width: tabWidth,
-      height: tabBarHeight - 20,
-    };
-
-    const steps: CoachMarkStep[] = [];
-    if (createListingRect) {
-      steps.push({
-        rect: createListingRect,
-        title: "Crea il tuo primo annuncio",
-        description:
-          "Pubblica i tuoi servizi e la zona di copertura per ricevere richieste dai clienti.",
-      });
-    }
-    if (calendarRect) {
-      steps.push({
-        rect: calendarRect,
-        title: "Calendario disponibilità",
-        description:
-          "Imposta i giorni e gli orari in cui sei disponibile per lavorare.",
-      });
-    }
-    steps.push({
-      rect: profileTabRect,
-      title: "Verifica identità",
-      description:
-        "Carica i tuoi documenti per ottenere il badge verificato e aumentare le prenotazioni.",
-    });
-
-    if (steps.length >= 1) {
-      setCoachSteps(steps);
-    }
-  }, [showCoachMarks, createListingRect, calendarRect]);
+    const timer = setTimeout(async () => {
+      const [requestsRect, completionRect] = await Promise.all([
+        measureInWindow(requestsSectionRef),
+        measureInWindow(profileCompletionBarRef),
+      ]);
+      const steps: CoachMarkStep[] = [];
+      if (requestsRect) {
+        steps.push({
+          rect: requestsRect,
+          title: "Verifica la tua identita",
+          description:
+            "Carica i tuoi documenti per ottenere il badge verificato e ricevere piu richieste dai clienti.",
+        });
+      }
+      if (completionRect) {
+        steps.push({
+          rect: completionRect,
+          title: "Crea il tuo primo annuncio",
+          description:
+            "Pubblica i tuoi servizi e la zona di copertura per iniziare a guadagnare subito.",
+        });
+      }
+      if (steps.length >= 1) setCoachSteps(steps);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [showCoachMarks]);
 
   const handleCoachMarkDone = useCallback(() => {
     setShowCoachMarks(false);
   }, []);
+
+  // ── Profile completion banner ──────────────────────────────────────────────
+  // We query whether the cleaner has listings/documents by inspecting what
+  // data already loaded. For documents we use a local AsyncStorage flag set
+  // after the user uploads their first doc (to avoid an extra Supabase query).
+  const [hasVerifiedDoc, setHasVerifiedDoc] = useState(false);
+  const [hasStripeConnect, setHasStripeConnect] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem("cleanhome.cleaner_doc_verified"),
+      AsyncStorage.getItem("cleanhome.cleaner_stripe_connect_active"),
+    ]).then(([doc, stripe]) => {
+      setHasVerifiedDoc(doc === "1");
+      setHasStripeConnect(stripe === "1");
+    }).catch(() => {});
+  }, []);
+
+  const hasActiveListing = useMemo(
+    () => bookings.some((b) => b.status === "accepted" || b.status === "pending"),
+    [bookings]
+  );
+
+  const cleanerCompletion = useMemo(() => {
+    return calculateCleanerCompletion({
+      full_name: profile?.full_name,
+      avatar_url: undefined,
+      hasActiveListing,
+      hasVerifiedDocument: hasVerifiedDoc,
+      hasStripeConnect,
+    });
+  }, [profile, hasActiveListing, hasVerifiedDoc, hasStripeConnect]);
+
+  const cleanerCompletionSubtitle = useMemo(
+    () => firstMissingStepLabel(cleanerCompletion.missingSteps),
+    [cleanerCompletion.missingSteps]
+  );
+
+  const handleCleanerCompletionPress = useCallback(() => {
+    const firstMissing = cleanerCompletion.missingSteps[0];
+    if (firstMissing === "listing") {
+      router.push("/listing" as never);
+    } else if (firstMissing === "document") {
+      router.push("/documents" as never);
+    } else if (firstMissing === "stripe_connect") {
+      router.push("/(tabs)/profile" as never);
+    } else {
+      router.push("/(tabs)/profile" as never);
+    }
+  }, [cleanerCompletion.missingSteps, router]);
 
   const firstName =
     profile?.full_name?.split(" ")[0] ??
@@ -686,6 +733,20 @@ export default function CleanerHomeScreen() {
           <Text style={styles.greetingSub}>La tua giornata</Text>
         </View>
 
+        {/* ── Profile completion banner ── */}
+        {cleanerCompletion.percent < 100 && (
+          <View
+            ref={profileCompletionBarRef}
+            style={styles.completionBarWrapper}
+          >
+            <ProfileCompletionBar
+              percent={cleanerCompletion.percent}
+              subtitle={cleanerCompletionSubtitle}
+              onPress={handleCleanerCompletionPress}
+            />
+          </View>
+        )}
+
         {/* ── Stats grid ── */}
         <View style={styles.statsRow}>
           <StatCard
@@ -713,11 +774,8 @@ export default function CleanerHomeScreen() {
 
         {/* ── Richieste in arrivo ── */}
         <View
+          ref={requestsSectionRef}
           style={styles.sectionHeader}
-          onLayout={(e: LayoutChangeEvent) => {
-            const { x, y, width, height } = e.nativeEvent.layout;
-            setCreateListingRect({ x, y, width, height });
-          }}
         >
           <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
           <Pressable
@@ -757,29 +815,49 @@ export default function CleanerHomeScreen() {
 
         {pendingBookings.length === 0 && pendingOffers.length === 0 && (
           <View style={styles.emptyBlock}>
-            <Ionicons name="mail-open-outline" size={28} color={OUTLINE} />
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="mail-open-outline" size={26} color={PRIMARY} />
+            </View>
             <Text style={styles.emptyText}>Nessuna richiesta in attesa</Text>
             <Text style={styles.emptySubtext}>
               Le nuove richieste appariranno qui in tempo reale
             </Text>
+            <Pressable
+              onPress={() => router.push("/listing" as never)}
+              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.8 }]}
+              accessibilityRole="button"
+            >
+              <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
+              <Text style={styles.emptyCtaText}>Crea un annuncio</Text>
+            </Pressable>
           </View>
         )}
 
         {/* ── Prossimi appuntamenti ── */}
         <View
+          ref={calendarSectionRef}
           style={styles.sectionHeader}
-          onLayout={(e: LayoutChangeEvent) => {
-            const { x, y, width, height } = e.nativeEvent.layout;
-            setCalendarRect({ x, y, width, height });
-          }}
         >
           <Text style={styles.sectionTitle}>Prossimi appuntamenti</Text>
         </View>
 
         {upcomingBookings.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <Ionicons name="calendar-outline" size={28} color={OUTLINE} />
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="calendar-outline" size={26} color={PRIMARY} />
+            </View>
             <Text style={styles.emptyText}>Nessun appuntamento in programma</Text>
+            <Text style={styles.emptySubtext}>
+              Accetta una richiesta per vederla qui nel tuo calendario
+            </Text>
+            <Pressable
+              onPress={() => router.push("/cleaner/jobs" as never)}
+              style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.8 }]}
+              accessibilityRole="button"
+            >
+              <Ionicons name="briefcase-outline" size={16} color="#ffffff" />
+              <Text style={styles.emptyCtaText}>Vedi tutti i lavori</Text>
+            </Pressable>
           </View>
         ) : (
           upcomingBookings.map((booking) => (
@@ -794,6 +872,30 @@ export default function CleanerHomeScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* ── Ghost View for profile tab measurement ───────────────────────────
+          Transparent, non-interactive View positioned over the Profilo tab
+          (index 3 of 4). Tab bar: height 88 iOS / 68 Android, paddingH 8.
+          Each tab width = (SW - 16) / 4.                               ── */}
+      {(() => {
+        const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
+        const tabBarTop = SH - tabBarHeight;
+        const tabW = (SW - 16) / 4;
+        const tabLeft = 8 + tabW * 3; // Profilo = index 3
+        return (
+          <View
+            ref={profileTabRef}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: tabBarTop,
+              left: tabLeft,
+              width: tabW,
+              height: tabBarHeight,
+            }}
+          />
+        );
+      })()}
 
       {/* ── Coach mark first-run overlay ── */}
       {showCoachMarks && coachSteps.length >= 1 && (
@@ -821,24 +923,69 @@ const styles = StyleSheet.create({
     height: 40,
   },
   emptyBlock: {
-    marginHorizontal: 24,
+    marginHorizontal: 20,
     marginVertical: 8,
     padding: 24,
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: "center",
     gap: 8,
+    shadowColor: PRIMARY_CONTAINER,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  emptyIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: CLEANER_LIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   emptyText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#414846",
-    marginTop: 6,
+    fontSize: 15,
+    fontWeight: "700",
+    color: ON_SURFACE,
+    textAlign: "center",
+    marginTop: 2,
   },
   emptySubtext: {
     fontSize: 12,
-    color: "#717976",
+    color: ON_SURFACE_VARIANT,
     textAlign: "center",
+    lineHeight: 17,
+    paddingHorizontal: 8,
+  },
+  emptyCtaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: PRIMARY_CONTAINER,
+    borderRadius: 9999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginTop: 8,
+    shadowColor: PRIMARY_CONTAINER,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyCtaText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.1,
+  },
+
+  // ── Completion bar ────────────────────────────────────────────────────────
+  completionBarWrapper: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
   },
 
   // ── Header ────────────────────────────────────────────────────────────────

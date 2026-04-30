@@ -13,7 +13,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  LayoutChangeEvent,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +20,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
+import ProfileCompletionBar from "../../components/ProfileCompletionBar";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -41,6 +41,20 @@ import {
 import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, Shadows, SpringConfig } from "../../lib/theme";
+import { measureInWindow } from "../../lib/measureInWindow";
+import {
+  calculateClientCompletion,
+  firstMissingStepLabel,
+  MissingStep,
+} from "../../lib/profileCompletion";
+import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
+
+// AsyncStorage key that persists which Stripe customer setup step is done.
+// We check for the presence of a Stripe customer id on the profile — if the
+// profile has it we consider "payment method" done. Because the auth profile
+// doesn't carry a stripe_customer_id field in the current type we look for a
+// dedicated flag stored locally after the user adds a card.
+const PAYMENT_METHOD_KEY = "cleanhome.client_has_payment_method";
 
 const { width: SCREEN_WIDTH, width: SW, height: SH } = Dimensions.get("window");
 
@@ -488,59 +502,56 @@ export default function HomeScreen() {
   // ── Coach marks ────────────────────────────────────────────────────────────
   const [showCoachMarks, setShowCoachMarks] = useState(false);
   const [coachSteps, setCoachSteps] = useState<CoachMarkStep[]>([]);
-  // Rect memos for measurable elements
-  const [searchBarRect, setSearchBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // Check first-run flag on mount
-  useEffect(() => {
-    AsyncStorage.getItem("cleanhome.first_run_tour_done")
-      .then((done) => {
-        if (!done) setShowCoachMarks(true);
-      })
-      .catch(() => {});
-  }, []);
+  // Refs for measureInWindow — gives screen-absolute coordinates for the Modal overlay
+  const searchBarRef = useRef<View>(null);
+  const profileCompletionBarRef = useRef<View>(null);
+  // Ghost Views that sit exactly over the tab bar buttons.
+  const bookingsTabRef = useRef<View>(null);
+  const profileTabRef = useRef<View>(null);
 
-  // Build coach steps once we have the search bar rect and screen dimensions
+  // On mount: check if the welcome modal set the START_TOUR_KEY.
+  // If yes, show the 2-step focused coach marks and clear the flag.
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(START_TOUR_KEY).then((val) => {
+        if (val === "1") {
+          AsyncStorage.removeItem(START_TOUR_KEY).catch(() => {});
+          setShowCoachMarks(true);
+        }
+      }).catch(() => {});
+    }, [])
+  );
+
+  // Build 2 focused coach mark steps for CLIENT:
+  //   1. Map search bar → "Trova pulitori nella tua zona"
+  //   2. Profile completion bar → "Completa profilo per prenotare in 1 tocco"
   useEffect(() => {
-    if (!showCoachMarks || !searchBarRect) return;
-    const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
-    const tabBarTop = SH - tabBarHeight;
-    // Tab bar is 4 tabs wide — distribute equally
-    const tabWidth = SW / 4;
-    // "Prenotazioni" is tab index 2 (0-based), "Profilo" is tab index 3
-    const bookingsTabRect = {
-      x: tabWidth * 2,
-      y: tabBarTop + 10,
-      width: tabWidth,
-      height: tabBarHeight - 20,
-    };
-    const profileTabRect = {
-      x: tabWidth * 3,
-      y: tabBarTop + 10,
-      width: tabWidth,
-      height: tabBarHeight - 20,
-    };
-    setCoachSteps([
-      {
-        rect: searchBarRect,
-        title: "Cerca la tua zona",
-        description:
-          "Inserisci la tua città per trovare i pulitori vicini a te.",
-      },
-      {
-        rect: bookingsTabRect,
-        title: "Le tue prenotazioni",
-        description:
-          "Qui troverai tutti i tuoi servizi attivi e completati.",
-      },
-      {
-        rect: profileTabRect,
-        title: "Il tuo profilo",
-        description:
-          "Aggiungi metodi di pagamento e gestisci il tuo account.",
-      },
-    ]);
-  }, [showCoachMarks, searchBarRect]);
+    if (!showCoachMarks) return;
+    const timer = setTimeout(async () => {
+      const [searchRect, completionRect] = await Promise.all([
+        measureInWindow(searchBarRef),
+        measureInWindow(profileCompletionBarRef),
+      ]);
+      const steps: CoachMarkStep[] = [];
+      if (searchRect) {
+        steps.push({
+          rect: searchRect,
+          title: "Trova pulitori nella tua zona",
+          description: "Inserisci la tua citta o lascia attiva la posizione GPS per vedere i professionisti vicini.",
+        });
+      }
+      if (completionRect) {
+        steps.push({
+          rect: completionRect,
+          title: "Completa il profilo",
+          description: "Aggiungi indirizzo casa e metodo di pagamento per prenotare con un solo tocco.",
+        });
+      }
+      if (steps.length >= 1) setCoachSteps(steps);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [showCoachMarks]);
 
   const handleCoachMarkDone = useCallback(() => {
     setShowCoachMarks(false);
@@ -624,6 +635,38 @@ export default function HomeScreen() {
     },
     []
   );
+
+  // ── Profile completion banner ──────────────────────────────────────────────
+  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(PAYMENT_METHOD_KEY)
+      .then((v) => setHasPaymentMethod(v === "1"))
+      .catch(() => {});
+  }, []);
+
+  const profileCompletion = useMemo(() => {
+    return calculateClientCompletion({
+      full_name: profile?.full_name,
+      avatar_url: undefined, // UserProfile type doesn't expose avatar
+      hasProperty: properties.length > 0,
+      hasPaymentMethod,
+    });
+  }, [profile, properties, hasPaymentMethod]);
+
+  const completionSubtitle = useMemo(
+    () => firstMissingStepLabel(profileCompletion.missingSteps),
+    [profileCompletion.missingSteps]
+  );
+
+  const handleCompletionBarPress = useCallback(() => {
+    const firstMissing: MissingStep | undefined = profileCompletion.missingSteps[0];
+    if (firstMissing === "property") {
+      router.push("/properties/new" as never);
+    } else {
+      router.push("/(tabs)/profile" as never);
+    }
+  }, [profileCompletion.missingSteps, router]);
 
   // Animated value for search bar expansion
   const searchExpanded = useSharedValue(0);
@@ -923,12 +966,7 @@ export default function HomeScreen() {
       {/* ── Floating header pill (Stitch spec) ── */}
       {/* bg-white/80 backdrop-blur rounded-full mx-4 mt-4 shadow-2xl */}
       <Animated.View
-        onLayout={(e: LayoutChangeEvent) => {
-          const { x, y, width, height } = e.nativeEvent.layout;
-          // layout coords are relative to parent (the View at flex:1).
-          // The parent starts at top:0, so y IS the screen y.
-          setSearchBarRect({ x, y, width, height });
-        }}
+        ref={searchBarRef}
         style={[
           searchBarStyle,
           {
@@ -1028,19 +1066,41 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
+      {/* ── Profile completion banner ── */}
+      {/* Sits just below the search bar, only when profile is incomplete.
+          Referenced by the coach mark step to highlight it. */}
+      {profileCompletion.percent < 100 && (
+        <View
+          ref={profileCompletionBarRef}
+          style={{
+            position: "absolute",
+            top: insets.top + 70,
+            left: 16,
+            right: 16,
+            zIndex: 18,
+          }}
+        >
+          <ProfileCompletionBar
+            percent={profileCompletion.percent}
+            subtitle={completionSubtitle}
+            onPress={handleCompletionBarPress}
+          />
+        </View>
+      )}
+
       {/* ── Amazon-style property picker pill ── */}
-      {/* Sits right under the search bar. Only shows when the client
-          has at least one saved house with coordinates. Tapping opens
-          a sheet with the full property list. The currently-selected
-          house drives which zone we query for cleaners and which
-          property gets pre-filled in the booking flow. */}
+      {/* Sits right under the search bar (or under the completion banner when visible).
+          Tapping opens a sheet with the full property list. */}
       {properties.length > 0 && (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setPropertyPickerOpen(true)}
           style={{
             position: "absolute",
-            top: insets.top + 72,
+            // When banner is visible (~68px tall + 8px gap), push picker down
+            top: profileCompletion.percent < 100
+              ? insets.top + 70 + 68 + 8
+              : insets.top + 72,
             left: 16,
             right: 16,
             zIndex: 19,
@@ -1370,8 +1430,47 @@ export default function HomeScreen() {
         <Ionicons name="navigate" size={20} color={Colors.secondary} />
       </TouchableOpacity>
 
+      {/* ── Ghost Views for tab bar measurement ──────────────────────────────
+          These transparent Views are positioned exactly over the tab bar
+          buttons (Prenotazioni = tab index 2, Profilo = tab index 3).
+          Tab bar: height 88 iOS / 68 Android, paddingHorizontal 8.
+          Each of the 4 tabs occupies (SW - 16) / 4 width.
+          We use pointerEvents="none" so they never steal touches.      ── */}
+      {(() => {
+        const tabBarHeight = Platform.OS === "ios" ? 88 : 68;
+        const tabBarTop = SH - tabBarHeight;
+        const tabW = (SW - 16) / 4; // tabBar paddingHorizontal: 8 on each side
+        const tabLeft = (idx: number) => 8 + tabW * idx;
+        return (
+          <>
+            <View
+              ref={bookingsTabRef}
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: tabBarTop,
+                left: tabLeft(2),
+                width: tabW,
+                height: tabBarHeight,
+              }}
+            />
+            <View
+              ref={profileTabRef}
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: tabBarTop,
+                left: tabLeft(3),
+                width: tabW,
+                height: tabBarHeight,
+              }}
+            />
+          </>
+        );
+      })()}
+
       {/* ── Coach mark first-run overlay ── */}
-      {showCoachMarks && coachSteps.length === 3 && (
+      {showCoachMarks && coachSteps.length >= 1 && (
         <CoachMarkOverlay
           steps={coachSteps}
           storageKey="cleanhome.first_run_tour_done"

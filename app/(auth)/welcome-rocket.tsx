@@ -8,14 +8,17 @@
  * Flow:
  *  1. Screen mounts → logo + text fade/scale in
  *  2. Lottie astronaut plays at normal speed (~1.5 s)
- *  3. Everything fades out → router.replace to correct home
- *  4. AsyncStorage flag `cleanhome.first_login_done` is set so this
- *     screen is never shown again.
+ *  3. Rocket fades out → WelcomeModal slides up
+ *  4. User picks "Sì, mostrami" → navigates home with tour flag
+ *     User picks "Esplora subito" → navigates home directly
+ *  5. AsyncStorage flags `cleanhome.first_login_done` and
+ *     `cleanhome.welcome_choice_made` are set so this screen and
+ *     modal never show again.
  *
- * Total on-screen time: ~2.2 seconds.
+ * Total on-screen time before choice: ~2.0 seconds.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -26,11 +29,14 @@ import Animated, {
   withSpring,
   withTiming,
   withDelay,
-  withSequence,
   runOnJS,
   Easing,
 } from "react-native-reanimated";
 import { useAuth } from "../../lib/auth";
+import WelcomeModal from "../../components/WelcomeModal";
+
+// Storage key for signalling the home screen to open the tour
+export const START_TOUR_KEY = "cleanhome.start_tour_on_next_home";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
@@ -43,6 +49,9 @@ export default function WelcomeRocketScreen() {
   const router = useRouter();
   const { profile, user } = useAuth();
   const lottieRef = useRef<LottieView>(null);
+
+  // Whether the welcome modal is shown (after the rocket fades out)
+  const [showModal, setShowModal] = useState(false);
 
   // Determine first name for greeting
   const firstName =
@@ -66,16 +75,34 @@ export default function WelcomeRocketScreen() {
     router.replace(destination as never);
   };
 
-  const markFirstLoginAndNavigate = async () => {
+  const markFirstLogin = async () => {
     try {
       await AsyncStorage.setItem("cleanhome.first_login_done", "1");
     } catch {
       // non-critical — proceed anyway
     }
+  };
+
+  const handleShowModal = () => {
+    setShowModal(true);
+  };
+
+  // User chose to start the guided tour — set flag so the home screen
+  // opens the coach marks on next mount, then navigate
+  const handleStartTour = async () => {
+    try {
+      await AsyncStorage.setItem(START_TOUR_KEY, "1");
+    } catch {}
+    navigateToHome();
+  };
+
+  const handleSkipTour = () => {
     navigateToHome();
   };
 
   useEffect(() => {
+    markFirstLogin();
+
     // Step 1: Lottie content pops in with spring
     contentScale.value = withSpring(1.05, { damping: 14, stiffness: 120 });
     contentOpacity.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) });
@@ -101,14 +128,14 @@ export default function WelcomeRocketScreen() {
       withTiming(1, { duration: 380 })
     );
 
-    // Step 4: After ~2s, fade the whole screen out and navigate
+    // Step 4: After ~2s, fade the rocket content out and show the welcome modal
     const exitTimer = setTimeout(() => {
       screenOpacity.value = withTiming(
         0,
         { duration: 420, easing: Easing.in(Easing.cubic) },
         (finished) => {
           if (finished) {
-            runOnJS(markFirstLoginAndNavigate)();
+            runOnJS(handleShowModal)();
           }
         }
       );
@@ -139,32 +166,43 @@ export default function WelcomeRocketScreen() {
   }));
 
   return (
-    <Animated.View style={[styles.root, screenStyle]}>
-      {/* Lottie astronaut — centred, fills most of the screen */}
-      <Animated.View style={[styles.lottieWrap, contentStyle]}>
-        <LottieView
-          ref={lottieRef}
-          source={require("../../assets/lottie/rocket.json")}
-          autoPlay
-          loop={false}
-          style={styles.lottie}
-          resizeMode="contain"
-        />
+    <>
+      {/* ── Rocket splash (fades out after ~2s) ── */}
+      <Animated.View style={[styles.root, screenStyle]} pointerEvents={showModal ? "none" : "auto"}>
+        {/* Lottie astronaut — centred, fills most of the screen */}
+        <Animated.View style={[styles.lottieWrap, contentStyle]}>
+          <LottieView
+            ref={lottieRef}
+            source={require("../../assets/lottie/rocket.json")}
+            autoPlay
+            loop={false}
+            style={styles.lottie}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        {/* Text block — sits below the animation */}
+        <View style={styles.textBlock}>
+          <Animated.Text style={[styles.title, titleStyle]}>
+            Benvenuto, {firstName}!
+          </Animated.Text>
+          <Animated.Text style={[styles.subtitle, subtitleStyle]}>
+            Pronti al decollo
+          </Animated.Text>
+
+          {/* Mint decorative accent bar */}
+          <Animated.View style={[styles.accentBar, subtitleStyle]} />
+        </View>
       </Animated.View>
 
-      {/* Text block — sits below the animation */}
-      <View style={styles.textBlock}>
-        <Animated.Text style={[styles.title, titleStyle]}>
-          Benvenuto, {firstName}!
-        </Animated.Text>
-        <Animated.Text style={[styles.subtitle, subtitleStyle]}>
-          Pronti al decollo
-        </Animated.Text>
-
-        {/* Mint decorative accent bar */}
-        <Animated.View style={[styles.accentBar, subtitleStyle]} />
-      </View>
-    </Animated.View>
+      {/* ── Welcome modal — slides up once rocket fades ── */}
+      <WelcomeModal
+        visible={showModal}
+        firstName={firstName}
+        onStartTour={handleStartTour}
+        onSkipTour={handleSkipTour}
+      />
+    </>
   );
 }
 
