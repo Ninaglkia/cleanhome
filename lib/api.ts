@@ -1570,7 +1570,6 @@ export async function sendSupportMessage(args: {
 }): Promise<{
   chatId: string;
   reply: string;
-  escalationSuggested: boolean;
 }> {
   const { data, error } = await supabase.functions.invoke("support-chat", {
     body: { action: "send", chat_id: args.chatId, content: args.content },
@@ -1579,18 +1578,7 @@ export async function sendSupportMessage(args: {
   return {
     chatId: String(data.chat_id),
     reply: String(data.reply),
-    escalationSuggested: !!data.escalation_suggested,
   };
-}
-
-export async function escalateSupportChat(
-  chatId: string,
-  reason?: string
-): Promise<void> {
-  const { error } = await supabase.functions.invoke("support-chat", {
-    body: { action: "escalate", chat_id: chatId, reason },
-  });
-  if (error) throw error;
 }
 
 /**

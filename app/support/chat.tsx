@@ -18,7 +18,6 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   fetchSupportHistory,
   sendSupportMessage,
-  escalateSupportChat,
   SupportMessage,
 } from "../../lib/api";
 import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
@@ -39,7 +38,6 @@ export default function SupportChatScreen() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [escalated, setEscalated] = useState(false);
 
   // Initial history load
   useEffect(() => {
@@ -50,19 +48,17 @@ export default function SupportChatScreen() {
         if (cancelled) return;
         setChatId(id);
         if (msgs.length === 0) {
-          // Welcome message
           setMessages([
             {
               id: "welcome",
               role: "assistant",
               content:
-                "Ciao! Sono l'assistente virtuale di CleanHome. Posso aiutarti con prenotazioni, pagamenti, rimborsi, contestazioni e altro. Per casi urgenti (danni, addebiti errati) tocca \"Parla con un operatore\" in alto. Come posso aiutarti?",
+                "Ciao! Sono l'assistente virtuale di CleanHome. Posso aiutarti con prenotazioni, pagamenti, rimborsi, contestazioni e altro. Come posso aiutarti?",
               created_at: new Date().toISOString(),
             },
           ]);
         } else {
           setMessages(msgs);
-          setEscalated(msgs.some((m) => m.role === "system"));
         }
       } catch (err: any) {
         Alert.alert("Errore", err?.message ?? "Impossibile caricare la chat");
@@ -128,39 +124,6 @@ export default function SupportChatScreen() {
     [chatId, sending]
   );
 
-  const handleEscalate = useCallback(() => {
-    if (!chatId || escalated) return;
-    Alert.alert(
-      "Parla con un operatore",
-      "Trasferiremo la conversazione a un operatore umano. Riceverai una email entro 24 ore. Procedere?",
-      [
-        { text: "Annulla", style: "cancel" },
-        {
-          text: "Sì, scrivi a un umano",
-          style: "default",
-          onPress: async () => {
-            try {
-              await escalateSupportChat(chatId, "user_request");
-              setEscalated(true);
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `sys-${Date.now()}`,
-                  role: "system",
-                  content:
-                    "Conversazione trasferita a un operatore. Ti risponderemo via email entro 24 ore.",
-                  created_at: new Date().toISOString(),
-                },
-              ]);
-            } catch (err: any) {
-              Alert.alert("Errore", err?.message ?? "Riprova più tardi");
-            }
-          },
-        },
-      ]
-    );
-  }, [chatId, escalated]);
-
   const renderItem = useCallback(({ item }: { item: SupportMessage }) => {
     if (item.role === "system") {
       return (
@@ -218,27 +181,9 @@ export default function SupportChatScreen() {
               <View style={styles.aiDot} />
               <Text style={styles.headerTitle}>Assistente CleanHome</Text>
             </View>
-            <Text style={styles.headerSub}>
-              {escalated ? "Operatore in arrivo" : "AI disponibile 24/7"}
-            </Text>
+            <Text style={styles.headerSub}>AI disponibile 24/7</Text>
           </View>
-          <Pressable
-            onPress={handleEscalate}
-            disabled={escalated}
-            style={[styles.humanBtn, escalated && styles.humanBtnDone]}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={escalated ? "checkmark" : "person"}
-              size={14}
-              color={escalated ? Colors.success : Colors.secondary}
-            />
-            <Text
-              style={[styles.humanBtnText, escalated && { color: Colors.success }]}
-            >
-              {escalated ? "Inviato" : "Operatore"}
-            </Text>
-          </Pressable>
+          <View style={{ width: 26 }} />
         </View>
 
         <FlatList

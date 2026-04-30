@@ -6,20 +6,19 @@
 // Modes:
 //   - { action: "send", chat_id?, content }
 //       → ensures chat exists, persists user msg, calls Claude with full
-//         history + CleanHome FAQ system prompt, persists assistant reply,
-//         returns reply (or escalation flag).
-//   - { action: "escalate", chat_id, reason? }
-//       → marks chat escalated_at, sends email to support team with full
-//         transcript via Resend (if configured).
+//         history + CleanHome FAQ system prompt, persists assistant reply.
 //   - { action: "history", chat_id? }
-//       → returns last 100 messages for the user's most recent chat.
+//       → returns last messages for the user's most recent chat.
+//
+// AI-only for now. Human escalation will be added later as in-app admin chat
+// (no email). When the user reports something severe (damage, double charge,
+// dispute), the AI redirects to the existing in-app flows (open dispute from
+// booking detail, etc.) instead of escalating.
 //
 // Auth: user JWT (verify_jwt=true).
 //
 // Required Supabase secrets:
-//   ANTHROPIC_API_KEY  — from console.anthropic.com (Sonnet 4.6)
-//   RESEND_API_KEY     — optional, used by escalation email
-//   SUPPORT_EMAIL      — destination for escalations (default: support@cleanhome.it)
+//   ANTHROPIC_API_KEY  — from console.anthropic.com
 // ============================================================================
 
 // deno-lint-ignore-file no-explicit-any
@@ -29,8 +28,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const SUPPORT_EMAIL = Deno.env.get("SUPPORT_EMAIL") ?? "support@cleanhome.it";
 
 // Default to Haiku 4.5 — 5x cheaper than Sonnet, quality is more than enough
 // for the kind of FAQ questions a cleaning marketplace gets. Override via
@@ -98,17 +95,20 @@ const SYSTEM_PROMPT = `Sei l'assistente virtuale di CleanHome, la piattaforma ma
 - Verifica KYC tramite Stripe Connect Express
 - Possono pubblicare 1 listing gratis, listings aggiuntivi €4,99/mese
 
-# QUANDO ESCALARE A UN UMANO
+# CASI GRAVI — guida l'utente al flow giusto in app
 Se l'utente:
 - Segnala danni a oggetti / proprietà ("rotto", "danneggiato", "ha rovinato")
+  → Spiega che entro 48h dal completamento del lavoro può aprire una contestazione dalla schermata del booking specifico ("Segnala problema") con foto e descrizione. CleanHome esamina entro 5 giorni lavorativi e può rimborsare totalmente o parzialmente.
 - Riporta un addebito errato / duplicato
-- Ha un problema legale / chargeback / denuncia
+  → Suggerisci di controllare l'estratto conto (a volte è una pre-autorizzazione che svanisce) e di contattare CleanHome via email a support@cleanhome.it allegando lo screenshot dell'addebito.
 - Vuole cancellare l'account e i dati (GDPR)
-- Esprime frustrazione molto forte ("schifo", "denuncio", "truffa", "rubato")
+  → Spiega che dall'app: Profilo → Impostazioni → Elimina account. La cancellazione è irreversibile e completa entro 30 giorni nel rispetto del GDPR.
 - Riporta comportamento inappropriato del cleaner
-- Ha un problema che richiede intervento manuale (es. transfer Stripe bloccato)
+  → Suggerisci di aprire il booking → menu (⋮) → Segnala. Ogni segnalazione viene esaminata entro 48 ore.
+- Ha un problema tecnico complesso (transfer Stripe bloccato, payout sparito, chargeback)
+  → Spiega che serve l'intervento manuale del team CleanHome e di scrivere a support@cleanhome.it allegando l'ID booking.
 
-In questi casi: NON tentare di risolvere da solo, dì che il caso richiede un operatore umano e suggerisci di toccare il bottone "Parla con un operatore" in alto. Non promettere tempi se non sai.
+NON promettere tempi specifici sui rimborsi diversi da quelli ufficiali (3-7gg accredito carta, 5gg lavorativi review contestazione). NON dire "ti chiamiamo" o "ti rispondiamo entro X" perché non c'è ancora un team di supporto umano dedicato — siamo in fase di lancio.
 
 # COSA NON FARE MAI
 - Inventare dati specifici dell'utente (booking ID, importi, date) — chiedi all'utente di guardare nell'app
@@ -118,25 +118,6 @@ In questi casi: NON tentare di risolvere da solo, dì che il caso richiede un op
 - Usare emoji eccessive
 
 Se l'utente saluta o ringrazia, sii cordiale e breve. Se chiede qualcosa fuori dal tuo ambito (meteo, news, ecc.), spiega gentilmente che gestisci solo CleanHome.`;
-
-const ESCALATION_KEYWORDS = [
-  "rotto", "danneggiato", "rovinato", "rovinata", "rotti", "rotta",
-  "addebito errato", "addebito doppio", "addebito sbagliato", "doppio addebito",
-  "denuncia", "denuncio", "denuncerò", "querela", "avvocato",
-  "truffa", "truffatori", "ladro", "ladri", "rubato", "rubati",
-  "schifo", "vergogna", "imbroglio", "imbrogliato",
-  "molestato", "molestie", "aggressivo", "minaccia", "minacciato",
-  "chiudere account", "elimina dati", "cancella tutto", "diritto oblio",
-  "transfer bloccato", "soldi spariti", "mai arrivato",
-];
-
-function detectEscalation(content: string): string | null {
-  const lc = content.toLowerCase();
-  for (const kw of ESCALATION_KEYWORDS) {
-    if (lc.includes(kw)) return kw;
-  }
-  return null;
-}
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -181,55 +162,6 @@ async function callClaude(history: ChatMessage[]): Promise<string> {
     return "Mi dispiace, non sono riuscito a generare una risposta. Tocca \"Parla con un operatore\" per ricevere aiuto.";
   }
   return text.trim();
-}
-
-async function sendEscalationEmail(args: {
-  userId: string;
-  userEmail: string | null;
-  userName: string | null;
-  chatId: string;
-  reason: string;
-  transcript: ChatMessage[];
-}) {
-  if (!RESEND_API_KEY) {
-    console.warn("[support-chat] RESEND_API_KEY missing — escalation email skipped");
-    return;
-  }
-
-  const transcriptText = args.transcript
-    .map((m) => `${m.role === "user" ? "UTENTE" : "AI"}: ${m.content}`)
-    .join("\n\n");
-
-  const subject = `[CleanHome Support] Escalation chat ${args.chatId.slice(0, 8)}`;
-  const html = `
-    <h2>Nuova escalation supporto</h2>
-    <p><strong>Chat ID:</strong> ${args.chatId}</p>
-    <p><strong>Utente:</strong> ${args.userName ?? "(no name)"} — ${args.userEmail ?? "(no email)"}</p>
-    <p><strong>User ID:</strong> ${args.userId}</p>
-    <p><strong>Motivo escalation:</strong> ${args.reason}</p>
-    <hr/>
-    <h3>Transcript</h3>
-    <pre style="white-space:pre-wrap;font-family:inherit;background:#f6f8fa;padding:12px;border-radius:8px;">${
-      transcriptText.replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    }</pre>
-    <hr/>
-    <p>Rispondi direttamente all'utente all'indirizzo: ${args.userEmail ?? "(non disponibile)"}</p>
-  `;
-
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "CleanHome <noreply@cleanhome.it>",
-      to: SUPPORT_EMAIL,
-      reply_to: args.userEmail ?? undefined,
-      subject,
-      html,
-    }),
-  });
 }
 
 serve(async (req) => {
@@ -291,62 +223,6 @@ serve(async (req) => {
       return json({ chat_id: chatId, messages: messages ?? [] });
     }
 
-    if (action === "escalate") {
-      const chatId = body.chat_id;
-      if (!chatId) return json({ error: "chat_id required" }, 400);
-
-      const { data: chat } = await supabase
-        .from("support_chats")
-        .select("id, user_id, escalated_at")
-        .eq("id", chatId)
-        .maybeSingle();
-      if (!chat || chat.user_id !== user.id) {
-        return json({ error: "Forbidden" }, 403);
-      }
-      if (chat.escalated_at) {
-        return json({ ok: true, already_escalated: true });
-      }
-
-      // Mark escalated
-      await supabase
-        .from("support_chats")
-        .update({ escalated_at: new Date().toISOString() })
-        .eq("id", chatId);
-
-      // Append a system note
-      await supabase.from("support_messages").insert({
-        chat_id: chatId,
-        role: "system",
-        content: "Conversazione trasferita a un operatore umano. Riceverai una email entro 24h.",
-        metadata: { reason: body.reason ?? "user_request" },
-      });
-
-      // Build transcript and send email
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-      const { data: transcript } = await supabase
-        .from("support_messages")
-        .select("role, content")
-        .eq("chat_id", chatId)
-        .neq("role", "system")
-        .order("created_at", { ascending: true })
-        .limit(50);
-
-      await sendEscalationEmail({
-        userId: user.id,
-        userEmail: user.email ?? null,
-        userName: profile?.full_name ?? null,
-        chatId,
-        reason: body.reason ?? "user_request",
-        transcript: (transcript ?? []) as ChatMessage[],
-      });
-
-      return json({ ok: true, escalated: true });
-    }
-
     // ── Send (default) ───────────────────────────────────────────
     if (!body.content || typeof body.content !== "string") {
       return json({ error: "content required" }, 400);
@@ -366,9 +242,6 @@ serve(async (req) => {
       content,
     });
 
-    // Pre-flight escalation: if obvious keyword, suggest escalation in reply
-    const escalationHit = detectEscalation(content);
-
     // Load history (last MAX_HISTORY non-system messages) for Claude
     const { data: prior } = await supabase
       .from("support_messages")
@@ -383,28 +256,19 @@ serve(async (req) => {
       content: m.content,
     }));
 
-    // Call Claude
-    let reply = await callClaude(history);
-
-    // If escalation keyword, append a structured suggestion
-    if (escalationHit) {
-      reply +=
-        "\n\nSe vuoi, posso passarti subito a un operatore umano: tocca \"Parla con un operatore\" qui sopra.";
-    }
+    const reply = await callClaude(history);
 
     // Persist assistant reply
     await supabase.from("support_messages").insert({
       chat_id: chatId,
       role: "assistant",
       content: reply,
-      metadata: escalationHit ? { escalation_hint: escalationHit } : null,
     });
 
     return json({
       ok: true,
       chat_id: chatId,
       reply,
-      escalation_suggested: !!escalationHit,
     });
   } catch (err: any) {
     console.error("[support-chat]", err?.message ?? err);
