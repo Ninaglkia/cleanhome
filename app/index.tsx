@@ -127,9 +127,8 @@ export default function SplashScreenView() {
   }, []);
 
   // Navigate when auth resolved.
-  // Hold longer in dev (12s) so Nino can review the splash design.
-  // Production cuts to 1.7s for a snappy launch feel.
-  const HOLD_MS = __DEV__ ? 12000 : 1700;
+  // In dev hold is shorter so the dive transition is visible without long wait.
+  const HOLD_MS = __DEV__ ? 4000 : 2000;
 
   // Outro animation: zoom into the door, fade scene, blackout, then navigate
   const ZOOM_DURATION = 800;
