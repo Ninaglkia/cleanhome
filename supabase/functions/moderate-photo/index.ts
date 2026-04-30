@@ -131,6 +131,16 @@ serve(async (req) => {
     return json({ error: "invalid type" }, 400);
   }
 
+  // Path traversal guard: storage_path MUST be scoped under <booking_id>/
+  const expectedPrefix = `${booking_id}/`;
+  if (
+    !storage_path.startsWith(expectedPrefix) ||
+    storage_path.includes("..") ||
+    storage_path.includes("//")
+  ) {
+    return json({ error: "Invalid storage_path scope" }, 400);
+  }
+
   try {
     // Verify booking participation
     const { data: booking } = await supabase
@@ -144,13 +154,22 @@ serve(async (req) => {
       return json({ error: "Forbidden" }, 403);
     }
 
-    // Build public URL for moderation
+    // Generate a short-lived signed URL for OpenAI (2-min TTL).
+    // Using a signed URL (not public) keeps the bucket safe even if browsing is enabled.
+    const { data: signed, error: signErr } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(storage_path, 120);
+    if (signErr || !signed?.signedUrl) {
+      return json({ error: "Cannot sign photo URL" }, 500);
+    }
+    const moderationUrl = signed.signedUrl;
+    // Public URL is what the app renders later (bucket remains public for read).
     const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(storage_path);
     const photoUrl = pub.publicUrl;
     if (!photoUrl) return json({ error: "Cannot resolve photo URL" }, 500);
 
-    // Run moderation
-    const moderation = await runOpenAIModeration(photoUrl);
+    // Run moderation against the signed URL (OpenAI will fetch within the 120s TTL)
+    const moderation = await runOpenAIModeration(moderationUrl);
 
     if (moderation.flagged) {
       // Delete the offending file from Storage to avoid leaving NSFW content public

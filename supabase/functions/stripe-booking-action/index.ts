@@ -30,16 +30,22 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-async function stripeFetch(path: string, body?: Record<string, string>) {
+async function stripeFetch(
+  path: string,
+  body?: Record<string, string>,
+  idempotencyKey?: string
+) {
   const params = new URLSearchParams();
   if (body) for (const [k, v] of Object.entries(body)) params.append(k, v);
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Stripe-Version": STRIPE_API_VERSION,
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: body ? "POST" : "GET",
-    headers: {
-      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Version": STRIPE_API_VERSION,
-    },
+    headers,
     body: body ? params.toString() : undefined,
   });
   const data = await res.json();
@@ -100,10 +106,14 @@ serve(async (req) => {
         return json({ ok: true, status: "accepted" });
       } else {
         // Cleaner declines → refund client in full (no service will be performed)
-        await stripeFetch(`refunds`, {
-          payment_intent: booking.stripe_payment_intent_id,
-          reason: "requested_by_customer",
-        });
+        await stripeFetch(
+          `refunds`,
+          {
+            payment_intent: booking.stripe_payment_intent_id,
+            reason: "requested_by_customer",
+          },
+          `refund_decline_legacy_${booking_id}`
+        );
         await supabase
           .from("bookings")
           .update({ status: "declined", payment_status: "refunded" })
@@ -235,10 +245,14 @@ serve(async (req) => {
 
       if (count === 0) {
         // All declined — refund client in full (payment was already captured)
-        await stripeFetch(`refunds`, {
-          payment_intent: booking.stripe_payment_intent_id,
-          reason: "requested_by_customer",
-        });
+        await stripeFetch(
+          `refunds`,
+          {
+            payment_intent: booking.stripe_payment_intent_id,
+            reason: "requested_by_customer",
+          },
+          `refund_decline_dispatch_${booking_id}`
+        );
         await supabase
           .from("bookings")
           .update({ status: "auto_cancelled", payment_status: "refunded" })

@@ -19,11 +19,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const STRIPE_API_VERSION = "2023-10-16";
 
 const ESCALATION_RADIUS_KM = 15;
 const ESCALATION_MAX_CLEANERS = 12;
 const ESCALATION_DEADLINE_MIN = 10;
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 async function stripeRefundPI(piId: string) {
   const params = new URLSearchParams({
@@ -54,6 +62,15 @@ serve(async (req: Request) => {
   }
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
+  }
+
+  // ── Auth: only the cron job (with CRON_SECRET) may invoke ─────
+  const cronSecret = req.headers.get("x-cron-secret") ?? "";
+  if (!CRON_SECRET || !timingSafeEqual(cronSecret, CRON_SECRET)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

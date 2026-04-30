@@ -1427,10 +1427,17 @@ export async function uploadAndModerateBookingPhoto(args: {
 }): Promise<{ photoId: string; photoUrl: string }> {
   const { bookingId, uri, type, roomLabel } = args;
 
-  // 1. Read file as Uint8Array
+  // 1. Read file as Uint8Array (with size cap to prevent runaway uploads)
+  const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
   const fileResp = await fetch(uri);
   if (!fileResp.ok) throw new Error("Cannot read photo from device");
   const arrayBuffer = await fileResp.arrayBuffer();
+  if (arrayBuffer.byteLength > MAX_PHOTO_BYTES) {
+    throw new Error("La foto supera il limite di 10 MB. Riduci la qualità e riprova.");
+  }
+  if (arrayBuffer.byteLength < 1024) {
+    throw new Error("La foto è troppo piccola o corrotta. Riprova.");
+  }
   const bytes = new Uint8Array(arrayBuffer);
 
   // 2. Build storage path

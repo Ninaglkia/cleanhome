@@ -5,11 +5,12 @@
 // balance to the cleaner's Connect account.
 //
 // Auth modes:
-//   - Client confirms manually: caller must be booking.client_id
-//   - Cron auto-confirms (after 48h): caller must use SUPABASE_SERVICE_ROLE_KEY
-//     and pass { source: "cron" } in the body
+//   - Client confirms manually: user JWT, caller must be booking.client_id
+//   - Cron auto-confirms (after 48h): x-cron-secret header equal to CRON_SECRET
 //
-// Idempotent: re-running on an already-confirmed booking is a no-op.
+// Concurrency: uses an atomic conditional UPDATE to "claim" the confirmation
+// before issuing the Stripe transfer, preventing double-spend if the client
+// taps confirm at the exact moment the cron fires.
 //
 // Request body: { booking_id: UUID, source?: "client" | "cron" }
 // ============================================================================
@@ -21,7 +22,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const STRIPE_API_VERSION = "2023-10-16";
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,28 +69,30 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace("Bearer ", "");
-  if (!token) return json({ error: "Missing auth token" }, 401);
-
   let body: { booking_id?: string; source?: string };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const { booking_id, source } = body;
   if (!booking_id) return json({ error: "booking_id is required" }, 400);
 
   const isCron = source === "cron";
-  const isCronAuthorized =
-    isCron && token === SUPABASE_SERVICE_ROLE_KEY;
-
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   let actorId: string | null = null;
-  if (!isCron) {
+
+  if (isCron) {
+    // Cron path: dedicated CRON_SECRET in x-cron-secret header (NEVER service_role over HTTP)
+    const cronSecret = req.headers.get("x-cron-secret") ?? "";
+    if (!CRON_SECRET || !timingSafeEqual(cronSecret, CRON_SECRET)) {
+      return json({ error: "Unauthorized cron call" }, 401);
+    }
+  } else {
+    // Client path: standard JWT auth
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace("Bearer ", "");
+    if (!token) return json({ error: "Missing auth token" }, 401);
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) return json({ error: "Unauthorized" }, 401);
     actorId = user.id;
-  } else if (!isCronAuthorized) {
-    return json({ error: "Unauthorized cron call" }, 401);
   }
 
   try {
@@ -157,7 +168,29 @@ serve(async (req) => {
       return json({ error: "Invalid transfer amount" }, 500);
     }
 
-    // Idempotency key — Stripe will dedupe if cron retries
+    // ── ATOMIC CLAIM ─────────────────────────────────────────────
+    // Set client_confirmed_at BEFORE issuing the Stripe transfer.
+    // If a concurrent request (e.g. client tap + cron firing in the same second)
+    // tries to do the same, only ONE will get a row back; the other proceeds
+    // through the idempotency branch above on retry.
+    const claimAt = new Date().toISOString();
+    const { data: claimed, error: claimErr } = await supabase
+      .from("bookings")
+      .update({ client_confirmed_at: claimAt })
+      .eq("id", booking_id)
+      .is("client_confirmed_at", null)
+      .is("client_dispute_opened_at", null)
+      .eq("payout_blocked", true)
+      .select("id")
+      .maybeSingle();
+
+    if (claimErr) throw claimErr;
+    if (!claimed) {
+      // Another caller already claimed (or dispute opened in the meantime)
+      return json({ ok: true, status: "already_claimed_by_other" });
+    }
+
+    // Idempotency key — Stripe also dedupes if cron retries after partial failure
     const idempotencyKey = `transfer_${booking_id}`;
 
     const transferRes = await fetch("https://api.stripe.com/v1/transfers", {
@@ -179,14 +212,19 @@ serve(async (req) => {
     });
     const transferData = await transferRes.json();
     if (!transferRes.ok) {
+      // Roll back the claim so the operation can be retried
+      await supabase
+        .from("bookings")
+        .update({ client_confirmed_at: null })
+        .eq("id", booking_id)
+        .eq("client_confirmed_at", claimAt);
       throw new Error(transferData.error?.message ?? "Transfer failed");
     }
 
-    // Persist confirmation + transfer id, release payout
+    // Persist transfer id + finalize state (claim already set above)
     await supabase
       .from("bookings")
       .update({
-        client_confirmed_at: new Date().toISOString(),
         stripe_transfer_id: transferData.id,
         payout_blocked: false,
         status: "completed",
