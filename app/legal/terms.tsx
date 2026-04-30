@@ -29,7 +29,7 @@ export default function TermsScreen() {
         },
         {
           heading: "Cancellazioni e rimborsi",
-          body: "Cancellazione con più di 24 ore di anticipo: rimborso completo. Cancellazione tra 24 e 2 ore prima del servizio: rimborso del 50% del prezzo del servizio. Cancellazione meno di 2 ore prima o no-show del cliente: nessun rimborso. Se nessun professionista accetta la richiesta entro 20 minuti, il rimborso è automatico e completo. In caso di servizio non conforme il cliente può aprire una contestazione entro le 48 ore successive al completamento del lavoro. I rimborsi sono accreditati sulla carta originale entro 5-10 giorni lavorativi.",
+          body: "Cancellazione con più di 24 ore di anticipo: rimborso completo. Cancellazione tra 24 e 2 ore prima del servizio: rimborso del 50% del prezzo del servizio. Cancellazione meno di 2 ore prima o no-show del cliente: nessun rimborso. Se nessun professionista accetta la richiesta entro 20 minuti, il rimborso è automatico e completo. In caso di servizio non conforme il cliente può aprire una contestazione entro le 48 ore successive al completamento del lavoro. CleanHome processa il rimborso immediatamente verso la carta originale; l'accredito sulla carta dipende dalla banca emittente e avviene tipicamente in 3-7 giorni lavorativi (in alcuni casi fino a 10).",
         },
         {
           heading: "Recensioni",

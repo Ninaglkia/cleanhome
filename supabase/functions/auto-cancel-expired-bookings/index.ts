@@ -151,7 +151,7 @@ serve(async (req: Request) => {
               user_id: bk.client_id,
               type: "booking_auto_cancelled",
               title: "Nessun cleaner disponibile",
-              body: "Ti abbiamo rimborsato l'intero importo. L'accredito sulla carta arriva in 5-10 giorni lavorativi.",
+              body: "Ti abbiamo rimborsato l'intero importo. L'accredito sulla carta dipende dalla tua banca, tipicamente 3-7 giorni lavorativi.",
               link_path: null,
               metadata: { booking_id: bk.id },
             });

@@ -1541,6 +1541,58 @@ export async function openBookingDispute(
   return { disputeOpenedAt: String(data?.dispute_opened_at) };
 }
 
+// ─── AI Support Chat ──────────────────────────────────────────────────────────
+
+export interface SupportMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+}
+
+export async function fetchSupportHistory(chatId?: string): Promise<{
+  chatId: string;
+  messages: SupportMessage[];
+}> {
+  const { data, error } = await supabase.functions.invoke("support-chat", {
+    body: { action: "history", chat_id: chatId },
+  });
+  if (error) throw error;
+  return {
+    chatId: String(data.chat_id),
+    messages: (data.messages ?? []) as SupportMessage[],
+  };
+}
+
+export async function sendSupportMessage(args: {
+  content: string;
+  chatId?: string;
+}): Promise<{
+  chatId: string;
+  reply: string;
+  escalationSuggested: boolean;
+}> {
+  const { data, error } = await supabase.functions.invoke("support-chat", {
+    body: { action: "send", chat_id: args.chatId, content: args.content },
+  });
+  if (error) throw error;
+  return {
+    chatId: String(data.chat_id),
+    reply: String(data.reply),
+    escalationSuggested: !!data.escalation_suggested,
+  };
+}
+
+export async function escalateSupportChat(
+  chatId: string,
+  reason?: string
+): Promise<void> {
+  const { error } = await supabase.functions.invoke("support-chat", {
+    body: { action: "escalate", chat_id: chatId, reason },
+  });
+  if (error) throw error;
+}
+
 /**
  * Pre-validation: count active+verified cleaners covering this lat/lng.
  * Called from the booking screen BEFORE payment to warn the user if the

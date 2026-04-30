@@ -221,7 +221,7 @@ export default function PaymentsScreen() {
               onPress={() =>
                 handleInfoRow(
                   "Cancellazioni",
-                  "Più di 24h prima del servizio: rimborso completo. Tra 24h e 2h prima: rimborso 50% + commissione. Meno di 2h o no-show: nessun rimborso. I rimborsi sono automatici, accredito sulla carta in 5-10 giorni lavorativi."
+                  "Più di 24h prima del servizio: rimborso completo. Tra 24h e 2h prima: rimborso 50% + commissione. Meno di 2h o no-show: nessun rimborso. Noi processiamo il rimborso immediatamente; l'accredito sulla tua carta dipende dalla banca emittente, tipicamente 3-7 giorni lavorativi."
                 )
               }
             />

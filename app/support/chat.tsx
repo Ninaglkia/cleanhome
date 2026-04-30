@@ -1,445 +1,448 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   Pressable,
-  ScrollView,
+  FlatList,
+  ActivityIndicator,
   StatusBar,
   StyleSheet,
-  Linking,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import {
+  fetchSupportHistory,
+  sendSupportMessage,
+  escalateSupportChat,
+  SupportMessage,
+} from "../../lib/api";
 import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
 
-// ─── Quick FAQ topics ─────────────────────────────────────────────────────────
-
-const FAQ_SHORTCUTS = [
-  { id: "booking", label: "Prenotazioni", icon: "calendar-outline" as const },
-  { id: "payments", label: "Pagamenti", icon: "card-outline" as const },
-  { id: "account", label: "Account", icon: "person-circle-outline" as const },
-  { id: "trust", label: "Sicurezza", icon: "shield-checkmark-outline" as const },
+const QUICK_REPLIES = [
+  "Quando viene addebitato il pagamento?",
+  "Come funziona il rimborso?",
+  "Come segnalo un problema con il servizio?",
+  "Cosa succede se nessun cleaner accetta?",
 ];
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SupportChatScreen() {
   const router = useRouter();
+  const listRef = useRef<FlatList<SupportMessage>>(null);
 
-  const handleEmail = useCallback(() => {
-    Linking.openURL(
-      "mailto:support@cleanhome.app?subject=Richiesta%20supporto&body=Ciao%20team%20CleanHome%2C"
-    ).catch(() => {});
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [escalated, setEscalated] = useState(false);
+
+  // Initial history load
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { chatId: id, messages: msgs } = await fetchSupportHistory();
+        if (cancelled) return;
+        setChatId(id);
+        if (msgs.length === 0) {
+          // Welcome message
+          setMessages([
+            {
+              id: "welcome",
+              role: "assistant",
+              content:
+                "Ciao! Sono l'assistente virtuale di CleanHome. Posso aiutarti con prenotazioni, pagamenti, rimborsi, contestazioni e altro. Per casi urgenti (danni, addebiti errati) tocca \"Parla con un operatore\" in alto. Come posso aiutarti?",
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        } else {
+          setMessages(msgs);
+          setEscalated(msgs.some((m) => m.role === "system"));
+        }
+      } catch (err: any) {
+        Alert.alert("Errore", err?.message ?? "Impossibile caricare la chat");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleFaq = useCallback(
-    (topicId: string) => {
-      router.push(`/support/faq/${topicId}` as never);
+  useEffect(() => {
+    setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [messages]);
+
+  const send = useCallback(
+    async (content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed || sending) return;
+      setText("");
+      setSending(true);
+
+      // Optimistic user message
+      const optimisticUser: SupportMessage = {
+        id: `tmp-${Date.now()}`,
+        role: "user",
+        content: trimmed,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimisticUser]);
+
+      try {
+        const { chatId: id, reply } = await sendSupportMessage({
+          content: trimmed,
+          chatId: chatId ?? undefined,
+        });
+        if (!chatId) setChatId(id);
+        const assistantMsg: SupportMessage = {
+          id: `tmp-a-${Date.now()}`,
+          role: "assistant",
+          content: reply,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch (err: any) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            role: "system",
+            content:
+              "Ho avuto un problema tecnico. Riprova oppure tocca \"Parla con un operatore\".",
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      } finally {
+        setSending(false);
+      }
     },
-    [router]
+    [chatId, sending]
   );
 
-  return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+  const handleEscalate = useCallback(() => {
+    if (!chatId || escalated) return;
+    Alert.alert(
+      "Parla con un operatore",
+      "Trasferiremo la conversazione a un operatore umano. Riceverai una email entro 24 ore. Procedere?",
+      [
+        { text: "Annulla", style: "cancel" },
+        {
+          text: "Sì, scrivi a un umano",
+          style: "default",
+          onPress: async () => {
+            try {
+              await escalateSupportChat(chatId, "user_request");
+              setEscalated(true);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `sys-${Date.now()}`,
+                  role: "system",
+                  content:
+                    "Conversazione trasferita a un operatore. Ti risponderemo via email entro 24 ore.",
+                  created_at: new Date().toISOString(),
+                },
+              ]);
+            } catch (err: any) {
+              Alert.alert("Errore", err?.message ?? "Riprova più tardi");
+            }
+          },
+        },
+      ]
+    );
+  }, [chatId, escalated]);
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <Pressable
-          style={styles.headerBackBtn}
-          onPress={() => router.back()}
-          accessibilityLabel="Indietro"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+  const renderItem = useCallback(({ item }: { item: SupportMessage }) => {
+    if (item.role === "system") {
+      return (
+        <View style={styles.systemRow}>
+          <Ionicons name="information-circle" size={14} color={Colors.textSecondary} />
+          <Text style={styles.systemText}>{item.content}</Text>
+        </View>
+      );
+    }
+    const isUser = item.role === "user";
+    return (
+      <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAssistant]}>
+        {!isUser && (
+          <View style={styles.avatarBot}>
+            <Ionicons name="sparkles" size={14} color="#fff" />
+          </View>
+        )}
+        <View
+          style={[
+            styles.bubble,
+            isUser ? styles.bubbleUser : styles.bubbleAssistant,
+          ]}
         >
-          <Ionicons name="arrow-back" size={20} color={Colors.textOnDark} />
-        </Pressable>
+          <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>
+            {item.content}
+          </Text>
+        </View>
+      </View>
+    );
+  }, []);
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerName}>Centro Supporto</Text>
-          <Text style={styles.headerSubtitle}>CLEANHOME</Text>
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loading}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color={Colors.text} />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <View style={styles.headerTitleRow}>
+              <View style={styles.aiDot} />
+              <Text style={styles.headerTitle}>Assistente CleanHome</Text>
+            </View>
+            <Text style={styles.headerSub}>
+              {escalated ? "Operatore in arrivo" : "AI disponibile 24/7"}
+            </Text>
+          </View>
+          <Pressable
+            onPress={handleEscalate}
+            disabled={escalated}
+            style={[styles.humanBtn, escalated && styles.humanBtnDone]}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={escalated ? "checkmark" : "person"}
+              size={14}
+              color={escalated ? Colors.success : Colors.secondary}
+            />
+            <Text
+              style={[styles.humanBtnText, escalated && { color: Colors.success }]}
+            >
+              {escalated ? "Inviato" : "Operatore"}
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={{ width: 38 }} />
-      </View>
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(m) => m.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ── Hero ── */}
-        <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.heroBlock}>
-          <View style={styles.heroIconWrap}>
-            <Ionicons name="headset-outline" size={36} color={Colors.secondary} />
-          </View>
-          <Text style={styles.heroTitle}>Come possiamo aiutarti?</Text>
-          <Text style={styles.heroSub}>
-            Il nostro team è disponibile dal lunedì al venerdì,{"\n"}
-            ore 9:00–18:00. Ti risponderemo entro 24 ore.
-          </Text>
-        </Animated.View>
-
-        {/* ── Contact card — Email ── */}
-        <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <View style={styles.contactCard}>
-            <View style={styles.contactCardHeader}>
-              <View style={styles.onlineDotRow}>
-                <View style={styles.onlineDot} />
-                <Text style={styles.onlineDotText}>SUPPORTO EMAIL</Text>
-              </View>
+        {sending && (
+          <View style={styles.typingRow}>
+            <View style={styles.avatarBot}>
+              <Ionicons name="sparkles" size={14} color="#fff" />
             </View>
-
-            <Text style={styles.contactTitle}>Scrivi al nostro team</Text>
-            <Text style={styles.contactDescription}>
-              Hai una domanda specifica o un problema con una prenotazione?
-              Inviaci un'email e ti risponderemo con una soluzione personalizzata.
-            </Text>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.emailBtn,
-                pressed && { opacity: 0.88 },
-              ]}
-              onPress={handleEmail}
-              accessibilityLabel="Invia email a support@cleanhome.app"
-              accessibilityRole="button"
-            >
-              <Ionicons name="mail-outline" size={18} color="#fff" />
-              <Text style={styles.emailBtnText}>
-                Invia email a support@cleanhome.app
-              </Text>
-            </Pressable>
-
-            <View style={styles.responseTimeRow}>
-              <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
-              <Text style={styles.responseTimeText}>
-                Risposta tipica entro 4–8 ore lavorative
-              </Text>
+            <View style={[styles.bubble, styles.bubbleAssistant]}>
+              <ActivityIndicator size="small" color={Colors.textSecondary} />
             </View>
           </View>
-        </Animated.View>
+        )}
 
-        {/* ── FAQ shortcuts ── */}
-        <Animated.View entering={FadeInDown.delay(180).springify()} style={styles.faqSection}>
-          <Text style={styles.faqSectionTitle}>Sfoglia le FAQ</Text>
-          <Text style={styles.faqSectionSub}>
-            Trova subito la risposta alle domande più comuni.
-          </Text>
-
-          <View style={styles.faqGrid}>
-            {FAQ_SHORTCUTS.map((item) => (
+        {/* ── Quick replies (only when chat is empty/short) ── */}
+        {messages.length <= 1 && !sending && (
+          <View style={styles.quickReplies}>
+            {QUICK_REPLIES.map((q) => (
               <Pressable
-                key={item.id}
-                style={({ pressed }) => [
-                  styles.faqChip,
-                  pressed && { opacity: 0.85 },
-                ]}
-                onPress={() => handleFaq(item.id)}
-                accessibilityLabel={`FAQ: ${item.label}`}
-                accessibilityRole="button"
+                key={q}
+                style={styles.quickReplyChip}
+                onPress={() => send(q)}
+                disabled={sending}
               >
-                <View style={styles.faqChipIcon}>
-                  <Ionicons name={item.icon} size={20} color={Colors.secondary} />
-                </View>
-                <Text style={styles.faqChipText}>{item.label}</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={14}
-                  color={Colors.textTertiary}
-                />
+                <Text style={styles.quickReplyText}>{q}</Text>
               </Pressable>
             ))}
           </View>
-        </Animated.View>
+        )}
 
-        {/* ── Response hours ── */}
-        <Animated.View entering={FadeInDown.delay(240).springify()}>
-          <View style={styles.hoursCard}>
-            <View style={styles.hoursHeader}>
-              <Ionicons name="business-outline" size={18} color={Colors.secondary} />
-              <Text style={styles.hoursTitle}>Orari del supporto</Text>
-            </View>
-            {[
-              { day: "Lunedì–Venerdì", hours: "09:00 – 18:00" },
-              { day: "Sabato", hours: "10:00 – 14:00" },
-              { day: "Domenica", hours: "Chiuso" },
-            ].map((row) => (
-              <View key={row.day} style={styles.hoursRow}>
-                <Text style={styles.hoursDay}>{row.day}</Text>
-                <Text
-                  style={[
-                    styles.hoursTime,
-                    row.hours === "Chiuso" && styles.hoursTimeClosed,
-                  ]}
-                >
-                  {row.hours}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </Animated.View>
-
-        {/* ── Back to support ── */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.backToSupportBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={() => router.back()}
-          accessibilityLabel="Torna al centro supporto"
-          accessibilityRole="button"
-        >
-          <Ionicons name="arrow-back-outline" size={16} color={Colors.secondary} />
-          <Text style={styles.backToSupportText}>Torna al centro supporto</Text>
-        </Pressable>
-      </ScrollView>
+        {/* ── Input ── */}
+        <View style={styles.inputBar}>
+          <TextInput
+            style={styles.input}
+            placeholder="Scrivi un messaggio..."
+            placeholderTextColor={Colors.textSecondary}
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={4000}
+            editable={!sending}
+          />
+          <Pressable
+            style={[
+              styles.sendBtn,
+              (!text.trim() || sending) && styles.sendBtnDisabled,
+            ]}
+            onPress={() => send(text)}
+            disabled={!text.trim() || sending}
+          >
+            <Ionicons name="arrow-up" size={20} color="#fff" />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  root: {
+  container: { flex: 1, backgroundColor: Colors.background },
+  loading: {
     flex: 1,
     backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-    ...Shadows.md,
-  },
-  headerBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.md,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  headerName: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Colors.textOnDark,
-    letterSpacing: -0.2,
-  },
-  headerSubtitle: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
-    color: Colors.textOnDarkSecondary,
-  },
-  scrollContent: {
-    padding: Spacing.xl,
-    gap: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
-  },
-
-  // Hero
-  heroBlock: {
-    alignItems: "center",
-    gap: Spacing.md,
-    paddingTop: Spacing.md,
-  },
-  heroIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.primary,
-    textAlign: "center",
-    letterSpacing: -0.4,
-  },
-  heroSub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 21,
-  },
-
-  // Contact card
-  contactCard: {
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    gap: Spacing.md,
+  },
+  headerCenter: { flex: 1 },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
+  headerTitle: { fontSize: 16, fontWeight: "600", color: Colors.text },
+  headerSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
+  humanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadows.md,
+    borderColor: Colors.border,
   },
-  contactCardHeader: {
-    marginBottom: 4,
-  },
-  onlineDotRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    alignSelf: "flex-start",
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
-  },
-  onlineDot: {
-    width: 7,
-    height: 7,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.accent,
-  },
-  onlineDotText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: Colors.secondary,
-  },
-  contactTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    color: Colors.primary,
-    letterSpacing: -0.3,
-  },
-  contactDescription: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 21,
-  },
-  emailBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
+  humanBtnDone: { backgroundColor: Colors.successLight, borderColor: Colors.success },
+  humanBtnText: { fontSize: 12, color: Colors.secondary, fontWeight: "600" },
+
+  listContent: { padding: Spacing.lg, gap: Spacing.sm },
+  bubbleRow: { flexDirection: "row", marginVertical: 4, gap: 6 },
+  bubbleRowUser: { justifyContent: "flex-end" },
+  bubbleRowAssistant: { justifyContent: "flex-start" },
+  avatarBot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    paddingVertical: 15,
-  },
-  emailBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  responseTimeRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    justifyContent: "center",
   },
-  responseTimeText: {
-    fontSize: 12,
-    color: Colors.textTertiary,
+  bubble: {
+    maxWidth: "78%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: Radius.lg,
   },
-
-  // FAQ section
-  faqSection: {
-    gap: Spacing.md,
+  bubbleUser: {
+    backgroundColor: Colors.primary,
+    borderBottomRightRadius: 4,
   },
-  faqSectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Colors.text,
-    letterSpacing: -0.2,
-  },
-  faqSectionSub: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  faqGrid: {
-    gap: Spacing.sm,
-  },
-  faqChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
+  bubbleAssistant: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderBottomLeftRadius: 4,
     ...Shadows.sm,
   },
-  faqChipIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  faqChipText: {
-    flex: 1,
+  bubbleText: {
     fontSize: 15,
-    fontWeight: "600",
     color: Colors.text,
+    lineHeight: 21,
   },
-
-  // Hours card
-  hoursCard: {
+  bubbleTextUser: { color: "#fff" },
+  systemRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.warningLight,
+    borderRadius: Radius.sm,
+    marginVertical: 6,
+  },
+  systemText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.warning,
+    lineHeight: 18,
+    fontStyle: "italic",
+  },
+  typingRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  quickReplies: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 12,
+  },
+  quickReplyChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    gap: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
   },
-  hoursHeader: {
+  quickReplyText: { fontSize: 13, color: Colors.text },
+  inputBar: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: 4,
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    paddingBottom: Platform.OS === "ios" ? 24 : Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
-  hoursTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
     color: Colors.text,
   },
-  hoursRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  hoursDay: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: "500",
-  },
-  hoursTime: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.primary,
-  },
-  hoursTimeClosed: {
-    color: Colors.textTertiary,
-    fontWeight: "500",
-  },
-
-  // Back link
-  backToSupportBtn: {
-    flexDirection: "row",
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.base,
   },
-  backToSupportText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.secondary,
-  },
+  sendBtnDisabled: { backgroundColor: Colors.textTertiary, opacity: 0.5 },
 });

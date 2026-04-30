@@ -9,7 +9,7 @@ Questa policy disciplina cancellazioni e rimborsi per booking effettuati tramite
 
 ## 1. Principi generali
 
-CleanHome agisce come **piattaforma di intermediazione**. I rimborsi sono erogati tramite **Stripe** sullo stesso strumento di pagamento usato per il booking. Tempi tecnici di accredito: **5–10 giorni lavorativi** (dipende dalla banca emittente).
+CleanHome agisce come **piattaforma di intermediazione**. I rimborsi sono erogati tramite **Stripe** sullo stesso strumento di pagamento usato per il booking. CleanHome processa il rimborso entro pochi minuti dalla richiesta. **Il tempo di accredito sulla carta dipende dalla banca emittente del cliente**: tipicamente 3-7 giorni lavorativi, in alcuni casi fino a 10. Se dopo 10 giorni l'accredito non risulta, il cliente deve contattare la propria banca.
 
 ## 2. Cancellazione da parte del cliente
 
@@ -107,7 +107,7 @@ Se il cleaner sottoscrive l'abbonamento come consumatore (caso raro essendo rich
 | Operazione | Tempo |
 |---|---|
 | Rimborso processato da CleanHome (post approvazione) | Entro **3 giorni lavorativi** |
-| Tempo Stripe per accredito carta | **5–10 giorni lavorativi** |
+| Tempo banca emittente per accredito carta | **3-7 giorni lavorativi** (fino a 10 in alcuni casi) |
 | Tempo totale percepito dal cliente | Tipicamente **7–14 giorni** |
 
 ## 9. Come richiedere un rimborso

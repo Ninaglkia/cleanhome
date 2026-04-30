@@ -218,6 +218,6 @@ export const NotificationMessages = {
   }),
   bookingAutoCancelled: () => ({
     title: "Nessun cleaner disponibile",
-    body: "Ti abbiamo rimborsato l'intero importo. Accredito in 5-10 giorni lavorativi.",
+    body: "Ti abbiamo rimborsato l'intero importo. Accredito sulla carta entro 7 giorni (dipende dalla banca).",
   }),
 };

@@ -68,7 +68,7 @@ const FAQ_DATA: Record<string, TopicData> = {
       },
       {
         q: "Come funziona il rimborso in caso di cancellazione?",
-        a: "Se cancelli con più di 24 ore di anticipo: rimborso completo. Tra 24 e 2 ore prima: rimborso del 50% del servizio. Meno di 2 ore o no-show: nessun rimborso. Il rimborso viene processato automaticamente: l'accredito sulla carta avviene entro 5-10 giorni lavorativi (dipende dalla banca).",
+        a: "Se cancelli con più di 24 ore di anticipo: rimborso completo. Tra 24 e 2 ore prima: rimborso del 50% del servizio. Meno di 2 ore o no-show: nessun rimborso. Noi processiamo il rimborso entro pochi minuti, ma l'accredito sulla tua carta dipende dalla banca emittente: tipicamente 3-7 giorni lavorativi, a volte fino a 10. Se dopo 10 giorni non vedi l'accredito, contatta la tua banca.",
       },
       {
         q: "Cosa succede se nessun cleaner accetta?",
@@ -259,18 +259,16 @@ export default function FaqTopicScreen() {
         <View style={styles.helpCard}>
           <Text style={styles.helpTitle}>Non hai trovato risposta?</Text>
           <Text style={styles.helpSub}>
-            Il nostro team è disponibile via email.
+            L'assistente AI può aiutarti subito o trasferirti a un operatore umano.
           </Text>
           <Pressable
             style={({ pressed }) => [styles.helpBtn, pressed && { opacity: 0.88 }]}
-            onPress={() =>
-              Linking.openURL("mailto:support@cleanhome.app").catch(() => {})
-            }
-            accessibilityLabel="Invia email al supporto"
+            onPress={() => router.push("/support/chat")}
+            accessibilityLabel="Apri chat assistente"
             accessibilityRole="button"
           >
-            <Ionicons name="mail-outline" size={16} color="#fff" />
-            <Text style={styles.helpBtnText}>Scrivi a support@cleanhome.app</Text>
+            <Ionicons name="sparkles" size={16} color="#fff" />
+            <Text style={styles.helpBtnText}>Apri chat con CleanHome</Text>
           </Pressable>
         </View>
       </ScrollView>

@@ -197,30 +197,18 @@ export default function SupportScreen() {
           <View style={styles.stillCard}>
             <Text style={styles.stillTitle}>Hai ancora domande?</Text>
             <Text style={styles.stillSubtitle}>
-              Il nostro team è pronto ad assisterti tramite email o chat dal vivo.
+              L'assistente AI risponde 24/7 e può trasferirti a un operatore umano per casi complessi.
             </Text>
-            <View style={styles.stillButtons}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Invia email al supporto"
-                style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
-                onPress={() =>
-                  Linking.openURL("mailto:support@cleanhome.app").catch(() => {})
-                }
-              >
-                <Ionicons name="mail-outline" size={16} color={Colors.secondary} />
-                <Text style={styles.stillBtnText}>Supporto Email</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Chat dal vivo con il supporto"
-                style={({ pressed }) => [styles.stillBtn, pressed && styles.btnPressed]}
-                onPress={handleTalkToConcierge}
-              >
-                <Ionicons name="chatbubbles-outline" size={16} color={Colors.secondary} />
-                <Text style={styles.stillBtnText}>Chat dal Vivo</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Apri chat assistente"
+              style={({ pressed }) => [styles.stillBtnFull, pressed && styles.btnPressed]}
+              onPress={handleTalkToConcierge}
+            >
+              <Ionicons name="sparkles" size={18} color="#fff" />
+              <Text style={styles.stillBtnFullText}>Parla con l'assistente</Text>
+              <Ionicons name="chevron-forward" size={18} color="#fff" />
+            </Pressable>
           </View>
 
           {/* ── Footer links ── */}
@@ -489,6 +477,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: Colors.text,
+  },
+  stillBtnFull: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+  },
+  stillBtnFullText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+    textAlign: "center",
   },
 
   // Footer
