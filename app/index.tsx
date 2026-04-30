@@ -121,7 +121,11 @@ export default function SplashScreenView() {
     );
   }, []);
 
-  // Navigate when auth resolved
+  // Navigate when auth resolved.
+  // Hold longer in dev (5s) so Nino can review the splash design.
+  // Production cuts to 1.7s for a snappy launch feel.
+  const HOLD_MS = __DEV__ ? 5000 : 1700;
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -141,10 +145,10 @@ export default function SplashScreenView() {
       } else {
         router.replace("/(tabs)/home");
       }
-    }, 1700);
+    }, HOLD_MS);
 
     return () => clearTimeout(timer);
-  }, [isLoading, user, profile]);
+  }, [isLoading, user, profile, HOLD_MS]);
 
   // Animated styles
   const logoStyle = useAnimatedStyle(() => ({
