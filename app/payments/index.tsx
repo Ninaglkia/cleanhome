@@ -79,7 +79,7 @@ export default function PaymentsScreen() {
   const handleUpdatePayment = useCallback(() => {
     Alert.alert(
       "Metodo di pagamento",
-      "Il metodo di pagamento viene richiesto automaticamente al momento della prenotazione tramite Stripe. Non è necessaria una configurazione anticipata."
+      "La carta viene richiesta in fase di prenotazione tramite Stripe. L'addebito è immediato e i fondi vengono custoditi da CleanHome (escrow): il pagamento al cleaner viene rilasciato solo dopo la tua conferma del servizio o automaticamente dopo 48 ore dal completamento."
     );
   }, []);
 
@@ -206,11 +206,11 @@ export default function PaymentsScreen() {
           <View style={styles.card}>
             <InfoRow
               icon="checkmark-circle-outline"
-              title="Garanzia di soddisfazione"
+              title="Modalità escrow (hold-until-confirm)"
               onPress={() =>
                 handleInfoRow(
-                  "Garanzia di soddisfazione",
-                  "Se il servizio non rispetta gli standard promessi, contatta il supporto entro 24 ore. Valuteremo ogni caso e potremo offrire un rimborso totale o parziale."
+                  "Come funziona l'escrow",
+                  "L'addebito sulla tua carta è immediato, ma i fondi restano custoditi da CleanHome. Vengono trasferiti al cleaner solo dopo che confermi il servizio o automaticamente dopo 48 ore dal completamento del lavoro. Se apri una contestazione, i fondi restano congelati fino alla risoluzione."
                 )
               }
             />
@@ -221,7 +221,18 @@ export default function PaymentsScreen() {
               onPress={() =>
                 handleInfoRow(
                   "Cancellazioni",
-                  "Cancellazione gratuita fino a 24 ore prima dell'appuntamento. Cancellazioni tardive comportano l'addebito del 50% del servizio."
+                  "Più di 24h prima del servizio: rimborso completo. Tra 24h e 2h prima: rimborso 50% + commissione. Meno di 2h o no-show: nessun rimborso. I rimborsi sono automatici, accredito sulla carta in 5-10 giorni lavorativi."
+                )
+              }
+            />
+            <View style={styles.cardDivider} />
+            <InfoRow
+              icon="alert-circle-outline"
+              title="Contestazione del servizio"
+              onPress={() =>
+                handleInfoRow(
+                  "Hai 48 ore per contestare",
+                  "Quando il cleaner segna il lavoro come completato, hai 48 ore per confermarlo o aprire una contestazione. Devi caricare almeno una foto del problema e descrivere cosa è successo (minimo 20 caratteri). CleanHome esamina entro 5 giorni lavorativi e decide rimborso totale, parziale o conferma del pagamento al cleaner."
                 )
               }
             />

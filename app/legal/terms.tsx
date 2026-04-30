@@ -16,8 +16,8 @@ export default function TermsScreen() {
           body: "Per utilizzare CleanHome devi registrarti fornendo informazioni veritiere e complete. Sei responsabile della riservatezza delle tue credenziali e di tutte le attività che avvengono sul tuo account.",
         },
         {
-          heading: "Prenotazioni e pagamenti",
-          body: "Le prenotazioni vengono confermate quando il professionista accetta la richiesta. I pagamenti sono processati tramite Stripe in modalità sicura. CleanHome trattiene una commissione di servizio sulla transazione totale.",
+          heading: "Prenotazioni e pagamenti (escrow)",
+          body: "Le prenotazioni vengono confermate quando un professionista accetta la richiesta. I pagamenti sono processati tramite Stripe (PCI-DSS Level 1). L'addebito è immediato al momento della prenotazione, ma i fondi restano custoditi da CleanHome in modalità escrow: il pagamento viene rilasciato al professionista solo dopo la conferma esplicita del cliente o automaticamente dopo 48 ore dal completamento del servizio. CleanHome trattiene una commissione del 9% al cliente e una commissione del 9% al professionista (commissione totale 18%).",
         },
         {
           heading: "Obblighi dei professionisti",
@@ -29,7 +29,7 @@ export default function TermsScreen() {
         },
         {
           heading: "Cancellazioni e rimborsi",
-          body: "Le cancellazioni effettuate con almeno 24 ore di anticipo sono gratuite. Cancellazioni tardive possono comportare l'addebito di una commissione pari al 50% del valore del servizio. I rimborsi vengono processati automaticamente su richiesta dell'utente tramite il supporto.",
+          body: "Cancellazione con più di 24 ore di anticipo: rimborso completo. Cancellazione tra 24 e 2 ore prima del servizio: rimborso del 50% del prezzo del servizio. Cancellazione meno di 2 ore prima o no-show del cliente: nessun rimborso. Se nessun professionista accetta la richiesta entro 20 minuti, il rimborso è automatico e completo. In caso di servizio non conforme il cliente può aprire una contestazione entro le 48 ore successive al completamento del lavoro. I rimborsi sono accreditati sulla carta originale entro 5-10 giorni lavorativi.",
         },
         {
           heading: "Recensioni",

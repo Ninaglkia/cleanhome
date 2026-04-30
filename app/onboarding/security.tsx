@@ -186,10 +186,11 @@ export default function SecurityScreen() {
           <Text style={styles.eyebrow}>TRANQUILLITÀ GARANTITA</Text>
           <Text style={styles.headline}>Pagamenti{"\n"}Sicuri</Text>
           <Text style={styles.body}>
-            La tua tranquillità è la nostra priorità. Ogni transazione è
-            protetta da <Text style={styles.bodyBold}>Stripe</Text> con
-            crittografia end-to-end di livello bancario. I soldi vengono
-            rilasciati al pulitore solo a lavoro completato.
+            Ogni pagamento è protetto da <Text style={styles.bodyBold}>Stripe</Text> con
+            crittografia di livello bancario. I tuoi soldi restano in
+            <Text style={styles.bodyBold}> escrow</Text> e vengono rilasciati al
+            pulitore solo dopo la tua conferma o automaticamente 48 ore dopo il
+            completamento.
           </Text>
         </Animated.View>
 
@@ -198,7 +199,7 @@ export default function SecurityScreen() {
           <Bullet
             icon="lock-closed-outline"
             title="Fondi protetti in escrow"
-            description="Il pagamento è bloccato fino a quando la pulizia non è completata a tuo piacimento."
+            description="Hai 48 ore dopo il completamento per confermare o segnalare un problema. Senza la tua conferma, il pagamento non parte."
             delay={500}
           />
           <Bullet

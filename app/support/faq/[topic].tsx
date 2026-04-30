@@ -60,23 +60,31 @@ const FAQ_DATA: Record<string, TopicData> = {
     items: [
       {
         q: "Quali metodi di pagamento sono accettati?",
-        a: "Accettiamo tutte le principali carte di credito e debito (Visa, Mastercard, American Express) tramite Stripe. I pagamenti sono sicuri e criptati.",
+        a: "Accettiamo tutte le principali carte di credito e debito (Visa, Mastercard, American Express), Apple Pay e Google Pay tramite Stripe. I pagamenti sono sicuri e criptati (PCI-DSS Level 1).",
       },
       {
         q: "Quando mi viene addebitato il pagamento?",
-        a: "Il pagamento viene pre-autorizzato al momento della prenotazione, ma l'addebito avviene solo quando il cleaner accetta il lavoro. Se rifiuta, l'importo viene sbloccato entro 3-5 giorni lavorativi.",
+        a: "L'addebito avviene immediatamente al momento della prenotazione. I fondi restano custoditi da CleanHome (modalità escrow): il pagamento al cleaner viene rilasciato solo dopo che confermi che il servizio è stato eseguito correttamente, oppure in automatico dopo 48 ore dal completamento del lavoro.",
       },
       {
         q: "Come funziona il rimborso in caso di cancellazione?",
-        a: "Cancellazione con oltre 24h di anticipo: rimborso completo. Tra 12 e 24h: rimborso 50%. Meno di 12h: nessun rimborso. In caso di problemi gravi con il servizio, contattaci entro 24h dalla pulizia.",
+        a: "Se cancelli con più di 24 ore di anticipo: rimborso completo. Tra 24 e 2 ore prima: rimborso del 50% del servizio. Meno di 2 ore o no-show: nessun rimborso. Il rimborso viene processato automaticamente: l'accredito sulla carta avviene entro 5-10 giorni lavorativi (dipende dalla banca).",
       },
       {
-        q: "Dove trovo le mie fatture?",
-        a: "Tutte le fatture sono disponibili in Profilo → Pagamenti → Fatture. Puoi scaricarle in PDF per uso fiscale.",
+        q: "Cosa succede se nessun cleaner accetta?",
+        a: "Cerchiamo subito 6 cleaner nella tua zona. Se nessuno accetta entro 10 minuti, allarghiamo automaticamente la ricerca a 15 km. Se entro 20 minuti totali nessuno è disponibile, ricevi il rimborso completo automaticamente, senza dover fare nulla.",
+      },
+      {
+        q: "Come segnalo un problema con il servizio?",
+        a: "Quando il cleaner segna il lavoro come completato, hai 48 ore per confermare o aprire una contestazione. Apri la prenotazione e tocca \"Segnala problema\": carica almeno una foto e descrivi cosa è successo (minimo 20 caratteri). I fondi restano congelati e CleanHome esamina il caso entro 5 giorni lavorativi.",
+      },
+      {
+        q: "Dove trovo le mie ricevute?",
+        a: "Tutte le ricevute sono disponibili in Profilo → Pagamenti → Ricevute. Puoi scaricarle in PDF per uso fiscale. Il cleaner emette la fattura del servizio direttamente al cliente secondo il proprio regime fiscale.",
       },
       {
         q: "C'è una commissione di servizio?",
-        a: "Sì, applichiamo una commissione del 9% sul totale della prenotazione a copertura dei costi di piattaforma, assicurazione e supporto clienti.",
+        a: "Sì, applichiamo una commissione del 9% al cliente sul prezzo del servizio (visibile in fase di pagamento) per coprire i costi di piattaforma, assicurazione, supporto clienti e processore pagamenti. Una commissione equivalente è trattenuta al cleaner. La commissione totale CleanHome è del 18%.",
       },
     ],
   },
