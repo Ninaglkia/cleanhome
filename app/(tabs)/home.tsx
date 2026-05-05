@@ -563,9 +563,11 @@ export default function HomeScreen() {
   // this server-side). Refreshed on screen focus so a house added from
   // /properties immediately appears here without a manual reload.
   const [properties, setProperties] = useState<ClientProperty[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
-    null
-  );
+  // Multi-selection: client can pick several houses to be cleaned in the
+  // same booking. The first id in the array is the "primary" used for
+  // map centering and the spatial cleaner search; the others ride along
+  // and are passed to the booking wizard.
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
 
   const loadProperties = useCallback(async () => {
@@ -583,58 +585,84 @@ export default function HomeScreen() {
     }, [loadProperties])
   );
 
-  // Restore the last picked property from AsyncStorage on mount so the
-  // client doesn't have to re-pick every cold start.
+  // Restore the last picked properties from AsyncStorage on mount so the
+  // client doesn't have to re-pick every cold start. We persist the
+  // entire selection (comma-separated) — single selections written by
+  // earlier app versions are still backwards-compatible.
   useEffect(() => {
     AsyncStorage.getItem("cleanhome.selected_property_id")
-      .then((id) => {
-        if (id) setSelectedPropertyId(id);
+      .then((raw) => {
+        if (!raw) return;
+        const ids = raw.split(",").filter(Boolean);
+        if (ids.length) setSelectedPropertyIds(ids);
       })
       .catch(() => {});
   }, []);
 
-  // Auto-select a property when the list loads. Preference order:
-  // 1. Already-selected id (from AsyncStorage) if still present in list
-  // 2. The default property (is_default=true)
-  // 3. The first property in the list
+  // Reconcile selection with the loaded list. Drops ids that no longer
+  // exist (e.g. the user deleted a property elsewhere). If the list
+  // becomes non-empty and nothing is selected, auto-pick the default
+  // (or first) property as a sensible primary.
   useEffect(() => {
     if (properties.length === 0) {
-      if (selectedPropertyId !== null) setSelectedPropertyId(null);
+      if (selectedPropertyIds.length) setSelectedPropertyIds([]);
       return;
     }
-    const stillExists = properties.some((p) => p.id === selectedPropertyId);
-    if (stillExists) return;
-    const defaultP = properties.find((p) => p.is_default) ?? properties[0];
-    setSelectedPropertyId(defaultP.id);
-  }, [properties, selectedPropertyId]);
+    const validIds = selectedPropertyIds.filter((id) =>
+      properties.some((p) => p.id === id)
+    );
+    if (validIds.length === 0) {
+      const defaultP = properties.find((p) => p.is_default) ?? properties[0];
+      setSelectedPropertyIds([defaultP.id]);
+    } else if (validIds.length !== selectedPropertyIds.length) {
+      setSelectedPropertyIds(validIds);
+    }
+  }, [properties, selectedPropertyIds]);
 
+  // Primary = first picked, used for map centering and search anchor.
+  const primaryPropertyId = selectedPropertyIds[0] ?? null;
   const selectedProperty = useMemo(
-    () => properties.find((p) => p.id === selectedPropertyId) ?? null,
-    [properties, selectedPropertyId]
+    () => properties.find((p) => p.id === primaryPropertyId) ?? null,
+    [properties, primaryPropertyId]
+  );
+  const selectedProperties = useMemo(
+    () =>
+      selectedPropertyIds
+        .map((id) => properties.find((p) => p.id === id))
+        .filter((p): p is ClientProperty => !!p),
+    [properties, selectedPropertyIds]
   );
 
-  const handleSelectProperty = useCallback(
+  const handleToggleProperty = useCallback(
     async (property: ClientProperty) => {
-      setSelectedPropertyId(property.id);
-      setPropertyPickerOpen(false);
+      const isCurrentlySelected = selectedPropertyIds.includes(property.id);
+      const nextIds = isCurrentlySelected
+        ? selectedPropertyIds.filter((id) => id !== property.id)
+        : [...selectedPropertyIds, property.id];
+      setSelectedPropertyIds(nextIds);
       try {
         await AsyncStorage.setItem(
           "cleanhome.selected_property_id",
-          property.id
+          nextIds.join(",")
         );
       } catch {}
-      // Recenter the map + re-query cleaners for this property's zone.
-      if (property.latitude != null && property.longitude != null) {
-        setRegion({
-          latitude: property.latitude,
-          longitude: property.longitude,
-          latitudeDelta: 0.06,
-          longitudeDelta: 0.06,
-        });
-        await loadCleanersAtPoint(property.latitude, property.longitude);
+      // Recenter the map only when this toggle changed the primary
+      // (the first id) — otherwise the map jumps surprisingly when
+      // the user toggles a non-primary house in/out.
+      const newPrimaryId = nextIds[0] ?? null;
+      if (newPrimaryId !== primaryPropertyId && property.id === newPrimaryId) {
+        if (property.latitude != null && property.longitude != null) {
+          setRegion({
+            latitude: property.latitude,
+            longitude: property.longitude,
+            latitudeDelta: 0.06,
+            longitudeDelta: 0.06,
+          });
+          await loadCleanersAtPoint(property.latitude, property.longitude);
+        }
       }
     },
-    []
+    [selectedPropertyIds, primaryPropertyId]
   );
 
   // ── Profile completion banner ──────────────────────────────────────────────
@@ -1155,9 +1183,13 @@ export default function HomeScreen() {
               }}
               numberOfLines={1}
             >
-              {selectedProperty?.name ?? "Scegli una casa"}
+              {selectedProperties.length === 0
+                ? "Scegli una casa"
+                : selectedProperties.length === 1
+                ? selectedProperties[0].name
+                : `${selectedProperties.length} case selezionate`}
             </Text>
-            {selectedProperty?.address && (
+            {selectedProperties.length === 1 && selectedProperties[0].address && (
               <Text
                 style={{
                   fontSize: 11,
@@ -1166,7 +1198,19 @@ export default function HomeScreen() {
                 }}
                 numberOfLines={1}
               >
-                {selectedProperty.address}
+                {selectedProperties[0].address}
+              </Text>
+            )}
+            {selectedProperties.length > 1 && (
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: "rgba(2,36,32,0.55)",
+                  marginTop: 1,
+                }}
+                numberOfLines={1}
+              >
+                {selectedProperties.map((p) => p.name).join(" · ")}
               </Text>
             )}
           </View>
@@ -1245,11 +1289,11 @@ export default function HomeScreen() {
               showsVerticalScrollIndicator={false}
             >
               {properties.map((p) => {
-                const selected = p.id === selectedPropertyId;
+                const selected = selectedPropertyIds.includes(p.id);
                 return (
                   <Pressable
                     key={p.id}
-                    onPress={() => handleSelectProperty(p)}
+                    onPress={() => handleToggleProperty(p)}
                     style={({ pressed }) => ({
                       flexDirection: "row",
                       alignItems: "center",
@@ -1346,12 +1390,11 @@ export default function HomeScreen() {
                     </View>
                     <Switch
                       value={selected}
-                      onValueChange={(v) => {
-                        if (v) handleSelectProperty(p);
-                      }}
+                      onValueChange={() => handleToggleProperty(p)}
                       trackColor={{ false: "#d4e4e0", true: "#006b55" }}
                       thumbColor="#ffffff"
                       ios_backgroundColor="#d4e4e0"
+                      style={{ marginLeft: 8 }}
                     />
                   </Pressable>
                 );
