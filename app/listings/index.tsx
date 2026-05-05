@@ -22,6 +22,7 @@ import {
   createListing,
   deleteListing,
 } from "../../lib/api";
+import { NotificationBell } from "../../components/NotificationBell";
 import { supabase } from "../../lib/supabase";
 import type { CleanerListing } from "../../lib/types";
 
@@ -331,8 +332,7 @@ export default function MyListingsScreen() {
           <Ionicons name="arrow-back" size={22} color={C.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>I miei annunci</Text>
-        {/* Right placeholder to keep the title centered */}
-        <View style={{ width: 36 }} />
+        <NotificationBell color={C.primary} />
       </View>
 
       <ScrollView

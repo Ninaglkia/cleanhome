@@ -26,6 +26,7 @@ import { useAuth } from "../../lib/auth";
 import { fetchClientProperties } from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import type { ClientProperty } from "../../lib/types";
+import { NotificationBell } from "../../components/NotificationBell";
 
 export default function PropertiesListScreen() {
   const { user } = useAuth();
@@ -94,7 +95,7 @@ export default function PropertiesListScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Le mie case</Text>
-        <View style={styles.iconBtn} />
+        <NotificationBell color={Colors.text} />
       </View>
 
       {loading && !refreshing ? (
