@@ -649,7 +649,7 @@ export default function HomeScreen() {
     return calculateClientCompletion({
       full_name: profile?.full_name,
       avatar_url: undefined, // UserProfile type doesn't expose avatar
-      hasProperty: properties.length > 0,
+      hasProperty: (properties ?? []).length > 0,
       hasPaymentMethod,
     });
   }, [profile, properties, hasPaymentMethod]);
@@ -1256,12 +1256,17 @@ export default function HomeScreen() {
                       padding: 14,
                       borderRadius: 18,
                       marginBottom: 10,
-                      backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
+                      backgroundColor: selected ? "#006b55" : "#f6faf9",
                       borderWidth: 2,
                       borderColor: selected
                         ? "#006b55"
                         : "rgba(193,200,197,0.3)",
                       opacity: pressed ? 0.85 : 1,
+                      shadowColor: selected ? "#006b55" : "transparent",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: selected ? 0.25 : 0,
+                      shadowRadius: 12,
+                      elevation: selected ? 6 : 0,
                     })}
                   >
                     <View
@@ -1269,12 +1274,18 @@ export default function HomeScreen() {
                         width: 48,
                         height: 48,
                         borderRadius: 14,
-                        backgroundColor: "#fef3c7",
+                        backgroundColor: selected
+                          ? "rgba(255,255,255,0.18)"
+                          : "#fef3c7",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Ionicons name="home" size={22} color="#d97706" />
+                      <Ionicons
+                        name="home"
+                        size={22}
+                        color={selected ? "#ffffff" : "#d97706"}
+                      />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View
@@ -1289,12 +1300,42 @@ export default function HomeScreen() {
                           style={{
                             fontSize: 16,
                             fontWeight: "800",
-                            color: "#022420",
+                            color: selected ? "#ffffff" : "#022420",
                           }}
                         >
                           {p.name}
                         </Text>
-                        {p.is_default && (
+                        {selected && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 4,
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
+                              borderRadius: 999,
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Ionicons
+                              name="checkmark"
+                              size={11}
+                              color="#006b55"
+                            />
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: "900",
+                                color: "#006b55",
+                                letterSpacing: 0.5,
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              Selezionata
+                            </Text>
+                          </View>
+                        )}
+                        {!selected && p.is_default && (
                           <View
                             style={{
                               flexDirection: "row",
@@ -1325,7 +1366,9 @@ export default function HomeScreen() {
                         style={{
                           marginTop: 3,
                           fontSize: 12,
-                          color: "rgba(2,36,32,0.6)",
+                          color: selected
+                            ? "rgba(255,255,255,0.85)"
+                            : "rgba(2,36,32,0.6)",
                           lineHeight: 16,
                         }}
                         numberOfLines={2}
@@ -1336,7 +1379,9 @@ export default function HomeScreen() {
                         style={{
                           marginTop: 4,
                           fontSize: 11,
-                          color: "rgba(2,36,32,0.45)",
+                          color: selected
+                            ? "rgba(255,255,255,0.7)"
+                            : "rgba(2,36,32,0.45)",
                         }}
                       >
                         {p.num_rooms} {p.num_rooms === 1 ? "stanza" : "stanze"}
@@ -1344,11 +1389,22 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     {selected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color="#006b55"
-                      />
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          backgroundColor: "#ffffff",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={20}
+                          color="#006b55"
+                        />
+                      </View>
                     )}
                   </Pressable>
                 );
