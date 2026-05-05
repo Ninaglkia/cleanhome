@@ -71,6 +71,18 @@ Inline frontend work in this project repeatedly produced fragile fixes (e.g. iOS
 - Branch: `main`
 - Italian for UI text, English for code/comments
 
+## Auto-reload dev app after every edit
+
+**Don't ask the user to shake the phone or reload manually.** After every edit to runtime code (`app/`, `components/`, `lib/`), trigger the dev client reload via:
+
+```bash
+curl -X POST http://localhost:8081/reload
+```
+
+This broadcasts a reload command to all connected Expo dev clients on the LAN. Do this AFTER `npx tsc --noEmit` passes, BEFORE the commit. Skip the curl only when the change is config-only (CLAUDE.md, memory files, json that requires app restart).
+
+If Metro isn't running on port 8081, surface that to the user with a one-line message instead of attempting reload.
+
 ## Key Files Reference
 
 - `app/listing/index.tsx` — main listing editor (large file, refactor pending)
