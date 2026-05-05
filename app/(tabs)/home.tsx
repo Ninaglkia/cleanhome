@@ -13,6 +13,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Switch,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1256,17 +1257,12 @@ export default function HomeScreen() {
                       padding: 14,
                       borderRadius: 18,
                       marginBottom: 10,
-                      backgroundColor: selected ? "#006b55" : "#f6faf9",
-                      borderWidth: 2,
+                      backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
+                      borderWidth: 1.5,
                       borderColor: selected
                         ? "#006b55"
                         : "rgba(193,200,197,0.3)",
                       opacity: pressed ? 0.85 : 1,
-                      shadowColor: selected ? "#006b55" : "transparent",
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: selected ? 0.25 : 0,
-                      shadowRadius: 12,
-                      elevation: selected ? 6 : 0,
                     })}
                   >
                     <View
@@ -1274,18 +1270,12 @@ export default function HomeScreen() {
                         width: 48,
                         height: 48,
                         borderRadius: 14,
-                        backgroundColor: selected
-                          ? "rgba(255,255,255,0.18)"
-                          : "#fef3c7",
+                        backgroundColor: "#fef3c7",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Ionicons
-                        name="home"
-                        size={22}
-                        color={selected ? "#ffffff" : "#d97706"}
-                      />
+                      <Ionicons name="home" size={22} color="#d97706" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View
@@ -1300,42 +1290,12 @@ export default function HomeScreen() {
                           style={{
                             fontSize: 16,
                             fontWeight: "800",
-                            color: selected ? "#ffffff" : "#022420",
+                            color: "#022420",
                           }}
                         >
                           {p.name}
                         </Text>
-                        {selected && (
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 4,
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
-                              borderRadius: 999,
-                              backgroundColor: "#ffffff",
-                            }}
-                          >
-                            <Ionicons
-                              name="checkmark"
-                              size={11}
-                              color="#006b55"
-                            />
-                            <Text
-                              style={{
-                                fontSize: 10,
-                                fontWeight: "900",
-                                color: "#006b55",
-                                letterSpacing: 0.5,
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Selezionata
-                            </Text>
-                          </View>
-                        )}
-                        {!selected && p.is_default && (
+                        {p.is_default && (
                           <View
                             style={{
                               flexDirection: "row",
@@ -1366,9 +1326,7 @@ export default function HomeScreen() {
                         style={{
                           marginTop: 3,
                           fontSize: 12,
-                          color: selected
-                            ? "rgba(255,255,255,0.85)"
-                            : "rgba(2,36,32,0.6)",
+                          color: "rgba(2,36,32,0.6)",
                           lineHeight: 16,
                         }}
                         numberOfLines={2}
@@ -1379,33 +1337,22 @@ export default function HomeScreen() {
                         style={{
                           marginTop: 4,
                           fontSize: 11,
-                          color: selected
-                            ? "rgba(255,255,255,0.7)"
-                            : "rgba(2,36,32,0.45)",
+                          color: "rgba(2,36,32,0.45)",
                         }}
                       >
                         {p.num_rooms} {p.num_rooms === 1 ? "stanza" : "stanze"}
                         {p.sqm ? `  ·  ${p.sqm} m²` : ""}
                       </Text>
                     </View>
-                    {selected && (
-                      <View
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          backgroundColor: "#ffffff",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Ionicons
-                          name="checkmark"
-                          size={20}
-                          color="#006b55"
-                        />
-                      </View>
-                    )}
+                    <Switch
+                      value={selected}
+                      onValueChange={(v) => {
+                        if (v) handleSelectProperty(p);
+                      }}
+                      trackColor={{ false: "#d4e4e0", true: "#006b55" }}
+                      thumbColor="#ffffff"
+                      ios_backgroundColor="#d4e4e0"
+                    />
                   </Pressable>
                 );
               })}
