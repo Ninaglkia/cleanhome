@@ -42,6 +42,35 @@
 
 **Always commit and push after changes** — don't ask, just do it.
 
+## ⚠️ MANDATORY: Always use the `frontend-dev` agent for any frontend work
+
+For ANY task touching React Native UI, layout, components, hooks UI, navigation, gestures, animations, or styling in this project — **dispatch the `frontend-dev` agent via the Agent tool**. Do NOT do frontend work inline.
+
+### Why
+Inline frontend work in this project repeatedly produced fragile fixes (e.g. iOS-specific Pressable+flex bugs, touch-area gestures eating map drag). The `frontend-dev` agent applies battle-tested patterns and verifies TypeScript + Metro bundle before committing.
+
+### When to use frontend-dev
+- New screens or components
+- Layout/styling fixes
+- Touch/gesture issues (`pointerEvents`, hit areas, scroll conflicts)
+- Animations and Reanimated work
+- Navigation flows
+- Any change in `app/`, `components/`, `lib/hooks/` related to UI
+
+### When you can work inline
+- Backend (Edge Functions, Supabase RPCs/migrations) → use `backend-dev` agent or inline
+- TypeScript types, pure logic helpers in `lib/`
+- Memory/CLAUDE.md/config edits
+- Reading files for context
+
+### Constraints to always pass to `frontend-dev`
+- **NEVER `git add -A` / `git add .`** — repo has pre-commit rules blocking files with secrets (`.env.local.backup` is local-only). Always `git add <specific-files>`.
+- Verify TypeScript: `cd /Users/ninomarianolai/CleanHomeRN && npx tsc --noEmit`
+- Verify Metro bundle has no SyntaxError before declaring done
+- Conventional commits in English, NO `Co-Authored-By` footer (disabled globally)
+- Branch: `main`
+- Italian for UI text, English for code/comments
+
 ## Key Files Reference
 
 - `app/listing/index.tsx` — main listing editor (large file, refactor pending)
