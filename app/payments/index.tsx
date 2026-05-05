@@ -15,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
-import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +132,6 @@ export default function PaymentsScreen() {
         <View style={styles.helpCenterBadge}>
           <Text style={styles.helpCenterText}>HELP CENTER</Text>
         </View>
-        <NotificationBell color={Colors.secondary} />
       </View>
 
       <ScrollView

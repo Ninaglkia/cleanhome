@@ -24,7 +24,6 @@ import {
 } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import type { CleanerListing } from "../../lib/types";
-import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -332,7 +331,8 @@ export default function MyListingsScreen() {
           <Ionicons name="arrow-back" size={22} color={C.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>I miei annunci</Text>
-        <NotificationBell color={C.secondary} />
+        {/* Right placeholder to keep the title centered */}
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView

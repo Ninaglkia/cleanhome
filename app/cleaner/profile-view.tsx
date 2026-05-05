@@ -17,7 +17,6 @@ import { Colors } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
 import { CleanerProfile, Review } from "../../lib/types";
-import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -253,20 +252,17 @@ export default function CleanerProfileViewScreen() {
             >
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </Pressable>
-            <View style={styles.heroTopRightGroup}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.shareButton,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={handleShare}
-                accessibilityLabel="Condividi profilo"
-                accessibilityRole="button"
-              >
-                <Ionicons name="share-outline" size={20} color="#fff" />
-              </Pressable>
-              <NotificationBell color="#ffffff" />
-            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.shareButton,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={handleShare}
+              accessibilityLabel="Condividi profilo"
+              accessibilityRole="button"
+            >
+              <Ionicons name="share-outline" size={20} color="#fff" />
+            </Pressable>
           </SafeAreaView>
 
           {/* Identity block — overlaid on photo */}
@@ -459,11 +455,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  heroTopRightGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   shareButton: {
     width: 40,

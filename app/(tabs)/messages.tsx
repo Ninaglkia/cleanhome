@@ -15,6 +15,7 @@ import { useAuth } from "../../lib/auth";
 import { fetchBookings } from "../../lib/api";
 import { Booking } from "../../lib/types";
 import { BookingStatusConfig } from "../../lib/theme";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Design tokens (dal Stitch HTML live_chat_with_concierge) ─────────────────
 const C = {
@@ -155,7 +156,10 @@ export default function MessagesScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Messaggi</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Messaggi</Text>
+          <NotificationBell color={C.primaryContainer} />
+        </View>
         {!loading && bookings.length > 0 && (
           <Text style={styles.headerSubtitle}>
             {bookings.length} conversazion
@@ -217,6 +221,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 20,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: {
     fontSize: 26,

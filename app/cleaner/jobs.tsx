@@ -21,7 +21,6 @@ import {
 } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 import { Colors } from "../../lib/theme";
-import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -339,7 +338,13 @@ export default function CleanerJobsScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>I miei lavori</Text>
-          <NotificationBell color={SECONDARY} />
+          <Pressable
+            accessibilityLabel="Calendario"
+            accessibilityRole="button"
+            style={styles.calendarButton}
+          >
+            <Ionicons name="calendar-outline" size={22} color={SECONDARY} />
+          </Pressable>
         </View>
 
         {/* ── Motivational banner ── */}

@@ -14,7 +14,6 @@ import { useRouter } from "expo-router";
 import { Colors } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
-import { NotificationBell } from "../../components/NotificationBell";
 import { CleanerProfile } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -197,11 +196,6 @@ export default function CleanerReviewsScreen() {
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </Pressable>
 
-          {/* Notification bell */}
-          <View style={styles.darkHeaderBellWrap}>
-            <NotificationBell color="#ffffff" />
-          </View>
-
           {/* Avatar area */}
           <View style={styles.profileAvatarWrap}>
             <View style={styles.profileAvatar}>
@@ -352,11 +346,6 @@ const styles = StyleSheet.create({
     backgroundColor: DARK_BG,
     paddingBottom: 32,
     alignItems: "center",
-  },
-  darkHeaderBellWrap: {
-    position: "absolute",
-    top: 16,
-    right: 20,
   },
   backButton: {
     position: "absolute",

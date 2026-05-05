@@ -33,6 +33,7 @@ import { useAuth } from "../../lib/auth";
 import { fetchBookings, updateBookingStatus } from "../../lib/api";
 import { sendPushNotification } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Static design tokens (non-role-specific) ────────────────────────────────
 
@@ -847,12 +848,15 @@ export default function BookingsScreen() {
 
       {/* ── Header — parallax on scroll ── */}
       <Animated.View style={[styles.header, headerAnimStyle]}>
-        <Animated.View style={headerParallaxStyle}>
-          <Text style={[styles.headerTitle, { color: theme.primary }]}>
-            Le tue prenotazioni
-          </Text>
-          <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
-        </Animated.View>
+        <View style={styles.headerRow}>
+          <Animated.View style={[styles.headerTextBlock, headerParallaxStyle]}>
+            <Text style={[styles.headerTitle, { color: theme.primary }]}>
+              Le tue prenotazioni
+            </Text>
+            <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
+          </Animated.View>
+          <NotificationBell color={theme.primary} />
+        </View>
       </Animated.View>
 
       {/* ── Animated pill filter tabs ── */}
@@ -944,6 +948,14 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
     gap: 6,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerTitle: {
     fontFamily: "NotoSerif_700Bold",

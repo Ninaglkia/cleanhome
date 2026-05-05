@@ -21,7 +21,6 @@ import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { useUserDocuments, type UserDocument, type DocumentKind } from "../../lib/hooks/useUserDocuments";
 import { getDocumentSignedUrl } from "../../lib/api";
-import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -283,7 +282,7 @@ export default function DocumentsScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>I miei documenti</Text>
-        <NotificationBell color={Colors.secondary} />
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView
