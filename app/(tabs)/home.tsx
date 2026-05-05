@@ -1297,7 +1297,6 @@ export default function HomeScreen() {
                     style={({ pressed }) => ({
                       flexDirection: "row",
                       alignItems: "center",
-                      gap: 14,
                       padding: 14,
                       borderRadius: 18,
                       marginBottom: 10,
@@ -1309,6 +1308,7 @@ export default function HomeScreen() {
                       opacity: pressed ? 0.85 : 1,
                     })}
                   >
+                    {/* Left: house icon */}
                     <View
                       style={{
                         width: 48,
@@ -1317,25 +1317,31 @@ export default function HomeScreen() {
                         backgroundColor: "#fef3c7",
                         alignItems: "center",
                         justifyContent: "center",
+                        flexShrink: 0,
+                        marginRight: 12,
                       }}
                     >
                       <Ionicons name="home" size={22} color="#d97706" />
                     </View>
-                    <View style={{ flex: 1 }}>
+
+                    {/* Center: text content — flex:1 shrinks to give Switch its space */}
+                    <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
                       <View
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
                           gap: 6,
-                          flexWrap: "wrap",
+                          flexWrap: "nowrap",
                         }}
                       >
                         <Text
                           style={{
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: "800",
                             color: "#022420",
+                            flexShrink: 1,
                           }}
+                          numberOfLines={1}
                         >
                           {p.name}
                         </Text>
@@ -1349,6 +1355,7 @@ export default function HomeScreen() {
                               paddingVertical: 2,
                               borderRadius: 999,
                               backgroundColor: "#fef3c7",
+                              flexShrink: 0,
                             }}
                           >
                             <Ionicons name="star" size={9} color="#d97706" />
@@ -1373,7 +1380,7 @@ export default function HomeScreen() {
                           color: "rgba(2,36,32,0.6)",
                           lineHeight: 16,
                         }}
-                        numberOfLines={2}
+                        numberOfLines={1}
                       >
                         {p.address}
                       </Text>
@@ -1388,13 +1395,15 @@ export default function HomeScreen() {
                         {p.sqm ? `  ·  ${p.sqm} m²` : ""}
                       </Text>
                     </View>
+
+                    {/* Right: switch — flexShrink:0 prevents it from being squeezed or pushed below */}
                     <Switch
                       value={selected}
                       onValueChange={() => handleToggleProperty(p)}
                       trackColor={{ false: "#d4e4e0", true: "#006b55" }}
                       thumbColor="#ffffff"
                       ios_backgroundColor="#d4e4e0"
-                      style={{ marginLeft: 8 }}
+                      style={{ flexShrink: 0 }}
                     />
                   </Pressable>
                 );
