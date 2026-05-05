@@ -1539,7 +1539,12 @@ export default function HomeScreen() {
       )}
 
       {/* ── Bottom carousel ── */}
+      {/* pointerEvents="box-none" lets the map receive drag/pan gestures in
+          the empty space around the cards (e.g. to the right of the visible
+          card). Without this the absolute full-width container swallows every
+          touch in the bottom region even where it looks empty. */}
       <View
+        pointerEvents="box-none"
         style={{
           position: "absolute",
           bottom: CAROUSEL_BOTTOM,
@@ -1774,6 +1779,10 @@ export default function HomeScreen() {
           </View>
         ) : (
           // Cleaner cards carousel
+          // pointerEvents="box-none" ensures the FlatList scroll container does
+          // not swallow touches in the empty horizontal space to the right of
+          // the last visible card. Touches on actual card children still work
+          // because box-none only suppresses self-hit-testing, not children.
           <FlatList
             ref={flatListRef}
             data={cleaners}
@@ -1783,6 +1792,7 @@ export default function HomeScreen() {
             snapToInterval={CARD_WIDTH + CARD_GAP}
             snapToAlignment="start"
             decelerationRate="fast"
+            pointerEvents="box-none"
             contentContainerStyle={{
               paddingLeft: CARD_SIDE_PADDING,
               paddingRight: CARD_SIDE_PADDING,
