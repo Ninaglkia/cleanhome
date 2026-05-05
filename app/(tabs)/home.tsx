@@ -1295,9 +1295,6 @@ export default function HomeScreen() {
                     key={p.id}
                     onPress={() => handleToggleProperty(p)}
                     style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      padding: 14,
                       borderRadius: 18,
                       marginBottom: 10,
                       backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
@@ -1308,103 +1305,111 @@ export default function HomeScreen() {
                       opacity: pressed ? 0.85 : 1,
                     })}
                   >
-                    {/* Left: house icon */}
+                    {/* Inner View owns the row layout — iOS-safe pattern */}
                     <View
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 14,
-                        backgroundColor: "#fef3c7",
+                        flexDirection: "row",
                         alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        marginRight: 12,
+                        padding: 14,
                       }}
                     >
-                      <Ionicons name="home" size={22} color="#d97706" />
-                    </View>
-
-                    {/* Center: text content — flex:1 shrinks to give Switch its space */}
-                    <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                      {/* Left: house icon — fixed 48×48, no flex */}
                       <View
                         style={{
-                          flexDirection: "row",
+                          width: 48,
+                          height: 48,
+                          borderRadius: 14,
+                          backgroundColor: "#fef3c7",
                           alignItems: "center",
-                          gap: 6,
-                          flexWrap: "nowrap",
+                          justifyContent: "center",
+                          marginRight: 12,
                         }}
                       >
+                        <Ionicons name="home" size={22} color="#d97706" />
+                      </View>
+
+                      {/* Center: text content — flex:1 absorbs remaining space */}
+                      <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            flexWrap: "nowrap",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: "800",
+                              color: "#022420",
+                              flexShrink: 1,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {p.name}
+                          </Text>
+                          {p.is_default && (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingHorizontal: 7,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                backgroundColor: "#fef3c7",
+                                marginLeft: 6,
+                              }}
+                            >
+                              <Ionicons name="star" size={9} color="#d97706" />
+                              <Text
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: "900",
+                                  color: "#d97706",
+                                  letterSpacing: 0.4,
+                                  textTransform: "uppercase",
+                                  marginLeft: 3,
+                                }}
+                              >
+                                Predefinita
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         <Text
                           style={{
-                            fontSize: 15,
-                            fontWeight: "800",
-                            color: "#022420",
-                            flexShrink: 1,
+                            marginTop: 3,
+                            fontSize: 12,
+                            color: "rgba(2,36,32,0.6)",
+                            lineHeight: 16,
                           }}
                           numberOfLines={1}
                         >
-                          {p.name}
+                          {p.address}
                         </Text>
-                        {p.is_default && (
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 3,
-                              paddingHorizontal: 7,
-                              paddingVertical: 2,
-                              borderRadius: 999,
-                              backgroundColor: "#fef3c7",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <Ionicons name="star" size={9} color="#d97706" />
-                            <Text
-                              style={{
-                                fontSize: 9,
-                                fontWeight: "900",
-                                color: "#d97706",
-                                letterSpacing: 0.4,
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Predefinita
-                            </Text>
-                          </View>
-                        )}
+                        <Text
+                          style={{
+                            marginTop: 4,
+                            fontSize: 11,
+                            color: "rgba(2,36,32,0.45)",
+                          }}
+                        >
+                          {p.num_rooms} {p.num_rooms === 1 ? "stanza" : "stanze"}
+                          {p.sqm ? `  ·  ${p.sqm} m²` : ""}
+                        </Text>
                       </View>
-                      <Text
-                        style={{
-                          marginTop: 3,
-                          fontSize: 12,
-                          color: "rgba(2,36,32,0.6)",
-                          lineHeight: 16,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {p.address}
-                      </Text>
-                      <Text
-                        style={{
-                          marginTop: 4,
-                          fontSize: 11,
-                          color: "rgba(2,36,32,0.45)",
-                        }}
-                      >
-                        {p.num_rooms} {p.num_rooms === 1 ? "stanza" : "stanze"}
-                        {p.sqm ? `  ·  ${p.sqm} m²` : ""}
-                      </Text>
-                    </View>
 
-                    {/* Right: switch — flexShrink:0 prevents it from being squeezed or pushed below */}
-                    <Switch
-                      value={selected}
-                      onValueChange={() => handleToggleProperty(p)}
-                      trackColor={{ false: "#d4e4e0", true: "#006b55" }}
-                      thumbColor="#ffffff"
-                      ios_backgroundColor="#d4e4e0"
-                      style={{ flexShrink: 0 }}
-                    />
+                      {/* Right: switch — fixed width column, never squeezed */}
+                      <View style={{ width: 52, alignItems: "center" }}>
+                        <Switch
+                          value={selected}
+                          onValueChange={() => handleToggleProperty(p)}
+                          trackColor={{ false: "#d4e4e0", true: "#006b55" }}
+                          thumbColor="#ffffff"
+                          ios_backgroundColor="#d4e4e0"
+                        />
+                      </View>
+                    </View>
                   </Pressable>
                 );
               })}
