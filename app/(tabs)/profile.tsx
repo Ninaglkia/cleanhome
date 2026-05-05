@@ -15,6 +15,9 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
+import CoachMarkOverlay, {
+  CoachMarkStep,
+} from "../../components/CoachMarks/CoachMarkOverlay";
 import * as ImagePicker from "expo-image-picker";
 import Animated, {
   FadeIn,
@@ -28,8 +31,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { UserProfile } from "../../lib/types";
 import { uploadAvatar, removeAvatar, deleteOwnAccount } from "../../lib/api";
+import { measureInWindow } from "../../lib/measureInWindow";
+import { NotificationBell } from "../../components/NotificationBell";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
 // ─── Avatar logic ─────────────────────────────────────────────────────────────
 
@@ -76,13 +81,13 @@ function useAvatarActions(
     if (!(await requestPermission("camera"))) return;
     try {
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.7,
       });
       await handlePickResult(result);
-    } catch {
-      Alert.alert("Fotocamera non disponibile", "Prova a scegliere dalla libreria.");
+    } catch (err) {
+      console.warn("[camera] launchCameraAsync error", err);
+      Alert.alert("Fotocamera non disponibile", err instanceof Error ? err.message : "Prova a scegliere dalla libreria.");
     }
   };
 
@@ -349,6 +354,11 @@ interface CleanerViewProps {
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
+  // Coach mark refs — measureInWindow gives screen-absolute coords for the Modal overlay
+  avatarSectionRef?: React.RefObject<View | null>;
+  editProfileRef?: React.RefObject<View | null>;
+  listingRef?: React.RefObject<View | null>;
+  documentsRef?: React.RefObject<View | null>;
 }
 
 function CleanerView({
@@ -368,6 +378,10 @@ function CleanerView({
   onSwitchRole,
   onSignOut,
   onDeleteAccount,
+  avatarSectionRef,
+  editProfileRef,
+  listingRef,
+  documentsRef,
 }: CleanerViewProps) {
   return (
     <>
@@ -377,7 +391,10 @@ function CleanerView({
       ) : null}
 
       {/* ── Hero ── */}
-      <View style={clientStyles.heroSection}>
+      <View
+        ref={avatarSectionRef}
+        style={clientStyles.heroSection}
+      >
         <Pressable
           style={clientStyles.avatarWrapper}
           onPress={onAvatarPress}
@@ -419,22 +436,26 @@ function CleanerView({
 
       {/* ── Menu rows (card indipendenti) — monocolore verde ── */}
       <View style={clientStyles.menuSection}>
-        <MenuRow
-          icon="person-outline"
-          label="Modifica Profilo"
-          sublabel="Gestisci le tue informazioni personali"
-          onPress={onEditProfile}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
-        <MenuRow
-          icon="megaphone-outline"
-          label="I miei annunci"
-          sublabel="Gestisci i tuoi annunci e zone di copertura"
-          onPress={onListing}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
+        <View ref={editProfileRef}>
+          <MenuRow
+            icon="person-outline"
+            label="Modifica Profilo"
+            sublabel="Gestisci le tue informazioni personali"
+            onPress={onEditProfile}
+            iconBgColor={C.surfaceLow}
+            cardStyle
+          />
+        </View>
+        <View ref={listingRef}>
+          <MenuRow
+            icon="megaphone-outline"
+            label="I miei annunci"
+            sublabel="Gestisci i tuoi annunci e zone di copertura"
+            onPress={onListing}
+            iconBgColor={C.surfaceLow}
+            cardStyle
+          />
+        </View>
         <MenuRow
           icon="card-outline"
           label="Metodo di Pagamento"
@@ -443,14 +464,16 @@ function CleanerView({
           iconBgColor={C.surfaceLow}
           cardStyle
         />
-        <MenuRow
-          icon="document-text-outline"
-          label="I miei documenti"
-          sublabel="Fatture e contratti di servizio"
-          onPress={onDocuments}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
+        <View ref={documentsRef}>
+          <MenuRow
+            icon="document-text-outline"
+            label="I miei documenti"
+            sublabel="Fatture e contratti di servizio"
+            onPress={onDocuments}
+            iconBgColor={C.surfaceLow}
+            cardStyle
+          />
+        </View>
         <MenuRow
           icon="shield-checkmark-outline"
           label="Privacy e Legale"
@@ -519,6 +542,11 @@ interface ClientViewProps {
   onSignOut: () => void;
   onDeleteAccount: () => void;
   onViewListing: () => void;
+  // Coach mark refs — measureInWindow gives screen-absolute coords for the Modal overlay
+  avatarSectionRef?: React.RefObject<View | null>;
+  editProfileRef?: React.RefObject<View | null>;
+  propertiesRef?: React.RefObject<View | null>;
+  paymentRef?: React.RefObject<View | null>;
 }
 
 function ClientView({
@@ -539,6 +567,10 @@ function ClientView({
   onSignOut,
   onDeleteAccount,
   onViewListing,
+  avatarSectionRef,
+  editProfileRef,
+  propertiesRef,
+  paymentRef,
 }: ClientViewProps) {
   const services = [
     "Pulizia Standard",
@@ -554,7 +586,10 @@ function ClientView({
         <PhotoPreviewModal uri={avatarUrl} visible={previewVisible} onClose={onPreviewClose} />
       ) : null}
 
-      <View style={styles.heroSection}>
+      <View
+        ref={avatarSectionRef}
+        style={styles.heroSection}
+      >
         <Pressable
           style={styles.avatarWrapper}
           onPress={onAvatarPress}
@@ -598,15 +633,17 @@ function ClientView({
       {/* ── Menu CLIENTE: no annunci, no guadagni — solo prenotazioni,
            pagamenti, documenti e legale ── */}
       <View style={clientStyles.menuSection}>
-        <MenuRow
-          icon="person-outline"
-          label="Modifica Profilo"
-          sublabel="Gestisci le tue informazioni personali"
-          onPress={onEditProfile}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
+        <View ref={editProfileRef}>
+          <MenuRow
+            icon="person-outline"
+            label="Modifica Profilo"
+            sublabel="Gestisci le tue informazioni personali"
+            onPress={onEditProfile}
+            iconBgColor={C.cleanerIconBg}
+            iconColor={C.cleanerPrimary}
+            cardStyle
+          />
+        </View>
         <MenuRow
           icon="calendar-outline"
           label="Le mie prenotazioni"
@@ -616,24 +653,28 @@ function ClientView({
           iconColor={C.cleanerPrimary}
           cardStyle
         />
-        <MenuRow
-          icon="home-outline"
-          label="Le mie case"
-          sublabel="Salva gli indirizzi che usi più spesso"
-          onPress={onProperties}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
-        <MenuRow
-          icon="card-outline"
-          label="Metodo di Pagamento"
-          sublabel="Gestisci le tue carte di pagamento"
-          onPress={onBankData}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
+        <View ref={propertiesRef}>
+          <MenuRow
+            icon="home-outline"
+            label="Le mie case"
+            sublabel="Salva gli indirizzi che usi più spesso"
+            onPress={onProperties}
+            iconBgColor={C.cleanerIconBg}
+            iconColor={C.cleanerPrimary}
+            cardStyle
+          />
+        </View>
+        <View ref={paymentRef}>
+          <MenuRow
+            icon="card-outline"
+            label="Metodo di Pagamento"
+            sublabel="Gestisci le tue carte di pagamento"
+            onPress={onBankData}
+            iconBgColor={C.cleanerIconBg}
+            iconColor={C.cleanerPrimary}
+            cardStyle
+          />
+        </View>
         <MenuRow
           icon="document-text-outline"
           label="I miei documenti"
@@ -688,10 +729,165 @@ export default function ProfileScreen() {
   const router = useRouter();
   const isCleaner = profile?.active_role === "cleaner";
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
   const [showLogoutAnim, setShowLogoutAnim] = useState(false);
   // Track the logout setTimeout so it can be cleared on unmount and
   // avoid setState-after-unmount + stuck animation if user navigates away.
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Profile coach marks ────────────────────────────────────────────────────
+  const [showProfileCoach, setShowProfileCoach] = useState(false);
+  const [profileCoachSteps, setProfileCoachSteps] = useState<CoachMarkStep[]>([]);
+
+  // Refs passed directly to sub-components. measureInWindow gives screen-absolute
+  // coordinates that work correctly in the Modal-based CoachMarkOverlay.
+  const avatarSectionRef = useRef<View>(null);
+  const editProfileRef = useRef<View>(null);
+  const paymentRef = useRef<View>(null);
+  const propertiesRef = useRef<View>(null);
+  const listingRef = useRef<View>(null);
+  const documentsRef = useRef<View>(null);
+
+  // Coach marks DISABLED while we rework them. Re-enable when ready.
+  useEffect(() => {
+    setShowProfileCoach(false);
+  }, []);
+
+  // Gate logic disabled — kept here for when we re-enable
+  useEffect(() => {
+    AsyncStorage.getItem("cleanhome.first_profile_tour_done")
+      .then(() => {
+        // setShowProfileCoach(false); // disabled
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build profile coach steps by measuring real screen positions.
+  //
+  // For elements that live inside a ScrollView (menu rows), we scroll to
+  // ensure they are visible before measuring — otherwise they may be
+  // off-screen and measureInWindow returns y outside the viewport.
+  // Strategy: scroll to top first so the hero/avatar is in view, then for
+  // lower rows scroll incrementally and re-measure after a short settle.
+  useEffect(() => {
+    if (!showProfileCoach) return;
+    const timer = setTimeout(async () => {
+      // Step 1 — scroll to top so the avatar hero is fully visible
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+
+      // Step 2 — allow one frame for scroll to settle, then measure
+      await new Promise<void>((r) => setTimeout(r, 80));
+
+      const avatarRect = await measureInWindow(avatarSectionRef);
+      const editRect = await measureInWindow(editProfileRef);
+
+      // For lower rows we may need to scroll them into view.
+      // measureInWindow on a ref that is outside the visible viewport
+      // returns a y larger than SH, making the spotlight invisible.
+      // We scroll to bring the element near the center, wait, then remeasure.
+      const scrollAndMeasure = async (ref: React.RefObject<View | null>) => {
+        const preliminary = await measureInWindow(ref);
+        if (!preliminary) return null;
+        if (preliminary.y > SH * 0.75 || preliminary.y < 0) {
+          // Element is below (or above) the visible area — scroll to expose it
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, preliminary.y - SH / 3),
+            animated: true,
+          });
+          await new Promise<void>((r) => setTimeout(r, 260));
+          return measureInWindow(ref); // re-measure after scroll settles
+        }
+        return preliminary;
+      };
+
+      const steps: CoachMarkStep[] = [];
+
+      if (isCleaner) {
+        if (avatarRect) {
+          steps.push({
+            rect: avatarRect,
+            title: "Carica la tua foto",
+            description:
+              "Un profilo con foto riceve il 3x più richieste. Tocca l'avatar per aggiungerne una.",
+          });
+        }
+        if (editRect) {
+          steps.push({
+            rect: editRect,
+            title: "Completa info personali",
+            description:
+              "Aggiungi una bio, la tua specializzazione e i tuoi contatti per presentarti ai clienti.",
+          });
+        }
+        const listingMeasured = await scrollAndMeasure(listingRef);
+        if (listingMeasured) {
+          steps.push({
+            rect: listingMeasured,
+            title: "Aggiungi servizi e tariffe",
+            description:
+              "Crea il tuo annuncio con i servizi offerti, la tariffa oraria e la zona di copertura.",
+          });
+        }
+        const docsMeasured = await scrollAndMeasure(documentsRef);
+        if (docsMeasured) {
+          steps.push({
+            rect: docsMeasured,
+            title: "Verifica la tua identità",
+            description:
+              "Carica un documento d'identità per ricevere il badge Verificato e accedere a più richieste.",
+          });
+        }
+      } else {
+        if (avatarRect) {
+          steps.push({
+            rect: avatarRect,
+            title: "Personalizza il tuo profilo",
+            description:
+              "Aggiungi una foto profilo per essere riconoscibile dai professionisti.",
+          });
+        }
+        if (editRect) {
+          steps.push({
+            rect: editRect,
+            title: "Completa le info personali",
+            description:
+              "Inserisci nome, numero di telefono e preferenze per un'esperienza su misura.",
+          });
+        }
+        const propsMeasured = await scrollAndMeasure(propertiesRef);
+        if (propsMeasured) {
+          steps.push({
+            rect: propsMeasured,
+            title: "Aggiungi indirizzo casa",
+            description:
+              "Salva l'indirizzo della tua casa per trovare subito i professionisti vicini a te.",
+          });
+        }
+        const payMeasured = await scrollAndMeasure(paymentRef);
+        if (payMeasured) {
+          steps.push({
+            rect: payMeasured,
+            title: "Aggiungi metodo di pagamento",
+            description:
+              "Collega una carta per prenotare in un tap. Sicuro e protetto da Stripe.",
+          });
+        }
+      }
+
+      // After all measurements, scroll back to top so the first spotlight is visible
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+
+      if (steps.length >= 1) {
+        setProfileCoachSteps(steps);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [showProfileCoach, isCleaner]);
+
+  const handleProfileCoachDone = useCallback(() => {
+    setShowProfileCoach(false);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -824,32 +1020,25 @@ export default function ProfileScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
         {/* ── TopAppBar ── */}
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="leaf" size={22} color="#022420" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Image
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                source={require("../../assets/icon.png")}
+                style={{ width: 28, height: 28, borderRadius: 6 }}
+              />
               <Text style={styles.topBarBrand}>CleanHome</Text>
             </View>
           </View>
-          <Pressable
-            accessibilityLabel="Notifiche"
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.bellWrap,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={() => router.push("/(tabs)/notifications")}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              color={isCleaner ? C.cleanerPrimary : C.primary}
-            />
-          </Pressable>
+          <NotificationBell
+            color={isCleaner ? C.cleanerPrimary : C.primary}
+          />
         </View>
 
         <Animated.View
@@ -876,6 +1065,10 @@ export default function ProfileScreen() {
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
+              avatarSectionRef={avatarSectionRef}
+              editProfileRef={editProfileRef}
+              listingRef={listingRef}
+              documentsRef={documentsRef}
             />
           ) : (
             <ClientView
@@ -896,12 +1089,25 @@ export default function ProfileScreen() {
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
               onViewListing={handleViewListing}
+              avatarSectionRef={avatarSectionRef}
+              editProfileRef={editProfileRef}
+              propertiesRef={propertiesRef}
+              paymentRef={paymentRef}
             />
           )}
         </Animated.View>
 
         <Text style={styles.versionText}>CleanHome v1.0.0</Text>
       </ScrollView>
+
+      {/* ── Profile coach mark tour (first visit only) ── */}
+      {showProfileCoach && profileCoachSteps.length >= 1 && (
+        <CoachMarkOverlay
+          steps={profileCoachSteps}
+          storageKey="cleanhome.first_profile_tour_done"
+          onDone={handleProfileCoachDone}
+        />
+      )}
 
       {/* ── Logout animation modal ── */}
       <Modal

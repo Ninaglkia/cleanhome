@@ -41,6 +41,7 @@ import { Booking, BookingOffer } from "../../lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCountdown } from "../../lib/hooks/useCountdown";
 import { measureInWindow } from "../../lib/measureInWindow";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -723,9 +724,7 @@ export default function CleanerHomeScreen() {
               />
               <Text style={styles.brandLogo}>CleanHome</Text>
             </View>
-            <View style={styles.avatarPhoto}>
-              <Ionicons name="person" size={18} color={PRIMARY_CONTAINER} />
-            </View>
+            <NotificationBell color={PRIMARY_CONTAINER} />
           </View>
           <Text style={styles.greeting}>
             {greeting}, {firstName}

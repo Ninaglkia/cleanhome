@@ -14,6 +14,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   StatusBar,
@@ -25,6 +26,7 @@ import { useAuth } from "../../lib/auth";
 import { fetchClientProperties } from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import type { ClientProperty } from "../../lib/types";
+import { NotificationBell } from "../../components/NotificationBell";
 
 export default function PropertiesListScreen() {
   const { user } = useAuth();
@@ -93,7 +95,7 @@ export default function PropertiesListScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Le mie case</Text>
-        <View style={styles.iconBtn} />
+        <NotificationBell color={Colors.secondary} />
       </View>
 
       {loading && !refreshing ? (
@@ -132,20 +134,18 @@ export default function PropertiesListScreen() {
                   onPress={() => handleEdit(item.id)}
                 />
               ))}
-              <Pressable
+              <TouchableOpacity
                 onPress={handleAdd}
-                style={({ pressed }) => [
-                  styles.addAnotherBtn,
-                  pressed && { opacity: 0.6 },
-                ]}
+                activeOpacity={0.85}
+                style={styles.addAnotherBtn}
               >
                 <Ionicons
-                  name="add-circle-outline"
+                  name="add-circle"
                   size={20}
-                  color="#d97706"
+                  color="#fff"
                 />
                 <Text style={styles.addAnotherText}>Aggiungi un'altra casa</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -250,16 +250,14 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         Aggiungi la tua prima casa per prenotare pulizie in un attimo. È perfetto
         se hai più di una proprietà da gestire.
       </Text>
-      <Pressable
+      <TouchableOpacity
         onPress={onAdd}
-        style={({ pressed }) => [
-          styles.ctaBtn,
-          pressed && { transform: [{ scale: 0.97 }] },
-        ]}
+        activeOpacity={0.85}
+        style={styles.ctaBtn}
       >
         <Ionicons name="add" size={18} color="#fff" />
         <Text style={styles.ctaBtnText}>Aggiungi la prima casa</Text>
-      </Pressable>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -389,24 +387,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // --- Add another ---
+  // --- Add another — solid dark-green slab ---
   addAnotherBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: Spacing.base,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    borderColor: "#fed7aa",
-    borderStyle: "dashed",
-    backgroundColor: "transparent",
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: "#022420",
     marginTop: Spacing.sm,
+    shadowColor: "#011a17",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 6,
   },
   addAnotherText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#d97706",
+    color: "#fff",
+    letterSpacing: 0.15,
   },
 
   // --- Empty state ---
@@ -443,11 +444,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.secondary,
-    ...Shadows.md,
+    paddingHorizontal: 26,
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: "#022420",
+    shadowColor: "#011a17",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 6,
   },
   ctaBtnText: {
     fontSize: 15,

@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Pressable,
+  TouchableOpacity,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +21,7 @@ import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { useUserDocuments, type UserDocument, type DocumentKind } from "../../lib/hooks/useUserDocuments";
 import { getDocumentSignedUrl } from "../../lib/api";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,7 @@ const KIND_LABELS: Record<DocumentKind, string> = {
   id_card: "Carta d'identità",
   passport: "Passaporto",
   driving_license: "Patente",
-  tax_code: "Codice fiscale",
+  tax_code: "Codice fiscale", // legacy — kept for backward-compat with existing rows
   other: "Altro",
 };
 
@@ -152,7 +154,6 @@ const KIND_OPTIONS: Array<{ key: DocumentKind; label: string; icon: React.Compon
   { key: "id_card", label: "Carta d'identità", icon: "card-outline" },
   { key: "passport", label: "Passaporto", icon: "globe-outline" },
   { key: "driving_license", label: "Patente", icon: "car-outline" },
-  { key: "tax_code", label: "Codice fiscale", icon: "document-text-outline" },
   { key: "other", label: "Altro documento", icon: "attach-outline" },
 ];
 
@@ -282,7 +283,7 @@ export default function DocumentsScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>I miei documenti</Text>
-        <View style={{ width: 38 }} />
+        <NotificationBell color={Colors.secondary} />
       </View>
 
       <ScrollView
@@ -311,10 +312,11 @@ export default function DocumentsScreen() {
         <KindPicker selected={selectedKind} onSelect={setSelectedKind} />
 
         {/* ── Upload CTA ── */}
-        <Pressable
-          style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.88 }]}
+        <TouchableOpacity
+          style={styles.uploadBtn}
           onPress={handlePickDocument}
           disabled={uploadPercent !== null}
+          activeOpacity={0.88}
           accessibilityLabel="Carica nuovo documento"
           accessibilityRole="button"
         >
@@ -325,8 +327,8 @@ export default function DocumentsScreen() {
             <Text style={styles.uploadBtnTitle}>Carica documento</Text>
             <Text style={styles.uploadBtnSub}>PDF o immagine · Max 10 MB</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
-        </Pressable>
+          <Ionicons name="chevron-forward" size={20} color="#fff" />
+        </TouchableOpacity>
 
         {/* ── Error banner ── */}
         {error && !isLoading && (
@@ -503,15 +505,19 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
 
-  // Upload button
+  // Upload button — solid dark green slab, full-width, visible
   uploadBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.primary,
+    backgroundColor: "#022420",
     borderRadius: Radius.xl,
     padding: Spacing.base,
-    ...Shadows.md,
+    shadowColor: "#011a17",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 6,
   },
   uploadBtnIconWrap: {
     width: 48,

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   View,
   Text,
+  Image,
   ScrollView,
   Pressable,
   StatusBar,
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,14 +121,19 @@ export default function PaymentsScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Supporto</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="leaf" size={20} color="#022420" />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require("../../assets/icon.png")}
+              style={{ width: 26, height: 26, borderRadius: 6 }}
+            />
             <Text style={styles.headerBrand}>CleanHome</Text>
           </View>
         </View>
         <View style={styles.helpCenterBadge}>
           <Text style={styles.helpCenterText}>HELP CENTER</Text>
         </View>
+        <NotificationBell color={Colors.secondary} />
       </View>
 
       <ScrollView

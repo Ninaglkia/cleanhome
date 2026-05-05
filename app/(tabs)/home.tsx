@@ -50,6 +50,7 @@ import {
   MissingStep,
 } from "../../lib/profileCompletion";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // AsyncStorage key that persists which Stripe customer setup step is done.
 // We check for the presence of a Stripe customer id on the profile — if the
@@ -1179,7 +1180,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Right: clear (if text) + tune filter icon */}
+        {/* Right: clear (if text) + notification bell */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {searchText.length > 0 && (
             <TouchableOpacity
@@ -1189,6 +1190,7 @@ export default function HomeScreen() {
               <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
             </TouchableOpacity>
           )}
+          <NotificationBell color="#022420" size={36} />
         </View>
       </Animated.View>
 

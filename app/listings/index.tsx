@@ -9,8 +9,8 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
-  Linking,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +24,7 @@ import {
 } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import type { CleanerListing } from "../../lib/types";
+import { NotificationBell } from "../../components/NotificationBell";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -63,9 +64,14 @@ export default function MyListingsScreen() {
   // Re-check Stripe Connect onboarding status. Called on mount and again
   // every time the screen is focused (e.g. when the user comes back from
   // Stripe's hosted KYC flow in an external browser).
+  // First syncs status from Stripe API (fallback for missed webhooks),
+  // then reads the canonical state from the DB.
   const refreshStripeStatus = useCallback(async () => {
     if (!user?.id) return;
     try {
+      // Best-effort sync from Stripe to DB. Ignore errors (e.g. no account yet).
+      await supabase.functions.invoke("stripe-connect-sync-status", { body: {} }).catch(() => {});
+
       const { data } = await supabase
         .from("cleaner_profiles")
         .select("stripe_onboarding_complete, stripe_charges_enabled")
@@ -96,8 +102,15 @@ export default function MyListingsScreen() {
       const url = (data as { url?: string } | null)?.url;
       if (!url) throw new Error("Nessun URL ricevuto");
 
-      // Open in external browser — Stripe handles the KYC flow
-      await Linking.openURL(url);
+      // Open Stripe KYC in an in-app browser (WKWebView on iOS).
+      // openAuthSessionAsync intercepts the deep-link return URL and
+      // closes the browser automatically, returning the user to the app.
+      await WebBrowser.openAuthSessionAsync(
+        url,
+        "cleanhome://stripe-connect/return"
+      );
+      // Refresh Stripe status after the user returns from onboarding
+      refreshStripeStatus();
     } catch (err) {
       Alert.alert(
         "Errore",
@@ -319,8 +332,7 @@ export default function MyListingsScreen() {
           <Ionicons name="arrow-back" size={22} color={C.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>I miei annunci</Text>
-        {/* Right placeholder to keep the title centered */}
-        <View style={{ width: 36 }} />
+        <NotificationBell color={C.secondary} />
       </View>
 
       <ScrollView
@@ -330,7 +342,7 @@ export default function MyListingsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Stripe Connect verification banner */}
+        {/* Stripe Connect verification banner — pending */}
         {!stripeVerified && !loading && (
           <Pressable
             onPress={handleStartVerification}
@@ -382,6 +394,51 @@ export default function MyListingsScreen() {
             </View>
             <Ionicons name="arrow-forward" size={18} color="#D97706" />
           </Pressable>
+        )}
+
+        {/* Stripe Connect verification banner — verified */}
+        {stripeVerified && !loading && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#ECFDF5",
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 16,
+              gap: 12,
+              borderWidth: 1,
+              borderColor: "#10B981",
+            }}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "#D1FAE5",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={22} color="#059669" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: "#065F46",
+                  marginBottom: 2,
+                }}
+              >
+                Verifica completata
+              </Text>
+              <Text style={{ fontSize: 12, color: "#047857", lineHeight: 16 }}>
+                Identità e IBAN verificati. Pronto a ricevere pagamenti.
+              </Text>
+            </View>
+          </View>
         )}
 
         {loading ? (
