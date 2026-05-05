@@ -927,101 +927,138 @@ export default function NewBookingScreen() {
         </ScrollView>
       </View>
 
-      <View>
-        <Text style={s.sectionLabel}>Dimensione casa</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingRight: 4 }}
+      {/* If a saved property is selected, skip re-asking sqm/address —
+          we already have them. Show a compact read-only summary instead.
+          Manual editors only render for "Nuovo indirizzo" (id === null). */}
+      {selectedPropertyId !== null ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            padding: 14,
+            borderRadius: Radius.lg,
+            backgroundColor: Colors.accentLight,
+            borderWidth: 1,
+            borderColor: Colors.accent,
+          }}
         >
-          {SIZE_PRESETS.map((p) => {
-            const selected = sqm === p.sqm;
-            return (
-              <TouchableOpacity
-                key={p.key}
-                onPress={() => {
-                  setSqm(p.sqm);
-                  setNumRooms(p.rooms);
-                }}
-                activeOpacity={0.85}
-                style={{
-                  minWidth: 120,
-                  padding: 14,
-                  borderRadius: Radius.lg,
-                  backgroundColor: selected ? Colors.secondary : Colors.surface,
-                  borderWidth: 1.5,
-                  borderColor: selected ? Colors.secondary : Colors.border,
-                  alignItems: "center",
-                  ...Shadows.sm,
-                }}
-              >
-                <Ionicons
-                  name={p.icon}
-                  size={22}
-                  color={selected ? "#fff" : Colors.secondary}
-                  style={{ marginBottom: 6 }}
-                />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "800",
-                    color: selected ? "#fff" : Colors.text,
-                    marginBottom: 2,
-                  }}
-                >
-                  {p.label}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "600",
-                    color: selected ? "rgba(255,255,255,0.85)" : Colors.textTertiary,
-                  }}
-                >
-                  ~{p.sqm} mq
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Custom mq input — lets the user tweak to the exact value */}
-        <View style={{ marginTop: Spacing.md }}>
-          <Text style={[s.sectionLabel, { marginBottom: 6 }]}>Metri quadri esatti</Text>
-          <View style={s.inputWrap}>
-            <Ionicons name="resize-outline" size={18} color={Colors.textTertiary} />
-            <TextInput
-              style={s.input}
-              placeholder="es. 75"
-              placeholderTextColor={Colors.textTertiary}
-              keyboardType="number-pad"
-              value={String(sqm)}
-              onChangeText={(t) => {
-                const n = parseInt(t.replace(/[^0-9]/g, ""), 10);
-                setSqm(Number.isNaN(n) ? 0 : Math.min(500, n));
+          <Ionicons name="checkmark-circle" size={22} color={Colors.secondary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.text }}>
+              {sqm} mq · {numRooms} stanze · ~{estimatedHours.toFixed(1)}h
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: Colors.textSecondary,
+                marginTop: 2,
               }}
-            />
-            <Text style={{ fontSize: 13, color: Colors.textSecondary, fontWeight: "600" }}>mq</Text>
+              numberOfLines={1}
+            >
+              {address}
+            </Text>
           </View>
-          <Text style={[s.roomHint, { marginTop: 8 }]}>
-            Durata stimata: {estimatedHours.toFixed(1)}h · Cleaner riceve €{breakdown.cleanerReceives.toFixed(2)}
-          </Text>
         </View>
-      </View>
+      ) : (
+        <>
+          <View>
+            <Text style={s.sectionLabel}>Dimensione casa</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingRight: 4 }}
+            >
+              {SIZE_PRESETS.map((p) => {
+                const selected = sqm === p.sqm;
+                return (
+                  <TouchableOpacity
+                    key={p.key}
+                    onPress={() => {
+                      setSqm(p.sqm);
+                      setNumRooms(p.rooms);
+                    }}
+                    activeOpacity={0.85}
+                    style={{
+                      minWidth: 120,
+                      padding: 14,
+                      borderRadius: Radius.lg,
+                      backgroundColor: selected ? Colors.secondary : Colors.surface,
+                      borderWidth: 1.5,
+                      borderColor: selected ? Colors.secondary : Colors.border,
+                      alignItems: "center",
+                      ...Shadows.sm,
+                    }}
+                  >
+                    <Ionicons
+                      name={p.icon}
+                      size={22}
+                      color={selected ? "#fff" : Colors.secondary}
+                      style={{ marginBottom: 6 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "800",
+                        color: selected ? "#fff" : Colors.text,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {p.label}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "600",
+                        color: selected ? "rgba(255,255,255,0.85)" : Colors.textTertiary,
+                      }}
+                    >
+                      ~{p.sqm} mq
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-      <View>
-        <Text style={s.sectionLabel}>Indirizzo</Text>
-        <View style={s.inputWrap}>
-          <Ionicons name="location-outline" size={18} color={Colors.textTertiary} />
-          <TextInput
-            style={s.input}
-            placeholder="Indirizzo completo"
-            placeholderTextColor={Colors.textTertiary}
-            value={address}
-            onChangeText={setAddress}
-          />
-        </View>
-      </View>
+            {/* Custom mq input — lets the user tweak to the exact value */}
+            <View style={{ marginTop: Spacing.md }}>
+              <Text style={[s.sectionLabel, { marginBottom: 6 }]}>Metri quadri esatti</Text>
+              <View style={s.inputWrap}>
+                <Ionicons name="resize-outline" size={18} color={Colors.textTertiary} />
+                <TextInput
+                  style={s.input}
+                  placeholder="es. 75"
+                  placeholderTextColor={Colors.textTertiary}
+                  keyboardType="number-pad"
+                  value={String(sqm)}
+                  onChangeText={(t) => {
+                    const n = parseInt(t.replace(/[^0-9]/g, ""), 10);
+                    setSqm(Number.isNaN(n) ? 0 : Math.min(500, n));
+                  }}
+                />
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, fontWeight: "600" }}>mq</Text>
+              </View>
+              <Text style={[s.roomHint, { marginTop: 8 }]}>
+                Durata stimata: {estimatedHours.toFixed(1)}h · Cleaner riceve €{breakdown.cleanerReceives.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          <View>
+            <Text style={s.sectionLabel}>Indirizzo</Text>
+            <View style={s.inputWrap}>
+              <Ionicons name="location-outline" size={18} color={Colors.textTertiary} />
+              <TextInput
+                style={s.input}
+                placeholder="Indirizzo completo"
+                placeholderTextColor={Colors.textTertiary}
+                value={address}
+                onChangeText={setAddress}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
       <View>
         <Text style={s.sectionLabel}>Note (opzionale)</Text>
