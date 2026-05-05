@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   Switch,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -56,6 +57,10 @@ import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 // doesn't carry a stripe_customer_id field in the current type we look for a
 // dedicated flag stored locally after the user adds a card.
 const PAYMENT_METHOD_KEY = "cleanhome.client_has_payment_method";
+// AsyncStorage key for caching the last map region the user was on.
+// Used to restore the map to the correct position instantly on cold start,
+// avoiding the 1-3s flash on Rome before GPS resolves.
+const LAST_KNOWN_REGION_KEY = "cleanhome.last_known_region";
 
 const { width: SCREEN_WIDTH, width: SW, height: SH } = Dimensions.get("window");
 
@@ -499,6 +504,21 @@ export default function HomeScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
+  // True when the user has explicitly denied foreground location permission.
+  // Drives the "Attiva GPS" banner so they can navigate to Settings.
+  const [gpsPermissionDenied, setGpsPermissionDenied] = useState(false);
+
+  // Persist a real (non-Rome) region to AsyncStorage so the next cold
+  // start can restore it instantly without waiting for GPS.
+  const persistRegion = useCallback((r: Region) => {
+    if (
+      r.latitude === DEFAULT_REGION.latitude &&
+      r.longitude === DEFAULT_REGION.longitude
+    ) {
+      return; // Never persist the Rome fallback
+    }
+    AsyncStorage.setItem(LAST_KNOWN_REGION_KEY, JSON.stringify(r)).catch(() => {});
+  }, []);
 
   // ── Coach marks ────────────────────────────────────────────────────────────
   const [showCoachMarks, setShowCoachMarks] = useState(false);
@@ -778,28 +798,106 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
+    // Multi-phase location strategy — fastest visible result wins:
+    //
+    // Phase A) AsyncStorage last-known region  → applied in <50ms (sync read)
+    // Phase B) Location.getLastKnownPositionAsync (cached OS fix, ~0ms)
+    // Phase C) Location.getCurrentPositionAsync  (precise, but 1-3s)
+    // Phase D) DEFAULT_REGION (Rome) → only if GPS never available / denied
+    //
+    // Phases A and B run in parallel immediately after mount; C follows once
+    // we know the permission is granted. The first valid non-Rome coordinate
+    // wins for the initial search anchor. C updates the map when it resolves.
     (async () => {
-      // Request GPS permission and use the client's real location as the
-      // anchor for the cleaner search.
-      let lat = DEFAULT_REGION.latitude;
-      let lng = DEFAULT_REGION.longitude;
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
+      let searchLat = DEFAULT_REGION.latitude;
+      let searchLng = DEFAULT_REGION.longitude;
+      let gotRealPosition = false;
+
+      // ── Phase A: AsyncStorage last-known (fastest) ──────────────────────
+      // Read in parallel with the permission request so we don't block.
+      const [cachedRaw, { status }] = await Promise.all([
+        AsyncStorage.getItem(LAST_KNOWN_REGION_KEY).catch(() => null),
+        Location.requestForegroundPermissionsAsync(),
+      ]);
+
+      if (cachedRaw) {
         try {
-          const loc = await Location.getCurrentPositionAsync({});
-          lat = loc.coords.latitude;
-          lng = loc.coords.longitude;
-          setRegion({
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.06,
-            longitudeDelta: 0.06,
-          });
+          const cached = JSON.parse(cachedRaw) as Region;
+          if (cached.latitude && cached.longitude) {
+            setRegion(cached);
+            searchLat = cached.latitude;
+            searchLng = cached.longitude;
+            gotRealPosition = true;
+            // Kick off the search immediately with the cached position so
+            // the user sees nearby cleaners before GPS even resolves.
+            void loadCleanersAtPoint(searchLat, searchLng);
+          }
         } catch {}
       }
-      await loadCleanersAtPoint(lat, lng);
+
+      if (status !== "granted") {
+        setGpsPermissionDenied(true);
+        // If we have a cached region use it, otherwise fall back to Rome.
+        if (!gotRealPosition) {
+          await loadCleanersAtPoint(searchLat, searchLng);
+        }
+        return;
+      }
+
+      setGpsPermissionDenied(false);
+
+      // ── Phase B: getLastKnownPositionAsync (near-instant OS cache) ──────
+      if (!gotRealPosition) {
+        try {
+          const lastKnown = await Location.getLastKnownPositionAsync({
+            maxAge: 60_000, // accept a fix up to 60s old
+          });
+          if (lastKnown) {
+            const r: Region = {
+              latitude: lastKnown.coords.latitude,
+              longitude: lastKnown.coords.longitude,
+              latitudeDelta: 0.06,
+              longitudeDelta: 0.06,
+            };
+            setRegion(r);
+            persistRegion(r);
+            searchLat = r.latitude;
+            searchLng = r.longitude;
+            gotRealPosition = true;
+            void loadCleanersAtPoint(searchLat, searchLng);
+          }
+        } catch {}
+      }
+
+      // ── Phase C: getCurrentPositionAsync (precise, replaces B when ready)
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const r: Region = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          latitudeDelta: 0.06,
+          longitudeDelta: 0.06,
+        };
+        setRegion(r);
+        persistRegion(r);
+        // Only re-search if the position changed meaningfully (>~500m)
+        // or we had no real position yet, to avoid a redundant API call.
+        const latDiff = Math.abs(loc.coords.latitude - searchLat);
+        const lngDiff = Math.abs(loc.coords.longitude - searchLng);
+        if (!gotRealPosition || latDiff > 0.005 || lngDiff > 0.005) {
+          await loadCleanersAtPoint(loc.coords.latitude, loc.coords.longitude);
+        }
+      } catch {
+        // Phase C failed (timeout, etc.) — the Phase A/B result is already shown.
+        if (!gotRealPosition) {
+          // Nothing worked — use Rome fallback.
+          await loadCleanersAtPoint(DEFAULT_REGION.latitude, DEFAULT_REGION.longitude);
+        }
+      }
     })();
-  }, [loadCleanersAtPoint]);
+  }, [loadCleanersAtPoint, persistRegion]);
 
   const handleSearch = useCallback(
     async (city: string) => {
@@ -933,7 +1031,6 @@ export default function HomeScreen() {
       <MapView
         ref={mapRef}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-        initialRegion={DEFAULT_REGION}
         region={region}
         showsUserLocation
         showsMyLocationButton={false}
@@ -1474,21 +1571,67 @@ export default function HomeScreen() {
         }}
         activeOpacity={0.85}
         onPress={async () => {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted") {
+            setGpsPermissionDenied(true);
+            return;
+          }
+          setGpsPermissionDenied(false);
           try {
-            const loc = await Location.getCurrentPositionAsync({});
-            const newRegion = {
+            const loc = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            const newRegion: Region = {
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
               latitudeDelta: 0.04,
               longitudeDelta: 0.04,
             };
             setRegion(newRegion);
+            persistRegion(newRegion);
             mapRef.current?.animateToRegion(newRegion, 400);
           } catch {}
         }}
       >
         <Ionicons name="navigate" size={20} color={Colors.secondary} />
       </TouchableOpacity>
+
+      {/* ── GPS permission denied banner ── */}
+      {gpsPermissionDenied && (
+        <Pressable
+          onPress={() => Linking.openSettings()}
+          style={{
+            position: "absolute",
+            bottom: CAROUSEL_BOTTOM + 12,
+            left: 16,
+            right: 16,
+            zIndex: 20,
+            backgroundColor: "#022420",
+            borderRadius: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            gap: 12,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <Ionicons name="location-outline" size={20} color="#ffffff" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
+              Attiva GPS per vedere i cleaner vicini
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 11, marginTop: 2 }}>
+              Tocca per aprire le Impostazioni
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+        </Pressable>
+      )}
 
       {/* ── Ghost Views for tab bar measurement ──────────────────────────────
           These transparent Views are positioned exactly over the tab bar
