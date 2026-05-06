@@ -1,9 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { View, Pressable, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
 import { useUnreadNotificationsCount } from "../lib/hooks/useUnreadNotificationsCount";
+import { NotificationsDropdown } from "./NotificationsDropdown";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -20,37 +21,55 @@ export function NotificationBell({
   color = "#022420",
   size = 40,
 }: NotificationBellProps) {
-  const router = useRouter();
   const { user } = useAuth();
   const { count } = useUnreadNotificationsCount(user?.id);
+  const insets = useSafeAreaInsets();
+
+  const [open, setOpen] = useState(false);
 
   const handlePress = useCallback(() => {
-    router.push("/(tabs)/notifications");
-  }, [router]);
+    setOpen(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
 
   const badgeLabel = count > 9 ? "9+" : count > 0 ? String(count) : null;
 
-  return (
-    <Pressable
-      onPress={handlePress}
-      accessibilityLabel={
-        count > 0 ? `Notifiche, ${count} non lette` : "Notifiche"
-      }
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.wrap,
-        { width: size, height: size, borderRadius: size / 2 },
-        pressed && styles.pressed,
-      ]}
-    >
-      <Ionicons name="notifications-outline" size={22} color={color} />
+  // Position the dropdown below the status bar + top inset + header (≈56px)
+  const dropdownTopOffset = insets.top + 56;
 
-      {badgeLabel !== null && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badgeLabel}</Text>
-        </View>
-      )}
-    </Pressable>
+  return (
+    <>
+      <Pressable
+        onPress={handlePress}
+        accessibilityLabel={
+          count > 0 ? `Notifiche, ${count} non lette` : "Notifiche"
+        }
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.wrap,
+          { width: size, height: size, borderRadius: size / 2 },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons name="notifications-outline" size={22} color={color} />
+
+        {badgeLabel !== null && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badgeLabel}</Text>
+          </View>
+        )}
+      </Pressable>
+
+      <NotificationsDropdown
+        visible={open}
+        onClose={handleClose}
+        userId={user?.id}
+        topOffset={dropdownTopOffset}
+      />
+    </>
   );
 }
 
