@@ -152,10 +152,19 @@ serve(async (req: Request) => {
     let cleanerIds: string[] = [];
     let legacyCleanerStripeAccount: string | null = null;
 
+    // DEV ONLY: set ALLOW_SELF_BOOKING=true on the Supabase project to bypass
+    // the anti-self-booking check. NEVER set this in production.
+    const allowSelfBooking = Deno.env.get("ALLOW_SELF_BOOKING") === "true";
+
     if (body.cleaner_id && UUID_RE.test(body.cleaner_id)) {
       // MODE A: legacy single-cleaner
       if (body.cleaner_id === client.id) {
-        return json({ error: "Non puoi prenotare te stesso" }, 400);
+        if (!allowSelfBooking) {
+          return json({ error: "Non puoi prenotare te stesso" }, 400);
+        }
+        console.warn(
+          "[stripe-booking-payment] self-booking allowed by dev override (ALLOW_SELF_BOOKING=true)"
+        );
       }
       dispatchMode = "legacy";
       cleanerIds = [body.cleaner_id];
@@ -174,8 +183,9 @@ serve(async (req: Request) => {
 
     } else if (body.preferred_cleaner_ids && body.preferred_cleaner_ids.length > 0) {
       // MODE B1: preferred cleaner list
+      // DEV ONLY: self-booking bypass — include self when ALLOW_SELF_BOOKING=true
       const ids = body.preferred_cleaner_ids.filter(
-        (id) => UUID_RE.test(id) && id !== client.id
+        (id) => UUID_RE.test(id) && (allowSelfBooking || id !== client.id)
       ).slice(0, MAX_CLEANERS);
       if (ids.length === 0) {
         return json({ error: "Nessun cleaner valido in preferred_cleaner_ids" }, 400);
@@ -201,9 +211,10 @@ serve(async (req: Request) => {
           lat: body.search_lat,
           lng: body.search_lng,
         });
+      // DEV ONLY: self-booking bypass — include self when ALLOW_SELF_BOOKING=true
       const nearby = (listings ?? [])
         .map((l: any) => l.cleaner_id)
-        .filter((id: string) => id !== client.id)
+        .filter((id: string) => allowSelfBooking || id !== client.id)
         .slice(0, MAX_CLEANERS);
       if (nearby.length === 0) {
         return json({ error: "Nessun professionista disponibile in questa zona" }, 404);
