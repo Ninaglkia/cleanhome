@@ -33,6 +33,7 @@ import { UserProfile } from "../../lib/types";
 import { uploadAvatar, removeAvatar, deleteOwnAccount } from "../../lib/api";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
+import { CleanerPayoutSection } from "../../components/CleanerPayoutSection";
 
 const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
@@ -338,6 +339,7 @@ function MenuRow({
 // ─── Client profile view ──────────────────────────────────────────────────────
 
 interface CleanerViewProps {
+  cleanerId: string | null | undefined;
   initials: string;
   fullName: string;
   avatarUrl?: string | null;
@@ -362,6 +364,7 @@ interface CleanerViewProps {
 }
 
 function CleanerView({
+  cleanerId,
   initials,
   fullName,
   avatarUrl,
@@ -432,6 +435,11 @@ function CleanerView({
             inactiveColor="#4fc4a3"
           />
         </View>
+      </View>
+
+      {/* ── Sezione pagamenti / Stripe Connect ── */}
+      <View style={payoutStyles.section}>
+        <CleanerPayoutSection cleanerId={cleanerId} />
       </View>
 
       {/* ── Menu rows (card indipendenti) — monocolore verde ── */}
@@ -1049,6 +1057,7 @@ export default function ProfileScreen() {
         >
           {isCleaner ? (
             <CleanerView
+              cleanerId={user?.id}
               initials={initials}
               fullName={profile?.full_name ?? "Utente"}
               avatarUrl={profile?.avatar_url}
@@ -1632,6 +1641,14 @@ const clientStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: C.error,
+  },
+});
+
+// ─── Payout section container ─────────────────────────────────────────────────
+const payoutStyles = StyleSheet.create({
+  section: {
+    paddingHorizontal: 20,
+    marginTop: 16,
   },
 });
 
