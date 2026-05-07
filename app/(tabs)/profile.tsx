@@ -349,7 +349,6 @@ interface CleanerViewProps {
   onPreviewClose: () => void;
   onEditProfile: () => void;
   onListing: () => void;
-  onPayments: () => void;
   onDocuments: () => void;
   onLegal: () => void;
   onPrivacy: () => void;
@@ -374,7 +373,6 @@ function CleanerView({
   onPreviewClose,
   onEditProfile,
   onListing,
-  onPayments,
   onDocuments,
   onLegal,
   onPrivacy,
@@ -464,14 +462,6 @@ function CleanerView({
             cardStyle
           />
         </View>
-        <MenuRow
-          icon="card-outline"
-          label="Metodo di Pagamento"
-          sublabel="Mastercard •••• 4242"
-          onPress={onPayments}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
         <View ref={documentsRef}>
           <MenuRow
             icon="document-text-outline"
@@ -1067,7 +1057,6 @@ export default function ProfileScreen() {
               onPreviewClose={() => setPreviewVisible(false)}
               onEditProfile={handleEditProfile}
               onListing={handleListing}
-              onPayments={handlePayments}
               onDocuments={handleDocuments}
               onLegal={handleLegal}
               onPrivacy={handlePrivacy}
