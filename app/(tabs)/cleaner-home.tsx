@@ -40,6 +40,7 @@ import {
 import { Booking, BookingOffer } from "../../lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCountdown } from "../../lib/hooks/useCountdown";
+import { useIdentityVerification } from "../../lib/hooks/useIdentityVerification";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 
@@ -457,20 +458,18 @@ export default function CleanerHomeScreen() {
   }, []);
 
   // ── Profile completion banner ──────────────────────────────────────────────
-  // We query whether the cleaner has listings/documents by inspecting what
-  // data already loaded. For documents we use a local AsyncStorage flag set
-  // after the user uploads their first doc (to avoid an extra Supabase query).
-  const [hasVerifiedDoc, setHasVerifiedDoc] = useState(false);
+  // ── Profile completion banner ──────────────────────────────────────────────
+  // stripe_identity_status is fetched live from cleaner_profiles (realtime),
+  // so the banner updates automatically when the Stripe Identity webhook fires.
+  const { isVerified: hasVerifiedDoc } = useIdentityVerification(user?.id);
   const [hasStripeConnect, setHasStripeConnect] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem("cleanhome.cleaner_doc_verified"),
-      AsyncStorage.getItem("cleanhome.cleaner_stripe_connect_active"),
-    ]).then(([doc, stripe]) => {
-      setHasVerifiedDoc(doc === "1");
-      setHasStripeConnect(stripe === "1");
-    }).catch(() => {});
+    AsyncStorage.getItem("cleanhome.cleaner_stripe_connect_active")
+      .then((stripe) => {
+        setHasStripeConnect(stripe === "1");
+      })
+      .catch(() => {});
   }, []);
 
   const hasActiveListing = useMemo(

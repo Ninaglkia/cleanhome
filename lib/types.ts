@@ -108,6 +108,13 @@ export interface ListingSearchResult {
   review_count: number;
 }
 
+export type StripeIdentityStatus =
+  | "not_started"
+  | "processing"
+  | "verified"
+  | "requires_input"
+  | "canceled";
+
 export interface CleanerProfile {
   id: string;
   full_name: string;
@@ -128,6 +135,11 @@ export interface CleanerProfile {
   coverage_center_lng?: number | null;
   coverage_radius_km?: number | null;
   coverage_polygon?: PolygonPoint[] | null;
+  // Stripe Identity verification
+  stripe_identity_session_id?: string | null;
+  stripe_identity_status?: StripeIdentityStatus | null;
+  stripe_identity_verified_at?: string | null;
+  stripe_identity_last_error?: string | null;
 }
 
 export interface Message {
