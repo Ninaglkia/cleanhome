@@ -41,6 +41,7 @@ import { uploadAvatar, removeAvatar, deleteOwnAccount } from "../../lib/api";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 import { CleanerPayoutSection } from "../../components/CleanerPayoutSection";
+import { ProfileStatsStrip } from "../../components/profile/ProfileStatsStrip";
 
 const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
@@ -453,6 +454,9 @@ function CleanerView({
         <Text style={clientStyles.heroRole}>PROFESSIONISTA</Text>
       </View>
 
+      {/* ── Stats strip ── */}
+      <ProfileStatsStrip userId={cleanerId} role="cleaner" />
+
       {/* ── Toggle card ── */}
       <View style={clientStyles.toggleSection}>
         <View style={clientStyles.toggleCard}>
@@ -567,6 +571,7 @@ function CleanerView({
 // ─── Cleaner profile view ─────────────────────────────────────────────────────
 
 interface ClientViewProps {
+  clientId: string | null | undefined;
   initials: string;
   fullName: string;
   avatarUrl?: string | null;
@@ -592,6 +597,7 @@ interface ClientViewProps {
 }
 
 function ClientView({
+  clientId,
   initials,
   fullName,
   avatarUrl,
@@ -657,6 +663,9 @@ function ClientView({
           CLIENTE PREMIUM
         </Text>
       </View>
+
+      {/* ── Stats strip ── */}
+      <ProfileStatsStrip userId={clientId} role="client" />
 
       <View style={styles.toggleSection}>
         <View style={[styles.toggleCard, { backgroundColor: C.cleanerPrimary }]}>
@@ -1163,6 +1172,7 @@ export default function ProfileScreen() {
             />
           ) : (
             <ClientView
+              clientId={user?.id}
               initials={initials}
               fullName={profile?.full_name ?? "Utente"}
               avatarUrl={profile?.avatar_url}
