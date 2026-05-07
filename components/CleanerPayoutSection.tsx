@@ -266,12 +266,12 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
           disabled={invoking}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           accessibilityRole="link"
-          accessibilityLabel="Gestisci i tuoi metodi di pagamento"
+          accessibilityLabel="Gestisci pagamenti e dati bancari"
         >
           <Text style={[styles.linkText, { color: TOKEN.activeLink }]}>
             {invoking
               ? "Apertura in corso…"
-              : "Gestisci i tuoi metodi di pagamento →"}
+              : "Gestisci pagamenti e dati bancari →"}
           </Text>
         </Pressable>
       </View>
