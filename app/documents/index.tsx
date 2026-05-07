@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -150,7 +150,26 @@ function VerifiedCard({ verifiedAt }: { verifiedAt: string | null }) {
   );
 }
 
-function ProcessingCard() {
+interface ProcessingCardProps {
+  onRefresh: () => void;
+  onRestart: () => void;
+  isRefreshing: boolean;
+  isRestarting: boolean;
+}
+
+function ProcessingCard({
+  onRefresh,
+  onRestart,
+  isRefreshing,
+  isRestarting,
+}: ProcessingCardProps) {
+  const [restartVisible, setRestartVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setRestartVisible(true), 15000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <Animated.View entering={FadeInDown.springify().damping(20)}>
       <View style={styles.processingCard}>
@@ -164,6 +183,46 @@ function ProcessingCard() {
           Stiamo controllando i tuoi dati. Riceverai una notifica appena pronto.{"\n"}
           (di solito 2-5 minuti)
         </Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.processingRefreshBtn,
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={onRefresh}
+          disabled={isRefreshing}
+          accessibilityLabel="Aggiorna stato verifica"
+          accessibilityRole="button"
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color={Colors.secondary} />
+          ) : (
+            <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
+          )}
+        </Pressable>
+
+        {restartVisible && (
+          <Animated.View entering={FadeInDown.springify().damping(20)}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.processingRestartBtn,
+                pressed && { opacity: 0.75 },
+              ]}
+              onPress={onRestart}
+              disabled={isRestarting}
+              accessibilityLabel="Ricomincia la verifica identità"
+              accessibilityRole="button"
+            >
+              {isRestarting ? (
+                <ActivityIndicator size="small" color={Colors.textSecondary} />
+              ) : (
+                <Text style={styles.processingRestartBtnText}>
+                  Ricomincia verifica
+                </Text>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
       </View>
     </Animated.View>
   );
@@ -317,6 +376,7 @@ export default function DocumentsScreen() {
     useIdentityVerification(user?.id);
 
   const [sdkLoading, setSdkLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [faqVisible, setFaqVisible] = useState(false);
 
   // useStripeIdentity requires a stable optionsProvider ref.
@@ -356,6 +416,15 @@ export default function DocumentsScreen() {
       setSdkLoading(false);
     }
   }, [isCtaLoading, present, refetch]);
+
+  const handleRefetch = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
 
   const handleFaqOpen = useCallback(() => setFaqVisible(true), []);
   const handleFaqClose = useCallback(() => setFaqVisible(false), []);
@@ -402,7 +471,14 @@ export default function DocumentsScreen() {
     }
 
     if (status === "processing") {
-      return <ProcessingCard />;
+      return (
+        <ProcessingCard
+          onRefresh={handleRefetch}
+          onRestart={handleStartVerification}
+          isRefreshing={isRefreshing}
+          isRestarting={isCtaLoading}
+        />
+      );
     }
 
     if (status === "requires_input") {
@@ -716,6 +792,40 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
+  },
+  processingRefreshBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.secondary,
+    borderRadius: Radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.sm,
+    minWidth: 160,
+    height: 44,
+    ...Shadows.sm,
+  },
+  processingRefreshBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  processingRestartBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.full,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xs,
+    minWidth: 160,
+    height: 40,
+    borderWidth: 1.5,
+    borderColor: Colors.textSecondary,
+  },
+  processingRestartBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.textSecondary,
   },
 
   // Warning card (requires_input)
