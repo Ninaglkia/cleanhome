@@ -1,7 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Platform, Alert, View, ActivityIndicator } from "react-native";
+import { Platform, Alert, View, Image, Text, LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StripeProvider } from "@stripe/stripe-react-native";
+
+// Silence React 19 forwardRef deprecation warnings emitted by Stripe SDK
+// internals. These are cosmetic and will be fixed upstream.
+LogBox.ignoreLogs([
+  "forwardRef render functions accept exactly two parameters",
+]);
 import ErrorBoundary from "../components/ErrorBoundary";
 import * as Sentry from "@sentry/react-native";
 
@@ -384,8 +390,41 @@ export default function RootLayout() {
 
   if (isLoading || (user && isProfileLoading && !profile)) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#f0f4f3", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#006b55" />
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#022420",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Image
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          source={require("../assets/icon.png")}
+          style={{ width: 220, height: 220, borderRadius: 36, marginBottom: 24 }}
+          resizeMode="contain"
+        />
+        <Text
+          style={{
+            color: "#ffffff",
+            fontSize: 40,
+            fontWeight: "700",
+            marginBottom: 8,
+          }}
+        >
+          CleanHome
+        </Text>
+        <Text
+          style={{
+            color: "#82f4d1",
+            fontSize: 12,
+            fontWeight: "500",
+            letterSpacing: 4,
+            textTransform: "uppercase",
+          }}
+        >
+          La tua casa al meglio
+        </Text>
       </View>
     );
   }
