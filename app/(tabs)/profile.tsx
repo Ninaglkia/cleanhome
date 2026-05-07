@@ -19,8 +19,6 @@ import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
 import * as ImagePicker from "expo-image-picker";
-import * as WebBrowser from "expo-web-browser";
-import { supabase } from "../../lib/supabase";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -358,7 +356,6 @@ interface CleanerViewProps {
   onEditProfile: () => void;
   onListing: () => void;
   onDocuments: () => void;
-  onBankData: () => void;
   onLegal: () => void;
   onPrivacy: () => void;
   onSwitchRole: () => void;
@@ -385,7 +382,6 @@ function CleanerView({
   onEditProfile,
   onListing,
   onDocuments,
-  onBankData,
   onLegal,
   onPrivacy,
   onSwitchRole,
@@ -457,20 +453,15 @@ function CleanerView({
       {/* ── Stats strip ── */}
       <ProfileStatsStrip userId={cleanerId} role="cleaner" />
 
-      {/* ── Toggle card ── */}
-      <View style={clientStyles.toggleSection}>
-        <View style={clientStyles.toggleCard}>
-          <View style={styles.toggleLeft}>
-            <Text style={styles.toggleTitle}>Modalità Professionista</Text>
-            <Text style={styles.toggleSub}>Gestisci i tuoi annunci e prenotazioni</Text>
-          </View>
-          <AnimatedToggle
-            value={false}
-            onValueChange={() => onSwitchRole()}
-            activeColor="#D4A574"
-            inactiveColor="#4fc4a3"
-          />
-        </View>
+      {/* ── Toggle compatto ── */}
+      <View style={compactToggleStyles.row}>
+        <Text style={compactToggleStyles.label}>Modalità Professionista</Text>
+        <AnimatedToggle
+          value={false}
+          onValueChange={() => onSwitchRole()}
+          activeColor="#D4A574"
+          inactiveColor="#4fc4a3"
+        />
       </View>
 
       {/* ── Sezione pagamenti / Stripe Connect ── */}
@@ -480,65 +471,60 @@ function CleanerView({
         </Animated.View>
       </View>
 
-      {/* ── Menu rows (card indipendenti) — monocolore verde ── */}
-      <View style={clientStyles.menuSection}>
-        <View ref={editProfileRef}>
-          <MenuRow
-            icon="person-outline"
-            label="Modifica Profilo"
-            sublabel="Gestisci le tue informazioni personali"
-            onPress={onEditProfile}
-            iconBgColor={C.surfaceLow}
-            cardStyle
-          />
+      {/* ── Menu rows con sezioni ── */}
+      <View style={sectionStyles.container}>
+        {/* GESTIONE */}
+        <Text style={sectionStyles.header}>GESTIONE</Text>
+        <View style={clientStyles.menuSection}>
+          <View ref={editProfileRef}>
+            <MenuRow
+              icon="person-outline"
+              label="Modifica Profilo"
+              sublabel="Gestisci le tue informazioni personali"
+              onPress={onEditProfile}
+              iconBgColor={C.surfaceLow}
+              cardStyle
+            />
+          </View>
+          <View ref={listingRef}>
+            <MenuRow
+              icon="megaphone-outline"
+              label="I miei annunci"
+              sublabel="Gestisci i tuoi annunci e zone di copertura"
+              onPress={onListing}
+              iconBgColor={C.surfaceLow}
+              cardStyle
+            />
+          </View>
         </View>
-        <View ref={listingRef}>
-          <MenuRow
-            icon="megaphone-outline"
-            label="I miei annunci"
-            sublabel="Gestisci i tuoi annunci e zone di copertura"
-            onPress={onListing}
-            iconBgColor={C.surfaceLow}
-            cardStyle
-          />
-        </View>
-        <MenuRow
-          icon="card-outline"
-          label="Dati bancari"
-          sublabel="Conto collegato a Stripe"
-          onPress={onBankData}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
-        <View ref={documentsRef}>
-          <MenuRow
-            icon="document-text-outline"
-            label="I miei documenti"
-            sublabel="Fatture e contratti di servizio"
-            onPress={onDocuments}
-            iconBgColor={C.surfaceLow}
-            cardStyle
-          />
-        </View>
-        <MenuRow
-          icon="shield-checkmark-outline"
-          label="Privacy e Legale"
-          sublabel="Termini, condizioni e gestione dati"
-          onPress={onPrivacy}
-          iconBgColor={C.surfaceLow}
-          cardStyle
-        />
-      </View>
 
-      {/* ── Lottie animation decorativa ── */}
-      <View style={{ alignItems: "center", marginTop: 8, marginBottom: -12, opacity: 0.15 }}>
-        <LottieView
-          source={require("../../assets/lottie/cleaning.json")}
-          autoPlay
-          loop
-          speed={0.5}
-          style={{ width: 180, height: 100 }}
-        />
+        {/* VERIFICHE */}
+        <Text style={sectionStyles.header}>VERIFICHE</Text>
+        <View style={clientStyles.menuSection}>
+          <View ref={documentsRef}>
+            <MenuRow
+              icon="document-text-outline"
+              label="I miei documenti"
+              sublabel="Fatture e contratti di servizio"
+              onPress={onDocuments}
+              iconBgColor={C.surfaceLow}
+              cardStyle
+            />
+          </View>
+        </View>
+
+        {/* LEGALE */}
+        <Text style={sectionStyles.header}>LEGALE</Text>
+        <View style={clientStyles.menuSection}>
+          <MenuRow
+            icon="shield-checkmark-outline"
+            label="Privacy e Legale"
+            sublabel="Termini, condizioni e gestione dati"
+            onPress={onPrivacy}
+            iconBgColor={C.surfaceLow}
+            cardStyle
+          />
+        </View>
       </View>
 
       {/* ── Zona Account ── */}
@@ -667,84 +653,70 @@ function ClientView({
       {/* ── Stats strip ── */}
       <ProfileStatsStrip userId={clientId} role="client" />
 
-      <View style={styles.toggleSection}>
-        <View style={[styles.toggleCard, { backgroundColor: C.cleanerPrimary }]}>
-          <View style={styles.toggleLeft}>
-            <Text style={styles.toggleTitle}>Modalità Cliente</Text>
-            <Text style={styles.toggleSub}>Cerca pulitori nella tua zona</Text>
-          </View>
-          <AnimatedToggle
-            value={true}
-            onValueChange={() => onSwitchRole()}
-            activeColor="#D4A574"
-            inactiveColor="#4fc4a3"
-          />
-        </View>
+      {/* ── Toggle compatto ── */}
+      <View style={[compactToggleStyles.row, { backgroundColor: "#f5ebe0" }]}>
+        <Text style={[compactToggleStyles.label, { color: C.cleanerPrimary }]}>Modalità Cliente</Text>
+        <AnimatedToggle
+          value={true}
+          onValueChange={() => onSwitchRole()}
+          activeColor="#D4A574"
+          inactiveColor="#4fc4a3"
+        />
       </View>
 
-      {/* ── Menu CLIENTE: no annunci, no guadagni — solo prenotazioni,
-           pagamenti, documenti e legale ── */}
-      <View style={clientStyles.menuSection}>
-        <View ref={editProfileRef}>
+      {/* ── Menu CLIENTE con sezioni ── */}
+      <View style={sectionStyles.container}>
+        {/* GESTIONE */}
+        <Text style={[sectionStyles.header, { color: C.cleanerPrimary }]}>GESTIONE</Text>
+        <View style={clientStyles.menuSection}>
+          <View ref={editProfileRef}>
+            <MenuRow
+              icon="person-outline"
+              label="Modifica Profilo"
+              sublabel="Gestisci le tue informazioni personali"
+              onPress={onEditProfile}
+              iconBgColor={C.cleanerIconBg}
+              iconColor={C.cleanerPrimary}
+              cardStyle
+            />
+          </View>
+          <View ref={propertiesRef}>
+            <MenuRow
+              icon="home-outline"
+              label="Le mie case"
+              sublabel="Salva gli indirizzi che usi più spesso"
+              onPress={onProperties}
+              iconBgColor={C.cleanerIconBg}
+              iconColor={C.cleanerPrimary}
+              cardStyle
+            />
+          </View>
+          <View ref={paymentRef}>
+            <MenuRow
+              icon="card-outline"
+              label="Metodo di Pagamento"
+              sublabel="Gestisci le tue carte di pagamento"
+              onPress={onBankData}
+              iconBgColor={C.cleanerIconBg}
+              iconColor={C.cleanerPrimary}
+              cardStyle
+            />
+          </View>
+        </View>
+
+        {/* LEGALE */}
+        <Text style={[sectionStyles.header, { color: C.cleanerPrimary }]}>LEGALE</Text>
+        <View style={clientStyles.menuSection}>
           <MenuRow
-            icon="person-outline"
-            label="Modifica Profilo"
-            sublabel="Gestisci le tue informazioni personali"
-            onPress={onEditProfile}
+            icon="shield-checkmark-outline"
+            label="Privacy e Legale"
+            sublabel="Termini, condizioni e gestione dati"
+            onPress={onPrivacy}
             iconBgColor={C.cleanerIconBg}
             iconColor={C.cleanerPrimary}
             cardStyle
           />
         </View>
-        <MenuRow
-          icon="calendar-outline"
-          label="Le mie prenotazioni"
-          sublabel="Vedi lo stato delle tue richieste di pulizia"
-          onPress={onBookings}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
-        <View ref={propertiesRef}>
-          <MenuRow
-            icon="home-outline"
-            label="Le mie case"
-            sublabel="Salva gli indirizzi che usi più spesso"
-            onPress={onProperties}
-            iconBgColor={C.cleanerIconBg}
-            iconColor={C.cleanerPrimary}
-            cardStyle
-          />
-        </View>
-        <View ref={paymentRef}>
-          <MenuRow
-            icon="card-outline"
-            label="Metodo di Pagamento"
-            sublabel="Gestisci le tue carte di pagamento"
-            onPress={onBankData}
-            iconBgColor={C.cleanerIconBg}
-            iconColor={C.cleanerPrimary}
-            cardStyle
-          />
-        </View>
-        <MenuRow
-          icon="document-text-outline"
-          label="I miei documenti"
-          sublabel="Fatture e ricevute di servizio"
-          onPress={onDocuments}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
-        <MenuRow
-          icon="shield-checkmark-outline"
-          label="Privacy e Legale"
-          sublabel="Termini, condizioni e gestione dati"
-          onPress={onPrivacy}
-          iconBgColor={C.cleanerIconBg}
-          iconColor={C.cleanerPrimary}
-          cardStyle
-        />
       </View>
 
       {/* ── Zona Account ── */}
@@ -788,9 +760,6 @@ export default function ProfileScreen() {
   // Track the logout setTimeout so it can be cleared on unmount and
   // avoid setState-after-unmount + stuck animation if user navigates away.
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Prevent double-tap while Stripe Connect link is loading
-  const [invokingBank, setInvokingBank] = useState(false);
 
   // ── Stripe focus highlight ─────────────────────────────────────────────────
   const [highlightStripe, setHighlightStripe] = useState(false);
@@ -1073,28 +1042,6 @@ export default function ProfileScreen() {
     router.push("/payments");
   }, [router]);
 
-  const handleCleanerBankData = useCallback(async () => {
-    if (invokingBank) return;
-    setInvokingBank(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "stripe-connect-onboarding-link",
-        { body: {} }
-      );
-      if (error) throw error;
-      const url = (data as { url?: string } | null)?.url;
-      if (!url) throw new Error("Nessun URL ricevuto");
-      await WebBrowser.openAuthSessionAsync(url, "cleanhome://stripe-connect/return");
-    } catch (err) {
-      Alert.alert(
-        "Errore",
-        err instanceof Error ? err.message : "Impossibile aprire la dashboard Stripe"
-      );
-    } finally {
-      setInvokingBank(false);
-    }
-  }, [invokingBank]);
-
   const handleViewListing = useCallback(() => {
     router.push("/cleaner/profile-view");
   }, [router]);
@@ -1157,7 +1104,6 @@ export default function ProfileScreen() {
               onEditProfile={handleEditProfile}
               onListing={handleListing}
               onDocuments={handleDocuments}
-              onBankData={handleCleanerBankData}
               onLegal={handleLegal}
               onPrivacy={handlePrivacy}
               onSwitchRole={handleSwitchRole}
@@ -1470,39 +1416,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ── Toggle card ───────────────────────────────────────────────────────────────
-  toggleSection: {
-    paddingHorizontal: 20,
-    marginTop: 16,
-  },
-  toggleCard: {
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 80,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  toggleLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  toggleTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  toggleSub: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.7)",
-  },
-
   // ── Sign out ──────────────────────────────────────────────────────────────────
   signOutButton: {
     alignItems: "center",
@@ -1617,8 +1530,6 @@ const styles = StyleSheet.create({
 // ─── Client profile styles (Stitch client_profile_dashboard) ─────────────────
 // Separati per non toccare gli stili condivisi usati da ClientView.
 
-const CLIENT_TOGGLE_BG = "#1A3C34";
-
 const clientStyles = StyleSheet.create({
   // ── Hero ────────────────────────────────────────────────────────────────────
   heroSection: {
@@ -1688,28 +1599,6 @@ const clientStyles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // ── Toggle card ─────────────────────────────────────────────────────────────
-  toggleSection: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  // bg: #1a3a35 (primary-container per client)
-  toggleCard: {
-    backgroundColor: CLIENT_TOGGLE_BG,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 80,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-
   // ── Menu section (rows indipendenti) ────────────────────────────────────────
   menuSection: {
     paddingHorizontal: 20,
@@ -1758,5 +1647,42 @@ const dangerStyles = StyleSheet.create({
     letterSpacing: 1.4,
     marginLeft: 4,
     marginBottom: 4,
+  },
+});
+
+// ─── Compact toggle row ────────────────────────────────────────────────────────
+const compactToggleStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: C.surfaceLow,
+    borderRadius: 14,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.primary,
+  },
+});
+
+// ─── Section headers (menu hierarchy) ─────────────────────────────────────────
+const sectionStyles = StyleSheet.create({
+  container: {
+    marginTop: 8,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: "#64748b",
   },
 });
