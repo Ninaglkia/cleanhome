@@ -24,6 +24,26 @@ Sentry.init({
   tracesSampleRate: ENV === "production" ? 1.0 : 0.1,
 });
 
+// Production safety checks — these warn at runtime so accidental
+// misconfigurations surface immediately on first launch of a prod build.
+if (!__DEV__) {
+  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+  if (stripeKey.startsWith("pk_test_")) {
+    console.warn(
+      "[CleanHome] WARNING: Stripe publishable key is a TEST key in a production build. " +
+        "Replace EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY with the live key before shipping."
+    );
+  }
+
+  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
+  if (!sentryDsn) {
+    console.warn(
+      "[CleanHome] WARNING: EXPO_PUBLIC_SENTRY_DSN is empty in a production build. " +
+        "Crash reports will NOT be captured by Sentry. Set the DSN in your EAS environment."
+    );
+  }
+}
+
 // Global safety net: catch any promise that escapes a try/catch / .catch().
 // Without this React Native LogBox surfaces "Uncaught (in promise)" warnings
 // that confuse users on dev builds. In prod, also ship to Sentry for
