@@ -9,6 +9,7 @@
         "@expo/vector-icons": "^15.1.1",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@sentry/react-native": "~7.11.0",
+        "@stripe/stripe-identity-react-native": "0.8.0",
         "@stripe/stripe-react-native": "^0.63.0",
         "@supabase/supabase-js": "^2.100.1",
         "babel-preset-expo": "^55.0.12",
@@ -468,6 +469,8 @@
     "@sinonjs/commons": ["@sinonjs/commons@3.0.1", "", { "dependencies": { "type-detect": "4.0.8" } }, "sha512-K3mCHKQ9sVh8o1C9cxkwxaOmXoAMlDxC1mYyHrjqOWEcBjYr76t96zL2zlj5dUGZ3HSw240X1qgH3Mjf1yJWpQ=="],
 
     "@sinonjs/fake-timers": ["@sinonjs/fake-timers@10.3.0", "", { "dependencies": { "@sinonjs/commons": "^3.0.0" } }, "sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA=="],
+
+    "@stripe/stripe-identity-react-native": ["@stripe/stripe-identity-react-native@0.8.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-fnFPB2bpHEsAzwhovERHutGliyz/XABM3XWdUFtzyq3HYBD1gMLUYSD3pkJLNHnRPlG2a1NpuGDswhAY6r6DrA=="],
 
     "@stripe/stripe-react-native": ["@stripe/stripe-react-native@0.63.0", "", { "peerDependencies": { "expo": ">=46.0.9", "react": "*", "react-native": "*", "react-native-webview": "*" }, "optionalPeers": ["react-native-webview"] }, "sha512-5vy+b+sP3xOqtHDZ2nezOIx0MWbcrJ/hwoL74gAc2Qa+/wF/JVjzirG8zVD7AtMYFjlIldmznpSePaPEaLJLWA=="],
 

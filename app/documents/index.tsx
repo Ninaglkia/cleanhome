@@ -1,270 +1,442 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
   Pressable,
-  TouchableOpacity,
   ScrollView,
   StatusBar,
   StyleSheet,
   Alert,
-  RefreshControl,
+  Image,
   ActivityIndicator,
-  Share,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import * as ImagePicker from "expo-image-picker";
-import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
+import Animated, {
+  FadeInDown,
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import { useStripeIdentity } from "@stripe/stripe-identity-react-native";
+import type { IdentityVerificationSheetStatus } from "@stripe/stripe-identity-react-native";
 import { useAuth } from "../../lib/auth";
-import { useUserDocuments, type UserDocument, type DocumentKind } from "../../lib/hooks/useUserDocuments";
-import { getDocumentSignedUrl } from "../../lib/api";
+import { useIdentityVerification } from "../../lib/hooks/useIdentityVerification";
+import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string): string {
+function formatDateIT(iso: string): string {
   return new Date(iso).toLocaleDateString("it-IT", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
 }
 
-function getMimeIcon(
-  mimeType: string
-): React.ComponentProps<typeof Ionicons>["name"] {
-  if (mimeType.includes("pdf")) return "document-text-outline";
-  if (mimeType.includes("image")) return "image-outline";
-  if (mimeType.includes("word") || mimeType.includes("doc")) return "document-outline";
-  return "attach-outline";
+/** Parses a Stripe Identity client_secret into sessionId + ephemeralKeySecret.
+ *  Format: "<sessionId>_secret_<random>"  */
+function parseClientSecret(
+  clientSecret: string
+): { sessionId: string; ephemeralKeySecret: string } {
+  const idx = clientSecret.indexOf("_secret_");
+  if (idx === -1) {
+    throw new Error("Formato client_secret non valido");
+  }
+  return {
+    sessionId: clientSecret.slice(0, idx),
+    ephemeralKeySecret: clientSecret,
+  };
 }
 
-const KIND_LABELS: Record<DocumentKind, string> = {
-  id_card: "Carta d'identità",
-  passport: "Passaporto",
-  driving_license: "Patente",
-  tax_code: "Codice fiscale", // legacy — kept for backward-compat with existing rows
-  other: "Altro",
-};
+// ─── FAQ Modal ────────────────────────────────────────────────────────────────
 
-// ─── Document card ─────────────────────────────────────────────────────────────
-
-interface DocumentCardProps {
-  doc: UserDocument;
-  onDelete: (id: string) => void;
-  onShare: (doc: UserDocument) => void;
-}
-
-function DocumentCard({ doc, onDelete, onShare }: DocumentCardProps) {
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      "Elimina documento",
-      `Vuoi eliminare "${doc.name}"? Questa azione non può essere annullata.`,
-      [
-        { text: "Annulla", style: "cancel" },
-        {
-          text: "Elimina",
-          style: "destructive",
-          onPress: () => onDelete(doc.id),
-        },
-      ]
-    );
-  }, [doc.id, doc.name, onDelete]);
-
-  const handleShare = useCallback(() => {
-    onShare(doc);
-  }, [doc, onShare]);
-
+function FaqModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
   return (
-    <Animated.View entering={FadeInDown.springify().damping(22)}>
-      <View style={styles.docCard}>
-        {/* Icon */}
-        <View style={styles.docIconWrap}>
-          <Ionicons
-            name={getMimeIcon(doc.mime_type)}
-            size={26}
-            color={Colors.secondary}
-          />
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.faqOverlay}>
+        <Pressable style={styles.faqBackdrop} onPress={onClose} />
+        <View style={styles.faqSheet}>
+          <View style={styles.faqHandle} />
+          <Text style={styles.faqTitle}>Come funziona la verifica?</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {FAQ_ITEMS.map((item, i) => (
+              <View key={i} style={styles.faqItem}>
+                <Text style={styles.faqQ}>{item.q}</Text>
+                <Text style={styles.faqA}>{item.a}</Text>
+              </View>
+            ))}
+          </ScrollView>
+          <Pressable
+            style={({ pressed }) => [
+              styles.faqCloseBtn,
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={onClose}
+            accessibilityLabel="Chiudi"
+            accessibilityRole="button"
+          >
+            <Text style={styles.faqCloseBtnText}>Chiudi</Text>
+          </Pressable>
         </View>
+      </View>
+    </Modal>
+  );
+}
 
-        {/* Info */}
-        <View style={styles.docInfo}>
-          <Text style={styles.docName} numberOfLines={1}>{doc.name}</Text>
-          <Text style={styles.docKind}>{KIND_LABELS[doc.kind] ?? doc.kind}</Text>
-          <Text style={styles.docMeta}>
-            {formatBytes(doc.size_bytes)} · {formatDate(doc.created_at)}
+const FAQ_ITEMS = [
+  {
+    q: "Quali documenti posso usare?",
+    a: "Puoi usare carta d'identità, passaporto o patente di guida. Il documento deve essere in corso di validità.",
+  },
+  {
+    q: "Come avviene la verifica?",
+    a: "Stripe verifica automaticamente l'autenticità del documento e confronta il tuo selfie con la foto sul documento tramite liveness check.",
+  },
+  {
+    q: "Quanto tempo ci vuole?",
+    a: "La verifica è generalmente automatica e richiede 2-5 minuti. In alcuni casi può richiedere fino a 24 ore per la revisione manuale.",
+  },
+  {
+    q: "I miei dati sono al sicuro?",
+    a: "Sì. I dati biometrici e i documenti sono trattati direttamente da Stripe nel rispetto del GDPR. CleanHome non accede mai alle immagini del tuo documento.",
+  },
+  {
+    q: "Posso ripetere la verifica?",
+    a: "Sì, se la verifica non va a buon fine puoi ripeterla in qualsiasi momento.",
+  },
+];
+
+// ─── Animated pulse for processing state ─────────────────────────────────────
+
+function PulsingDot() {
+  const opacity = useSharedValue(1);
+  opacity.value = withRepeat(
+    withSequence(
+      withTiming(0.3, { duration: 600 }),
+      withTiming(1, { duration: 600 })
+    ),
+    -1,
+    false
+  );
+  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View style={[styles.pulsingDot, animStyle]} />
+  );
+}
+
+// ─── State-specific content components ────────────────────────────────────────
+
+function VerifiedCard({ verifiedAt }: { verifiedAt: string | null }) {
+  return (
+    <Animated.View entering={FadeInDown.springify().damping(20)}>
+      <View style={styles.verifiedCard}>
+        <View style={styles.verifiedIconWrap}>
+          <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+        </View>
+        <Text style={styles.verifiedTitle}>Identità verificata</Text>
+        {verifiedAt ? (
+          <Text style={styles.verifiedDate}>
+            Verificato il {formatDateIT(verifiedAt)}
           </Text>
-        </View>
-
-        {/* Actions */}
-        <View style={styles.docActions}>
-          <Pressable
-            onPress={handleShare}
-            style={({ pressed }) => [styles.docActionBtn, pressed && { opacity: 0.6 }]}
-            accessibilityLabel="Condividi documento"
-            accessibilityRole="button"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="share-outline" size={18} color={Colors.secondary} />
-          </Pressable>
-          <Pressable
-            onPress={handleDelete}
-            style={({ pressed }) => [styles.docActionBtn, pressed && { opacity: 0.6 }]}
-            accessibilityLabel="Elimina documento"
-            accessibilityRole="button"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="trash-outline" size={18} color={Colors.error} />
-          </Pressable>
-        </View>
+        ) : null}
+        <Text style={styles.verifiedSub}>
+          Sei pronto per ricevere pagamenti e prenotazioni.
+        </Text>
       </View>
     </Animated.View>
   );
 }
 
-// ─── Upload progress overlay ──────────────────────────────────────────────────
-
-function UploadProgress({ percent }: { percent: number }) {
+function ProcessingCard() {
   return (
-    <View style={styles.uploadOverlay}>
-      <View style={styles.uploadCard}>
-        <ActivityIndicator size="small" color={Colors.secondary} />
-        <Text style={styles.uploadLabel}>Caricamento in corso...</Text>
-        <View style={styles.uploadTrack}>
-          <View style={[styles.uploadFill, { width: `${percent}%` }]} />
+    <Animated.View entering={FadeInDown.springify().damping(20)}>
+      <View style={styles.processingCard}>
+        <View style={styles.processingIconRow}>
+          <PulsingDot />
+          <ActivityIndicator size="small" color={Colors.secondary} />
+          <PulsingDot />
         </View>
-        <Text style={styles.uploadPercent}>{percent}%</Text>
+        <Text style={styles.processingTitle}>Verifica in corso...</Text>
+        <Text style={styles.processingSub}>
+          Stiamo controllando i tuoi dati. Riceverai una notifica appena pronto.{"\n"}
+          (di solito 2-5 minuti)
+        </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
-// ─── Kind picker ──────────────────────────────────────────────────────────────
-
-const KIND_OPTIONS: Array<{ key: DocumentKind; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }> = [
-  { key: "id_card", label: "Carta d'identità", icon: "card-outline" },
-  { key: "passport", label: "Passaporto", icon: "globe-outline" },
-  { key: "driving_license", label: "Patente", icon: "car-outline" },
-  { key: "other", label: "Altro documento", icon: "attach-outline" },
-];
-
-interface KindPickerProps {
-  selected: DocumentKind;
-  onSelect: (k: DocumentKind) => void;
+interface RequiresInputCardProps {
+  lastError: string | null;
+  onRetry: () => void;
+  isLoading: boolean;
 }
 
-function KindPicker({ selected, onSelect }: KindPickerProps) {
+function RequiresInputCard({
+  lastError,
+  onRetry,
+  isLoading,
+}: RequiresInputCardProps) {
   return (
-    <View style={styles.kindPicker}>
-      <Text style={styles.kindPickerLabel}>Tipo di documento</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kindScroll}>
-        {KIND_OPTIONS.map((opt) => {
-          const isActive = selected === opt.key;
-          return (
-            <Pressable
-              key={opt.key}
-              onPress={() => onSelect(opt.key)}
-              style={[styles.kindChip, isActive && styles.kindChipActive]}
-              accessibilityLabel={opt.label}
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name={opt.icon}
-                size={16}
-                color={isActive ? "#fff" : Colors.secondary}
-              />
-              <Text style={[styles.kindChipText, isActive && styles.kindChipTextActive]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <Animated.View entering={FadeInDown.springify().damping(20)}>
+      <View style={styles.warningCard}>
+        <Ionicons name="warning" size={36} color={Colors.warning} />
+        <Text style={styles.warningTitle}>Verifica non completata</Text>
+        <Text style={styles.warningSub}>
+          {lastError ?? "Riprova la verifica per completare l'identificazione."}
+        </Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.retryCta,
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={onRetry}
+          disabled={isLoading}
+          accessibilityLabel="Riprova verifica"
+          accessibilityRole="button"
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.retryCtaText}>Riprova</Text>
+          )}
+        </Pressable>
+      </View>
+    </Animated.View>
   );
 }
+
+interface WelcomeContentProps {
+  wasCanceled: boolean;
+  onStart: () => void;
+  isLoading: boolean;
+  onFaq: () => void;
+}
+
+function WelcomeContent({
+  wasCanceled,
+  onStart,
+  isLoading,
+  onFaq,
+}: WelcomeContentProps) {
+  return (
+    <>
+      {/* Hero block */}
+      <Animated.View entering={FadeInDown.delay(80).springify().damping(22)} style={styles.heroBlock}>
+        <View style={styles.heroIconWrap}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={56}
+            color={Colors.success}
+          />
+        </View>
+        <Text style={styles.heroTitle}>Verifica la tua identità</Text>
+        <Text style={styles.heroSub}>
+          {wasCanceled
+            ? "Hai annullato la verifica precedente. Ricomincia quando vuoi."
+            : "Pochi minuti, verificato per sempre. Richiesto per ricevere pagamenti e fiducia dei clienti."}
+        </Text>
+      </Animated.View>
+
+      {/* Benefits list */}
+      <Animated.View entering={FadeInDown.delay(160).springify().damping(22)} style={styles.benefitsList}>
+        {BENEFITS.map((benefit, i) => (
+          <View key={i} style={styles.benefitRow}>
+            <View style={styles.benefitCheck}>
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            </View>
+            <Text style={styles.benefitText}>{benefit}</Text>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* CTA */}
+      <Animated.View entering={FadeInDown.delay(240).springify().damping(22)}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.mainCta,
+            pressed && { opacity: 0.9 },
+            isLoading && styles.mainCtaDisabled,
+          ]}
+          onPress={onStart}
+          disabled={isLoading}
+          accessibilityLabel="Inizia verifica identità"
+          accessibilityRole="button"
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="shield-checkmark" size={22} color="#fff" />
+              <Text style={styles.mainCtaText}>Inizia verifica</Text>
+            </>
+          )}
+        </Pressable>
+      </Animated.View>
+
+      {/* FAQ link */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.faqLink,
+          pressed && { opacity: 0.7 },
+        ]}
+        onPress={onFaq}
+        accessibilityLabel="Come funziona la verifica? Apri FAQ"
+        accessibilityRole="button"
+      >
+        <Ionicons
+          name="information-circle-outline"
+          size={16}
+          color={Colors.textSecondary}
+        />
+        <Text style={styles.faqLinkText}>Come funziona la verifica?</Text>
+      </Pressable>
+    </>
+  );
+}
+
+const BENEFITS = [
+  "Documento d'identità (carta, passaporto o patente)",
+  "Selfie con liveness check",
+  "Verifica automatica in 2-5 minuti",
+];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DocumentsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { data: docs, isLoading, error, refetch, upload, remove } = useUserDocuments(user?.id);
 
-  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
-  const [selectedKind, setSelectedKind] = useState<DocumentKind>("id_card");
+  const { status, verifiedAt, lastError, isLoading, error, startVerification, refetch } =
+    useIdentityVerification(user?.id);
 
-  const handlePickDocument = useCallback(async () => {
-    // expo-document-picker is not installed — use expo-image-picker for images.
-    // PDF upload would require expo-document-picker to be added to the project.
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        "Permesso richiesto",
-        "Abilita l'accesso alle foto nelle impostazioni per caricare il documento."
-      );
-      return;
-    }
+  const [sdkLoading, setSdkLoading] = useState(false);
+  const [faqVisible, setFaqVisible] = useState(false);
 
+  // useStripeIdentity requires a stable optionsProvider ref.
+  // We use a ref-stable callback that calls startVerification internally.
+  const optionsProvider = useCallback(async () => {
+    const clientSecret = await startVerification();
+    const { sessionId, ephemeralKeySecret } = parseClientSecret(clientSecret);
+    return {
+      sessionId,
+      ephemeralKeySecret,
+      brandLogo: Image.resolveAssetSource(
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require("../../assets/icon.png")
+      ),
+    };
+  }, [startVerification]);
+
+  const {
+    present,
+    loading: sdkPresenting,
+    status: sdkStatus,
+  } = useStripeIdentity(optionsProvider);
+
+  const isCtaLoading = sdkLoading || sdkPresenting;
+
+  const handleStartVerification = useCallback(async () => {
+    if (isCtaLoading) return;
+    setSdkLoading(true);
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.85,
-        allowsEditing: false,
-      });
-
-      if (result.canceled || !result.assets?.[0]) return;
-
-      const asset = result.assets[0];
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      const ext = asset.uri.split(".").pop()?.toLowerCase() ?? "jpg";
-      const fileName = asset.fileName ?? `documento_${Date.now()}.${ext}`;
-
-      setUploadPercent(10);
-
-      await upload(asset.uri, mimeType, fileName, selectedKind, (pct) => {
-        setUploadPercent(pct);
-      });
-
-      setUploadPercent(null);
-      Alert.alert("Caricato", `Il documento "${fileName}" è stato salvato.`);
+      await present();
+      // The realtime subscription in useIdentityVerification will update status
+      // automatically when the webhook fires. Trigger a manual refetch as fallback.
+      await refetch();
     } catch (e) {
-      setUploadPercent(null);
-      const msg = e instanceof Error ? e.message : "Errore durante il caricamento";
+      const msg = e instanceof Error ? e.message : "Errore durante la verifica";
       Alert.alert("Errore", msg);
+    } finally {
+      setSdkLoading(false);
     }
-  }, [upload, selectedKind]);
+  }, [isCtaLoading, present, refetch]);
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      try {
-        await remove(id);
-      } catch {
-        Alert.alert("Errore", "Impossibile eliminare il documento. Riprova.");
-      }
-    },
-    [remove]
-  );
+  const handleFaqOpen = useCallback(() => setFaqVisible(true), []);
+  const handleFaqClose = useCallback(() => setFaqVisible(false), []);
 
-  const handleShare = useCallback(async (doc: UserDocument) => {
-    try {
-      const signedUrl = await getDocumentSignedUrl(doc.storage_path);
-      await Share.share({
-        message: `Documento: ${doc.name}\n${signedUrl}`,
-        url: signedUrl,
-      });
-    } catch {
-      // user cancelled or signed URL failed — silent
+  // Derive sheet status result for cancel detection
+  const wasCanceled =
+    status === "canceled" ||
+    (sdkStatus as IdentityVerificationSheetStatus | undefined) === "FlowCanceled";
+
+  // ── Render states ──────────────────────────────────────────────────────────
+
+  const renderMainContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator size="large" color={Colors.secondary} />
+          <Text style={styles.loadingText}>Caricamento stato verifica...</Text>
+        </View>
+      );
     }
-  }, []);
+
+    if (error) {
+      return (
+        <View style={styles.errorBlock}>
+          <Ionicons name="alert-circle-outline" size={32} color={Colors.error} />
+          <Text style={styles.errorText}>{error.message}</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.retrySmall,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={refetch}
+            accessibilityRole="button"
+            accessibilityLabel="Riprova caricamento"
+          >
+            <Text style={styles.retrySmallText}>Riprova</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (status === "verified") {
+      return <VerifiedCard verifiedAt={verifiedAt} />;
+    }
+
+    if (status === "processing") {
+      return <ProcessingCard />;
+    }
+
+    if (status === "requires_input") {
+      return (
+        <RequiresInputCard
+          lastError={lastError}
+          onRetry={handleStartVerification}
+          isLoading={isCtaLoading}
+        />
+      );
+    }
+
+    // null | "not_started" | "canceled"
+    return (
+      <WelcomeContent
+        wasCanceled={wasCanceled}
+        onStart={handleStartVerification}
+        isLoading={isCtaLoading}
+        onFaq={handleFaqOpen}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -281,120 +453,34 @@ export default function DocumentsScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>I miei documenti</Text>
+        <Text style={styles.headerTitle}>Verifica identità</Text>
         <View style={{ width: 38 }} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading && docs !== null}
-            onRefresh={refetch}
-            tintColor={Colors.secondary}
-            colors={[Colors.secondary]}
-          />
-        }
       >
-        {/* ── Title block ── */}
-        <View style={styles.titleBlock}>
-          <Text style={styles.pageHeading}>SICUREZZA E IDENTITÀ</Text>
-          <Text style={styles.pageTitle}>I miei documenti</Text>
-          <Text style={styles.subtitle}>
-            Carica e gestisci i tuoi documenti personali in modo sicuro.
-            I file sono criptati e accessibili solo a te.
-          </Text>
-        </View>
+        <Animated.View entering={FadeIn.duration(200)}>
+          {renderMainContent()}
+        </Animated.View>
 
-        {/* ── Kind picker ── */}
-        <KindPicker selected={selectedKind} onSelect={setSelectedKind} />
-
-        {/* ── Upload CTA ── */}
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={handlePickDocument}
-          disabled={uploadPercent !== null}
-          activeOpacity={0.88}
-          accessibilityLabel="Carica nuovo documento"
-          accessibilityRole="button"
-        >
-          <View style={styles.uploadBtnIconWrap}>
-            <Ionicons name="cloud-upload-outline" size={22} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.uploadBtnTitle}>Carica documento</Text>
-            <Text style={styles.uploadBtnSub}>PDF o immagine · Max 10 MB</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#fff" />
-        </TouchableOpacity>
-
-        {/* ── Error banner ── */}
-        {error && !isLoading && (
-          <Pressable style={styles.errorBanner} onPress={refetch}>
-            <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-            <Text style={styles.errorText}>{error.message}</Text>
-            <Text style={styles.errorRetry}>Riprova</Text>
-          </Pressable>
-        )}
-
-        {/* ── Document list ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            Documenti caricati
-            {docs && docs.length > 0 ? ` (${docs.length})` : ""}
-          </Text>
-        </View>
-
-        {isLoading && docs === null ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator size="large" color={Colors.secondary} />
-            <Text style={styles.loadingText}>Caricamento documenti...</Text>
-          </View>
-        ) : docs?.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="folder-open-outline" size={40} color={Colors.outlineVariant} />
-            </View>
-            <Text style={styles.emptyTitle}>Nessun documento caricato</Text>
-            <Text style={styles.emptySubtitle}>
-              Usa il bottone sopra per caricare il tuo primo documento.
+        {/* Footer */}
+        {status !== "verified" && !isLoading && (
+          <View style={styles.footer}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={12}
+              color={Colors.textTertiary}
+            />
+            <Text style={styles.footerText}>
+              Powered by Stripe · GDPR compliant
             </Text>
-            <Pressable
-              style={({ pressed }) => [styles.emptyCta, pressed && { opacity: 0.88 }]}
-              onPress={handlePickDocument}
-              accessibilityLabel="Carica il tuo primo documento"
-              accessibilityRole="button"
-            >
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.emptyCtaText}>Carica il primo documento</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.docList}>
-            {(docs ?? []).map((doc) => (
-              <DocumentCard
-                key={doc.id}
-                doc={doc}
-                onDelete={handleDelete}
-                onShare={handleShare}
-              />
-            ))}
           </View>
         )}
-
-        {/* ── GDPR note ── */}
-        <View style={styles.gdprNote}>
-          <Ionicons name="lock-closed-outline" size={14} color={Colors.textTertiary} />
-          <Text style={styles.gdprText}>
-            I tuoi documenti sono trattati in modo sicuro nel rispetto del GDPR.
-            Nessun dato viene condiviso con terze parti senza il tuo consenso.
-          </Text>
-        </View>
       </ScrollView>
 
-      {/* ── Upload progress overlay ── */}
-      {uploadPercent !== null && <UploadProgress percent={uploadPercent} />}
+      <FaqModal visible={faqVisible} onClose={handleFaqClose} />
     </SafeAreaView>
   );
 }
@@ -433,145 +519,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
-  // Scroll content
+  // Scroll
   scrollContent: {
     paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
     paddingBottom: Spacing.xxxl,
     gap: Spacing.lg,
   },
 
-  // Title block
-  titleBlock: {
-    gap: Spacing.sm,
-    paddingTop: Spacing.base,
-  },
-  pageHeading: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: Colors.primary,
-    letterSpacing: -0.6,
-    fontFamily: "NotoSerif_700Bold",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
-
-  // Kind picker
-  kindPicker: {
-    gap: Spacing.sm,
-  },
-  kindPickerLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  kindScroll: {
-    gap: 8,
-    paddingBottom: 4,
-  },
-  kindChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.backgroundAlt,
-    borderWidth: 1.5,
-    borderColor: Colors.borderLight,
-  },
-  kindChipActive: {
-    backgroundColor: Colors.secondary,
-    borderColor: Colors.secondary,
-  },
-  kindChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.secondary,
-  },
-  kindChipTextActive: {
-    color: "#fff",
-  },
-
-  // Upload button — solid dark green slab, full-width, visible
-  uploadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: "#022420",
-    borderRadius: Radius.xl,
-    padding: Spacing.base,
-    shadowColor: "#011a17",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  uploadBtnIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  uploadBtnTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 3,
-  },
-  uploadBtnSub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-  },
-
-  // Error banner
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.errorLight,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.error,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.error,
-    lineHeight: 18,
-  },
-  errorRetry: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.error,
-  },
-
-  // Section header
-  sectionHeader: {
-    paddingTop: Spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Colors.text,
-    letterSpacing: -0.2,
-  },
-
-  // Loading
+  // Loading / Error block
   loadingBlock: {
     alignItems: "center",
     gap: Spacing.md,
@@ -581,161 +537,308 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
   },
-
-  // Empty state
-  emptyState: {
+  errorBlock: {
     alignItems: "center",
-    paddingVertical: Spacing.xxl,
     gap: Spacing.md,
+    paddingVertical: Spacing.xxl,
   },
-  emptyIconWrap: {
-    width: 84,
-    height: 84,
+  errorText: {
+    fontSize: 14,
+    color: Colors.error,
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  retrySmall: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.errorLight,
+  },
+  retrySmallText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.error,
+  },
+
+  // Hero block (welcome state)
+  heroBlock: {
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
+  },
+  heroIconWrap: {
+    width: 96,
+    height: 96,
     borderRadius: Radius.xl,
-    backgroundColor: Colors.backgroundAlt,
+    backgroundColor: Colors.successLight,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: Spacing.sm,
+    ...Shadows.sm,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.primary,
+    textAlign: "center",
+    letterSpacing: -0.5,
+    fontFamily: "NotoSerif_700Bold",
+  },
+  heroSub: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 23,
+    paddingHorizontal: Spacing.md,
+  },
+
+  // Benefits
+  benefitsList: {
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  benefitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  benefitCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.success,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  benefitText: {
+    fontSize: 14,
     color: Colors.text,
+    flex: 1,
+    lineHeight: 20,
+  },
+
+  // Main CTA
+  mainCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.success,
+    borderRadius: Radius.xl,
+    height: 56,
+    ...Shadows.md,
+  },
+  mainCtaDisabled: {
+    opacity: 0.65,
+  },
+  mainCtaText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: -0.2,
+  },
+
+  // FAQ link
+  faqLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+  },
+  faqLinkText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+  },
+
+  // Verified card
+  verifiedCard: {
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.successLight,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1.5,
+    borderColor: Colors.success,
+    ...Shadows.sm,
+  },
+  verifiedIconWrap: {
+    marginBottom: Spacing.sm,
+  },
+  verifiedTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.success,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  verifiedDate: {
+    fontSize: 13,
+    color: Colors.textSecondary,
     textAlign: "center",
   },
-  emptySubtitle: {
+  verifiedSub: {
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 21,
-    paddingHorizontal: Spacing.lg,
   },
-  emptyCta: {
+
+  // Processing card
+  processingCard: {
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    ...Shadows.sm,
+  },
+  processingIconRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  pulsingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: Colors.secondary,
+  },
+  processingTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.primary,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  processingSub: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+
+  // Warning card (requires_input)
+  warningCard: {
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.warningLight,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    ...Shadows.sm,
+  },
+  warningTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.warning,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  warningSub: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  retryCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.warning,
     borderRadius: Radius.full,
     paddingVertical: 14,
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.sm,
-    ...Shadows.md,
+    minWidth: 140,
+    height: 48,
+    ...Shadows.sm,
   },
-  emptyCtaText: {
+  retryCtaText: {
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
   },
 
-  // Document list
-  docList: {
-    gap: Spacing.md,
-  },
-  docCard: {
+  // Footer
+  footer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.base,
-    ...Shadows.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  docIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
+    gap: 6,
+    marginTop: Spacing.sm,
   },
-  docInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  docName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  docKind: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.secondary,
-  },
-  docMeta: {
+  footerText: {
     fontSize: 11,
     color: Colors.textTertiary,
   },
-  docActions: {
-    flexDirection: "row",
-    gap: 4,
-    flexShrink: 0,
-  },
-  docActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.backgroundAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
-  // Upload overlay
-  uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
+  // FAQ Modal
+  faqOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
-  uploadCard: {
+  faqBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  faqSheet: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: Spacing.xl,
-    width: 220,
-    alignItems: "center",
+    paddingBottom: 40,
+    maxHeight: "80%",
     gap: Spacing.md,
     ...Shadows.lg,
   },
-  uploadLabel: {
+  faqHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.borderLight,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  faqTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.primary,
+    letterSpacing: -0.3,
+    marginBottom: Spacing.sm,
+  },
+  faqItem: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  faqQ: {
     fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  uploadTrack: {
-    width: "100%",
-    height: 6,
-    backgroundColor: Colors.backgroundAlt,
-    borderRadius: Radius.full,
-    overflow: "hidden",
-  },
-  uploadFill: {
-    height: "100%",
-    backgroundColor: Colors.secondary,
-    borderRadius: Radius.full,
-  },
-  uploadPercent: {
-    fontSize: 13,
     fontWeight: "700",
-    color: Colors.secondary,
+    color: Colors.text,
+    lineHeight: 20,
   },
-
-  // GDPR note
-  gdprNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.sm,
+  faqA: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  faqCloseBtn: {
     backgroundColor: Colors.backgroundAlt,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    paddingVertical: 14,
     marginTop: Spacing.sm,
   },
-  gdprText: {
-    flex: 1,
-    fontSize: 11,
-    color: Colors.textTertiary,
-    lineHeight: 16,
+  faqCloseBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.primary,
   },
 });

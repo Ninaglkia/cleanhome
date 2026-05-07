@@ -178,17 +178,26 @@ export default function CleanerDetailScreen() {
             )}
           </View>
 
-          <Text
-            style={{
-              fontSize: 24,
-              fontWeight: "800",
-              color: Colors.text,
-              letterSpacing: -0.5,
-              marginBottom: 8,
-            }}
-          >
-            {cleaner.full_name}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "800",
+                color: Colors.text,
+                letterSpacing: -0.5,
+              }}
+            >
+              {cleaner.full_name}
+            </Text>
+            {cleaner.stripe_identity_status === "verified" && (
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color="#006b55"
+                accessibilityLabel="Identità verificata da Stripe"
+              />
+            )}
+          </View>
 
           {/* Rating */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>

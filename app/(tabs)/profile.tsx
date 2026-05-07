@@ -40,6 +40,7 @@ import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 import { CleanerPayoutSection } from "../../components/CleanerPayoutSection";
 import { ProfileStatsStrip } from "../../components/profile/ProfileStatsStrip";
+import { useIdentityVerification } from "../../lib/hooks/useIdentityVerification";
 
 const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
@@ -394,6 +395,7 @@ function CleanerView({
   payoutSectionRef,
   highlightStripe,
 }: CleanerViewProps) {
+  const { isVerified: isIdentityVerified } = useIdentityVerification(cleanerId);
   const stripeHighlightOpacity = useSharedValue(0);
 
   useEffect(() => {
@@ -446,7 +448,17 @@ function CleanerView({
             <Ionicons name="camera-outline" size={12} color="#022420" />
           </View>
         </Pressable>
-        <Text style={clientStyles.heroName}>{fullName}</Text>
+        <View style={clientStyles.heroNameRow}>
+          <Text style={clientStyles.heroName}>{fullName}</Text>
+          {isIdentityVerified && (
+            <Ionicons
+              name="checkmark-circle"
+              size={18}
+              color="#006b55"
+              accessibilityLabel="Identità verificata da Stripe"
+            />
+          )}
+        </View>
         <Text style={clientStyles.heroRole}>PROFESSIONISTA</Text>
       </View>
 
@@ -503,11 +515,16 @@ function CleanerView({
         <View style={clientStyles.menuSection}>
           <View ref={documentsRef}>
             <MenuRow
-              icon="document-text-outline"
-              label="I miei documenti"
-              sublabel="Fatture e contratti di servizio"
+              icon="shield-checkmark-outline"
+              label="Verifica identità"
+              sublabel={
+                isIdentityVerified
+                  ? "Identità verificata da Stripe"
+                  : "Completa la verifica per ricevere pagamenti"
+              }
               onPress={onDocuments}
-              iconBgColor={C.surfaceLow}
+              iconBgColor={isIdentityVerified ? "#dcfce7" : C.surfaceLow}
+              iconColor={isIdentityVerified ? "#16a34a" : C.primary}
               cardStyle
             />
           </View>
@@ -1329,13 +1346,18 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   // name: font-headline text-2xl bold
+  heroNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
   heroName: {
     fontFamily: "NotoSerif_700Bold",
     fontSize: 23,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.4,
-    marginBottom: 4,
     textAlign: "center",
   },
   // role: uppercase small tracking-wide
@@ -1579,6 +1601,13 @@ const clientStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  // name row: flex row for name + verified badge
+  heroNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
   // name: 25px bold, primary dark green
   heroName: {
     fontFamily: "NotoSerif_700Bold",
@@ -1586,7 +1615,6 @@ const clientStyles = StyleSheet.create({
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.5,
-    marginBottom: 6,
     textAlign: "center",
   },
   // role: uppercase, letter-spacing 2, 12px, on-surface-variant
