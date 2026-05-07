@@ -2,10 +2,9 @@
 // Edge Function: stripe-identity-create-session
 // ----------------------------------------------------------------------------
 // Called by the cleaner client to start a Stripe Identity verification flow.
-// Creates a VerificationSession, persists the session id on cleaner_profiles,
-// and returns the client_secret needed by the Stripe Identity SDK on mobile.
+// Creates a VerificationSession and an ephemeral key for the native SDK.
 //
-// Response: { client_secret: string }
+// Response: { sessionId: string, ephemeralKeySecret: string }
 // ============================================================================
 
 // deno-lint-ignore-file no-explicit-any
@@ -17,6 +16,7 @@ const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Use the same apiVersion for the main Stripe client
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
   httpClient: Stripe.createFetchHttpClient(),
@@ -45,8 +45,9 @@ serve(async (req: Request) => {
   }
 
   try {
-    // ── Auth ────────────────────────────────────────────────────────────────
+    // ── Step 1: Auth ─────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization") || "";
+    console.log("[stripe-identity-create-session] step=auth, hasHeader=", authHeader.startsWith("Bearer "));
     if (!authHeader.startsWith("Bearer ")) {
       return json({ error: "Missing Authorization header" }, 401);
     }
@@ -55,22 +56,26 @@ serve(async (req: Request) => {
     // Use service role to validate session (getUser with service role validates the JWT)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: { user }, error: userErr } = await supabase.auth.getUser(userToken);
+    console.log("[stripe-identity-create-session] step=getUser, userId=", user?.id ?? null, "err=", userErr?.message ?? null);
     if (userErr || !user) {
       return json({ error: "Sessione non valida" }, 401);
     }
 
-    // ── Verify cleaner_profiles row exists ──────────────────────────────────
+    // ── Step 2: Check cleaner_profiles row ───────────────────────────────────
     const { data: profile, error: profileErr } = await supabase
       .from("cleaner_profiles")
       .select("id, stripe_identity_session_id, stripe_identity_status")
       .eq("id", user.id)
       .maybeSingle();
 
+    console.log("[stripe-identity-create-session] step=profile, found=", !!profile, "err=", profileErr?.message ?? null);
     if (profileErr || !profile) {
       return json({ error: "Profilo cleaner non trovato" }, 404);
     }
 
-    // ── Create Stripe VerificationSession ──────────────────────────────────
+    // ── Step 3: Create Stripe VerificationSession ────────────────────────────
+    // Note: return_url is for web redirect flow; omit for native SDK mobile flow.
+    console.log("[stripe-identity-create-session] step=createVerificationSession");
     const session = await stripe.identity.verificationSessions.create({
       type: "document",
       options: {
@@ -85,17 +90,20 @@ serve(async (req: Request) => {
         user_id: user.id,
         role: "cleaner",
       },
-      return_url: "cleanhome://stripe-identity/return",
     } as any);
+    console.log("[stripe-identity-create-session] step=verificationSession, id=", session.id);
 
-    // ── Create ephemeral key for the React Native SDK ─────────────────────
-    // The SDK requires sessionId + ephemeralKeySecret to present the sheet.
+    // ── Step 4: Create ephemeral key for the React Native SDK ────────────────
+    // apiVersion must be the latest Stripe API version as required by the mobile SDK.
+    // Using '2026-03-25.dahlia' per Stripe Identity docs for native SDK integration.
+    console.log("[stripe-identity-create-session] step=createEphemeralKey");
     const ephemeralKey = await (stripe as any).ephemeralKeys.create(
       { verification_session: session.id },
-      { apiVersion: "2020-03-02" }
+      { apiVersion: "2026-03-25.dahlia" }
     );
+    console.log("[stripe-identity-create-session] step=ephemeralKey, hasSecret=", !!ephemeralKey?.secret);
 
-    // ── Persist session id and set status to processing ────────────────────
+    // ── Step 5: Persist session id ───────────────────────────────────────────
     const { error: updateErr } = await supabase
       .from("cleaner_profiles")
       .update({
@@ -106,9 +114,10 @@ serve(async (req: Request) => {
       .eq("id", user.id);
 
     if (updateErr) {
-      console.error("[stripe-identity-create-session] db update error:", updateErr.message);
+      console.error("[stripe-identity-create-session] step=dbUpdate, err=", updateErr.message);
       return json({ error: "Impossibile salvare la sessione di verifica" }, 500);
     }
+    console.log("[stripe-identity-create-session] step=dbUpdate, ok");
 
     return json({
       sessionId: session.id,
@@ -116,7 +125,7 @@ serve(async (req: Request) => {
     });
   } catch (err: any) {
     const msg = err?.message ?? String(err);
-    console.error("[stripe-identity-create-session]", msg);
+    console.error("[stripe-identity-create-session] FATAL:", msg, "stack=", err?.stack ?? "");
     return json({ error: "Impossibile avviare la verifica. Riprova più tardi." }, 500);
   }
 });
