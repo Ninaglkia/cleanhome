@@ -1,15 +1,3 @@
-// ============================================================================
-// app/documents/index.tsx — VERSIONE FIX BOTTONE INVISIBILE
-// ----------------------------------------------------------------------------
-// Cambiamenti rispetto al main:
-//   1. CTA "Inizia verifica" — rimosso FadeInDown sul wrapper (causava
-//      opacity: 0 in alcuni casi), aggiunto opacity: 1 forzato
-//   2. Stile mainCta — rimosso borderWidth (causava outline bianco visibile
-//      sopra fill in remote rendering), aggiunto overflow: hidden
-//   3. Reset sdkLoading on mount — evita che il bottone resti in stato
-//      disabled (opacity: 0.65) se l'utente esce dall'app durante onboarding
-// ============================================================================
-
 import { useCallback, useEffect, useState } from "react";
 import {
   View,
@@ -28,7 +16,6 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   FadeInDown,
-  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -281,31 +268,24 @@ function WelcomeContent({ wasCanceled, onStart, isLoading, onFaq }: WelcomeConte
         ))}
       </Animated.View>
 
-      {/* ⚠️ FIX: CTA wrapper SENZA Animated.View / FadeInDown — l'animazione
-          poteva lasciare il bottone con opacity: 0 in alcuni casi (riduci-movimento,
-          re-mount veloce, return-from-background). Sostituito con View statica. */}
-      <View style={styles.mainCtaWrapper}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.mainCta,
-            pressed && { opacity: 0.9 },
-            isLoading && styles.mainCtaDisabled,
-          ]}
-          onPress={onStart}
-          disabled={isLoading}
-          accessibilityLabel="Inizia verifica identità"
-          accessibilityRole="button"
-        >
+      <Pressable
+        style={({ pressed }) => [styles.mainCtaWrapper, pressed && styles.mainCtaDisabled]}
+        onPress={onStart}
+        disabled={isLoading}
+        accessibilityLabel="Inizia verifica identità"
+        accessibilityRole="button"
+      >
+        <View style={styles.mainCta}>
           {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <>
-              <Ionicons name="shield-checkmark" size={24} color="#ffffff" />
+              <Ionicons name="shield-checkmark" size={26} color="#ffffff" />
               <Text style={styles.mainCtaText}>Inizia verifica</Text>
             </>
           )}
-        </Pressable>
-      </View>
+        </View>
+      </Pressable>
 
       {/* FAQ link */}
       <Pressable
@@ -472,7 +452,7 @@ export default function DocumentsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Animated.View entering={FadeIn.duration(200)}>{renderMainContent()}</Animated.View>
+        {renderMainContent()}
         {status !== "verified" && !isLoading && (
           <View style={styles.footer}>
             <Ionicons name="lock-closed-outline" size={12} color={Colors.textTertiary} />
@@ -575,9 +555,6 @@ const styles = StyleSheet.create({
   },
   benefitText: { fontSize: 14, color: Colors.text, flex: 1, lineHeight: 20 },
 
-  // ⚠️ FIX: CTA — rimosso borderWidth (l'outline bianco visibile sopra il
-  // fill nello screenshot suggerisce che il border si stesse sovrapponendo
-  // al background); aggiunto overflow: hidden per stabilizzare il rendering.
   mainCtaWrapper: {
     alignSelf: "stretch",
     marginHorizontal: 0,
