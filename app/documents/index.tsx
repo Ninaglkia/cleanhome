@@ -15,12 +15,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
+  FadeIn,
   FadeInDown,
+  FadeInRight,
+  FadeOut,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
+  withSpring,
+  withDelay,
+  Easing,
+  interpolate,
+  runOnJS,
 } from "react-native-reanimated";
 import { useStripeIdentity } from "@stripe/stripe-identity-react-native";
 import type { IdentityVerificationSheetStatus } from "@stripe/stripe-identity-react-native";
@@ -40,34 +48,133 @@ function formatDateIT(iso: string): string {
 
 const FAQ_ITEMS = [
   {
+    icon: "card-outline" as const,
     q: "Quali documenti posso usare?",
     a: "Puoi usare carta d'identità, passaporto o patente di guida. Il documento deve essere in corso di validità.",
   },
   {
+    icon: "scan-outline" as const,
     q: "Come avviene la verifica?",
     a: "Stripe verifica automaticamente l'autenticità del documento e confronta il tuo selfie con la foto sul documento tramite liveness check.",
   },
   {
+    icon: "timer-outline" as const,
     q: "Quanto tempo ci vuole?",
     a: "La verifica è generalmente automatica e richiede 2-5 minuti. In alcuni casi può richiedere fino a 24 ore per la revisione manuale.",
   },
   {
+    icon: "lock-closed-outline" as const,
     q: "I miei dati sono al sicuro?",
     a: "Sì. I dati biometrici e i documenti sono trattati direttamente da Stripe nel rispetto del GDPR. CleanHome non accede mai alle immagini del tuo documento.",
   },
   {
+    icon: "refresh-outline" as const,
     q: "Posso ripetere la verifica?",
     a: "Sì, se la verifica non va a buon fine puoi ripeterla in qualsiasi momento.",
   },
 ];
 
 const BENEFITS = [
-  "Documento d'identità (carta, passaporto o patente)",
-  "Selfie con liveness check",
-  "Verifica automatica in 2-5 minuti",
+  {
+    icon: "card-outline" as const,
+    label: "Documento d'identità",
+    sub: "Carta, passaporto o patente",
+  },
+  {
+    icon: "camera-outline" as const,
+    label: "Selfie con liveness check",
+    sub: "Verifica rapida in tempo reale",
+  },
+  {
+    icon: "checkmark-done-circle-outline" as const,
+    label: "Verifica in 2-5 minuti",
+    sub: "Automatica, verificato per sempre",
+  },
 ];
 
-// ─── FAQ Modal ───────────────────────────────────────────────────────────────
+const PROCESSING_MESSAGES = [
+  "Stiamo analizzando il documento...",
+  "Verifica del selfie in corso...",
+  "Confronto dati biometrici...",
+  "Quasi pronto, ancora un momento...",
+];
+
+// ─── Trust Badges ────────────────────────────────────────────────────────────
+
+function TrustBadges() {
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(260).springify().damping(22)}
+      style={styles.trustRow}
+    >
+      <View style={styles.trustChip}>
+        <Ionicons name="shield-checkmark-outline" size={12} color={Colors.secondary} />
+        <Text style={styles.trustChipText}>Stripe Identity</Text>
+      </View>
+      <View style={styles.trustChip}>
+        <Ionicons name="lock-closed-outline" size={12} color={Colors.secondary} />
+        <Text style={styles.trustChipText}>Crittografato</Text>
+      </View>
+      <View style={styles.trustChip}>
+        <Ionicons name="document-text-outline" size={12} color={Colors.secondary} />
+        <Text style={styles.trustChipText}>GDPR</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── FAQ Modal ────────────────────────────────────────────────────────────────
+
+function FaqAccordionItem({
+  item,
+  index,
+}: {
+  item: (typeof FAQ_ITEMS)[number];
+  index: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const rotation = useSharedValue(0);
+  const height = useSharedValue(0);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    rotation.value = withSpring(next ? 90 : 0, { damping: 18, stiffness: 200 });
+  };
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(index * 60).springify().damping(22)}
+      style={styles.faqAccordion}
+    >
+      <Pressable
+        onPress={toggle}
+        style={({ pressed }) => [
+          styles.faqAccordionHeader,
+          pressed && { opacity: 0.8 },
+        ]}
+        accessibilityRole="button"
+      >
+        <View style={styles.faqAccordionIconWrap}>
+          <Ionicons name={item.icon} size={16} color={Colors.secondary} />
+        </View>
+        <Text style={styles.faqAccordionQ}>{item.q}</Text>
+        <Animated.View style={chevronStyle}>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+        </Animated.View>
+      </Pressable>
+      {open && (
+        <Animated.View entering={FadeIn.duration(180)} style={styles.faqAccordionBody}>
+          <Text style={styles.faqAccordionA}>{item.a}</Text>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
 
 function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
@@ -77,12 +184,9 @@ function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void 
         <View style={styles.faqSheet}>
           <View style={styles.faqHandle} />
           <Text style={styles.faqTitle}>Come funziona la verifica?</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {FAQ_ITEMS.map((item, i) => (
-              <View key={i} style={styles.faqItem}>
-                <Text style={styles.faqQ}>{item.q}</Text>
-                <Text style={styles.faqA}>{item.a}</Text>
-              </View>
+              <FaqAccordionItem key={i} item={item} index={i} />
             ))}
           </ScrollView>
           <Pressable
@@ -99,35 +203,249 @@ function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void 
   );
 }
 
-// ─── Pulsing dot ─────────────────────────────────────────────────────────────
+// ─── Shield Glow Hero ────────────────────────────────────────────────────────
 
-function PulsingDot() {
-  const opacity = useSharedValue(1);
-  opacity.value = withRepeat(
-    withSequence(withTiming(0.3, { duration: 600 }), withTiming(1, { duration: 600 })),
-    -1,
-    false
+function ShieldHero() {
+  const pulse = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.06, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.0, { duration: 2200, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.4, { duration: 2200, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const shieldStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <View style={styles.heroIconContainer}>
+      {/* Glow rings */}
+      <Animated.View style={[styles.glowRing, styles.glowRingOuter, glowStyle]} />
+      <Animated.View style={[styles.glowRing, styles.glowRingMid, glowStyle]} />
+      {/* Shield */}
+      <Animated.View style={[styles.shieldInner, shieldStyle]}>
+        <Ionicons name="shield-checkmark" size={48} color={Colors.secondary} />
+      </Animated.View>
+    </View>
   );
-  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[styles.pulsingDot, animStyle]} />;
+}
+
+// ─── Benefit Card ────────────────────────────────────────────────────────────
+
+function BenefitCard({
+  item,
+  index,
+}: {
+  item: (typeof BENEFITS)[number];
+  index: number;
+}) {
+  return (
+    <Animated.View
+      entering={FadeInRight.delay(200 + index * 80).springify().damping(22)}
+      style={styles.benefitCard}
+    >
+      <View style={styles.benefitIconWrap}>
+        <Ionicons name={item.icon} size={20} color={Colors.secondary} />
+      </View>
+      <View style={styles.benefitTextGroup}>
+        <Text style={styles.benefitLabel}>{item.label}</Text>
+        <Text style={styles.benefitSub}>{item.sub}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Premium CTA Button ───────────────────────────────────────────────────────
+
+interface PremiumCtaProps {
+  label: string;
+  onPress: () => void;
+  isLoading: boolean;
+  iconName?: React.ComponentProps<typeof Ionicons>["name"];
+  variant?: "primary" | "warning";
+}
+
+function PremiumCta({
+  label,
+  onPress,
+  isLoading,
+  iconName = "shield-checkmark",
+  variant = "primary",
+}: PremiumCtaProps) {
+  const scale = useSharedValue(1);
+  const iconScale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
+  const onPressIn = () => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 150 });
+    iconScale.value = withSpring(0.9, { damping: 12, stiffness: 200 });
+  };
+
+  const onPressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+    iconScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  };
+
+  const bgColor = variant === "warning" ? Colors.warning : Colors.secondary;
+  const shadowColor = variant === "warning" ? Colors.warning : Colors.secondary;
+
+  return (
+    <Animated.View style={[styles.ctaWrapper, animatedStyle]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={[
+          styles.ctaInner,
+          { backgroundColor: bgColor, shadowColor },
+          isLoading && styles.ctaDisabled,
+        ]}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <>
+            <Animated.View style={iconAnimStyle}>
+              <Ionicons name={iconName} size={22} color="#ffffff" />
+            </Animated.View>
+            <Text style={styles.ctaText}>{label}</Text>
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ─── Rotating Processing Message ──────────────────────────────────────────────
+
+function RotatingMessage() {
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [displayed, setDisplayed] = useState(PROCESSING_MESSAGES[0]);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      opacity.value = withTiming(0, { duration: 300 }, () => {
+        runOnJS(setMsgIndex)((prev) => (prev + 1) % PROCESSING_MESSAGES.length);
+        opacity.value = withTiming(1, { duration: 300 });
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    setDisplayed(PROCESSING_MESSAGES[msgIndex]);
+  }, [msgIndex]);
+
+  const msgStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.Text style={[styles.processingRotMsg, msgStyle]}>{displayed}</Animated.Text>
+  );
+}
+
+// ─── Processing Ring ─────────────────────────────────────────────────────────
+
+function ProcessingRing() {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 2000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  return (
+    <View style={styles.processingRingContainer}>
+      <Animated.View style={[styles.processingRing, ringStyle]} />
+      <View style={styles.processingRingCenter}>
+        <Ionicons name="shield-checkmark-outline" size={32} color={Colors.secondary} />
+      </View>
+    </View>
+  );
 }
 
 // ─── Cards ───────────────────────────────────────────────────────────────────
 
 function VerifiedCard({ verifiedAt }: { verifiedAt: string | null }) {
+  const checkScale = useSharedValue(0);
+  const checkOpacity = useSharedValue(0);
+  const cardScale = useSharedValue(0.92);
+  const cardOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    cardScale.value = withSpring(1, { damping: 20, stiffness: 180 });
+    cardOpacity.value = withTiming(1, { duration: 300 });
+    checkScale.value = withDelay(
+      200,
+      withSpring(1, { damping: 14, stiffness: 220 })
+    );
+    checkOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+  }, []);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+    opacity: cardOpacity.value,
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+    opacity: checkOpacity.value,
+  }));
+
   return (
-    <Animated.View entering={FadeInDown.springify().damping(20)}>
-      <View style={styles.verifiedCard}>
-        <View style={styles.verifiedIconWrap}>
-          <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
-        </View>
-        <Text style={styles.verifiedTitle}>Identità verificata</Text>
-        {verifiedAt ? (
+    <Animated.View style={[styles.verifiedCard, cardStyle]}>
+      <Animated.View style={[styles.verifiedIconWrap, checkStyle]}>
+        <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
+      </Animated.View>
+      <Text style={styles.verifiedTitle}>Identità verificata</Text>
+      {verifiedAt ? (
+        <View style={styles.verifiedDateRow}>
+          <Ionicons name="calendar-outline" size={13} color={Colors.textTertiary} />
           <Text style={styles.verifiedDate}>Verificato il {formatDateIT(verifiedAt)}</Text>
-        ) : null}
-        <Text style={styles.verifiedSub}>
-          Sei pronto per ricevere pagamenti e prenotazioni.
-        </Text>
+        </View>
+      ) : null}
+      <Text style={styles.verifiedSub}>
+        Sei pronto per ricevere pagamenti e prenotazioni su CleanHome.
+      </Text>
+      <View style={styles.verifiedBadge}>
+        <Ionicons name="shield-checkmark-outline" size={12} color={Colors.success} />
+        <Text style={styles.verifiedBadgeText}>Verifica Stripe · GDPR</Text>
       </View>
     </Animated.View>
   );
@@ -140,53 +458,84 @@ interface ProcessingCardProps {
   isRestarting: boolean;
 }
 
-function ProcessingCard({ onRefresh, onRestart, isRefreshing, isRestarting }: ProcessingCardProps) {
+function ProcessingCard({
+  onRefresh,
+  onRestart,
+  isRefreshing,
+  isRestarting,
+}: ProcessingCardProps) {
   const [restartVisible, setRestartVisible] = useState(false);
+  const restartOpacity = useSharedValue(0);
+
   useEffect(() => {
-    const timer = setTimeout(() => setRestartVisible(true), 15000);
+    const timer = setTimeout(() => {
+      setRestartVisible(true);
+      restartOpacity.value = withTiming(1, { duration: 400 });
+    }, 15000);
     return () => clearTimeout(timer);
   }, []);
+
+  const restartStyle = useAnimatedStyle(() => ({ opacity: restartOpacity.value }));
+
+  const refreshScale = useSharedValue(1);
+  const refreshAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: refreshScale.value }],
+  }));
+
+  const onRefreshPressIn = () =>
+    (refreshScale.value = withSpring(0.97, { damping: 15, stiffness: 150 }));
+  const onRefreshPressOut = () =>
+    (refreshScale.value = withSpring(1, { damping: 15, stiffness: 150 }));
+
   return (
-    <View style={styles.processingCard}>
-      <View style={styles.processingIconRow}>
-        <PulsingDot />
-        <ActivityIndicator size="small" color={Colors.secondary} />
-        <PulsingDot />
-      </View>
-      <Text style={styles.processingTitle}>Verifica in corso...</Text>
+    <Animated.View
+      entering={FadeInDown.springify().damping(22)}
+      style={styles.processingCard}
+    >
+      <ProcessingRing />
+      <Text style={styles.processingTitle}>Verifica in corso</Text>
+      <RotatingMessage />
       <Text style={styles.processingSub}>
-        Stiamo controllando i tuoi dati. Riceverai una notifica appena pronto.{"\n"}
-        (di solito 2-5 minuti)
+        Riceverai una notifica appena completata.{"\n"}Di solito 2–5 minuti.
       </Text>
-      <Pressable
-        style={styles.processingRefreshBtn}
-        onPress={onRefresh}
-        disabled={isRefreshing}
-        accessibilityLabel="Aggiorna stato verifica"
-        accessibilityRole="button"
-      >
-        {isRefreshing ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
-        )}
-      </Pressable>
-      {restartVisible && (
+      <Animated.View style={[{ alignSelf: "stretch" }, refreshAnimStyle]}>
         <Pressable
-          style={styles.processingRestartBtn}
-          onPress={onRestart}
-          disabled={isRestarting}
-          accessibilityLabel="Ricomincia la verifica identità"
+          style={[styles.processingRefreshBtn, isRefreshing && styles.ctaDisabled]}
+          onPress={onRefresh}
+          onPressIn={onRefreshPressIn}
+          onPressOut={onRefreshPressOut}
+          disabled={isRefreshing}
+          accessibilityLabel="Aggiorna stato verifica"
           accessibilityRole="button"
         >
-          {isRestarting ? (
-            <ActivityIndicator size="small" color={Colors.textSecondary} />
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.processingRestartBtnText}>Ricomincia verifica</Text>
+            <>
+              <Ionicons name="refresh-outline" size={16} color="#fff" />
+              <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
+            </>
           )}
         </Pressable>
+      </Animated.View>
+      {restartVisible && (
+        <Animated.View style={[{ alignSelf: "stretch" }, restartStyle]}>
+          <Pressable
+            style={[styles.processingRestartBtn, isRestarting && { opacity: 0.6 }]}
+            onPress={onRestart}
+            disabled={isRestarting}
+            accessibilityLabel="Ricomincia la verifica identità"
+            accessibilityRole="button"
+          >
+            {isRestarting ? (
+              <ActivityIndicator size="small" color={Colors.textSecondary} />
+            ) : (
+              <Text style={styles.processingRestartBtnText}>Ricomincia verifica</Text>
+            )}
+          </Pressable>
+        </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -198,27 +547,31 @@ interface RequiresInputCardProps {
 
 function RequiresInputCard({ lastError, onRetry, isLoading }: RequiresInputCardProps) {
   return (
-    <Animated.View entering={FadeInDown.springify().damping(20)}>
-      <View style={styles.warningCard}>
-        <Ionicons name="warning" size={36} color={Colors.warning} />
-        <Text style={styles.warningTitle}>Verifica non completata</Text>
-        <Text style={styles.warningSub}>
-          {lastError ?? "Riprova la verifica per completare l'identificazione."}
-        </Text>
-        <Pressable
-          style={({ pressed }) => [styles.retryCta, pressed && { opacity: 0.85 }]}
-          onPress={onRetry}
-          disabled={isLoading}
-          accessibilityLabel="Riprova verifica"
-          accessibilityRole="button"
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.retryCtaText}>Riprova</Text>
-          )}
-        </Pressable>
+    <Animated.View
+      entering={FadeInDown.springify().damping(20)}
+      style={styles.requiresCard}
+    >
+      <View style={styles.requiresIconWrap}>
+        <Ionicons name="alert-circle" size={44} color={Colors.warning} />
       </View>
+      <Text style={styles.requiresTitle}>Quasi ci siamo</Text>
+      <Text style={styles.requiresSub}>
+        {lastError ??
+          "Abbiamo bisogno di qualche informazione in più per completare la verifica. Riprova — richiede solo un minuto."}
+      </Text>
+      <View style={styles.requiresTipCard}>
+        <Ionicons name="bulb-outline" size={14} color={Colors.secondary} />
+        <Text style={styles.requiresTipText}>
+          Assicurati di usare un documento chiaro e non scaduto.
+        </Text>
+      </View>
+      <PremiumCta
+        label="Riprova verifica"
+        onPress={onRetry}
+        isLoading={isLoading}
+        iconName="refresh-outline"
+        variant="warning"
+      />
     </Animated.View>
   );
 }
@@ -230,74 +583,72 @@ interface WelcomeContentProps {
   onFaq: () => void;
 }
 
-function WelcomeContent({ wasCanceled, onStart, isLoading, onFaq }: WelcomeContentProps) {
+function WelcomeContent({
+  wasCanceled,
+  onStart,
+  isLoading,
+  onFaq,
+}: WelcomeContentProps) {
   return (
     <>
-      {/* Hero block */}
+      {/* Hero */}
       <Animated.View
-        entering={FadeInDown.delay(80).springify().damping(22)}
+        entering={FadeInDown.delay(60).springify().damping(22)}
         style={styles.heroBlock}
       >
-        <View style={styles.heroIconWrap}>
-          <Ionicons name="shield-checkmark-outline" size={56} color={Colors.success} />
+        <ShieldHero />
+        <View style={styles.heroTextGroup}>
+          <Text style={styles.heroTitleLine1}>Verifica</Text>
+          <Text style={styles.heroTitleLine2}>la tua identità</Text>
         </View>
-        <Text style={styles.heroTitle}>Verifica la tua identità</Text>
         <Text style={styles.heroSub}>
           {wasCanceled
-            ? "Hai annullato la verifica precedente. Ricomincia quando vuoi."
-            : "Pochi minuti, verificato per sempre. Richiesto per ricevere pagamenti e fiducia dei clienti."}
+            ? "Hai annullato la verifica precedente. Ricomincia quando sei pronto."
+            : "Pochi minuti, verificato per sempre. Richiesto per ricevere pagamenti dai clienti."}
         </Text>
       </Animated.View>
 
-      {/* Benefits list */}
-      <Animated.View
-        entering={FadeInDown.delay(160).springify().damping(22)}
-        style={styles.benefitsList}
-      >
-        {BENEFITS.map((benefit, i) => (
-          <View key={i} style={styles.benefitRow}>
-            <View style={styles.benefitCheck}>
-              <Ionicons name="checkmark" size={14} color="#fff" />
-            </View>
-            <Text style={styles.benefitText}>{benefit}</Text>
-          </View>
+      {/* Benefits */}
+      <View style={styles.benefitsSection}>
+        {BENEFITS.map((b, i) => (
+          <BenefitCard key={i} item={b} index={i} />
         ))}
+      </View>
+
+      {/* Trust badges */}
+      <TrustBadges />
+
+      {/* CTA */}
+      <Animated.View
+        entering={FadeInDown.delay(340).springify().damping(22)}
+        style={styles.ctaSection}
+      >
+        <PremiumCta
+          label="Inizia verifica"
+          onPress={onStart}
+          isLoading={isLoading}
+          iconName="shield-checkmark"
+          variant="primary"
+        />
       </Animated.View>
 
-      <Pressable
-        style={({ pressed }) => [styles.mainCtaWrapper, pressed && styles.mainCtaDisabled]}
-        onPress={onStart}
-        disabled={isLoading}
-        accessibilityLabel="Inizia verifica identità"
-        accessibilityRole="button"
-      >
-        <View style={styles.mainCta}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <>
-              <Ionicons name="shield-checkmark" size={26} color="#ffffff" />
-              <Text style={styles.mainCtaText}>Inizia verifica</Text>
-            </>
-          )}
-        </View>
-      </Pressable>
-
       {/* FAQ link */}
-      <Pressable
-        style={({ pressed }) => [styles.faqLink, pressed && { opacity: 0.7 }]}
-        onPress={onFaq}
-        accessibilityLabel="Come funziona la verifica? Apri FAQ"
-        accessibilityRole="button"
-      >
-        <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
-        <Text style={styles.faqLinkText}>Come funziona la verifica?</Text>
-      </Pressable>
+      <Animated.View entering={FadeIn.delay(420).duration(400)}>
+        <Pressable
+          style={({ pressed }) => [styles.faqLink, pressed && { opacity: 0.7 }]}
+          onPress={onFaq}
+          accessibilityLabel="Come funziona la verifica? Apri FAQ"
+          accessibilityRole="button"
+        >
+          <Ionicons name="help-circle-outline" size={16} color={Colors.textSecondary} />
+          <Text style={styles.faqLinkText}>Come funziona la verifica?</Text>
+        </Pressable>
+      </Animated.View>
     </>
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DocumentsScreen() {
   const router = useRouter();
@@ -376,11 +727,7 @@ export default function DocumentsScreen() {
   // hasn't been updated in the last 30 seconds (likely a stale webhook state).
   const autoSyncDoneRef = useRef(false);
   useEffect(() => {
-    if (
-      !isLoading &&
-      status === "processing" &&
-      !autoSyncDoneRef.current
-    ) {
+    if (!isLoading && status === "processing" && !autoSyncDoneRef.current) {
       autoSyncDoneRef.current = true;
       syncFromStripe().catch(() => {
         // Silently ignore — the manual "Aggiorna stato" button remains available
@@ -398,16 +745,25 @@ export default function DocumentsScreen() {
   const renderMainContent = () => {
     if (isLoading) {
       return (
-        <View style={styles.loadingBlock}>
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.loadingBlock}
+        >
           <ActivityIndicator size="large" color={Colors.secondary} />
           <Text style={styles.loadingText}>Caricamento stato verifica...</Text>
-        </View>
+        </Animated.View>
       );
     }
     if (error) {
       return (
-        <View style={styles.errorBlock}>
-          <Ionicons name="alert-circle-outline" size={32} color={Colors.error} />
+        <Animated.View
+          entering={FadeInDown.springify().damping(20)}
+          style={styles.errorBlock}
+        >
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="alert-circle" size={40} color={Colors.error} />
+          </View>
+          <Text style={styles.errorTitle}>Qualcosa è andato storto</Text>
           <Text style={styles.errorText}>{error.message}</Text>
           <Pressable
             style={({ pressed }) => [styles.retrySmall, pressed && { opacity: 0.8 }]}
@@ -415,9 +771,10 @@ export default function DocumentsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Riprova caricamento"
           >
+            <Ionicons name="refresh-outline" size={14} color={Colors.error} />
             <Text style={styles.retrySmallText}>Riprova</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       );
     }
     if (status === "verified") return <VerifiedCard verifiedAt={verifiedAt} />;
@@ -472,10 +829,13 @@ export default function DocumentsScreen() {
       >
         {renderMainContent()}
         {status !== "verified" && !isLoading && (
-          <View style={styles.footer}>
-            <Ionicons name="lock-closed-outline" size={12} color={Colors.textTertiary} />
+          <Animated.View
+            entering={FadeIn.delay(500).duration(400)}
+            style={styles.footer}
+          >
+            <Ionicons name="lock-closed" size={10} color={Colors.textTertiary} />
             <Text style={styles.footerText}>Powered by Stripe · GDPR compliant</Text>
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
       <FaqModal visible={faqVisible} onClose={handleFaqClose} />
@@ -483,10 +843,11 @@ export default function DocumentsScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -511,46 +872,123 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     letterSpacing: -0.2,
   },
+
   scrollContent: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.xxxl,
     gap: Spacing.lg,
   },
-  loadingBlock: { alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.xxl },
+
+  loadingBlock: {
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.xxl,
+  },
   loadingText: { fontSize: 14, color: Colors.textSecondary },
-  errorBlock: { alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.xxl },
-  errorText: { fontSize: 14, color: Colors.error, textAlign: "center", lineHeight: 21 },
+
+  errorBlock: {
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.xxl,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    ...Shadows.md,
+  },
+  errorIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.errorLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 21,
+  },
   retrySmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
     paddingVertical: 10,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     borderRadius: Radius.full,
     backgroundColor: Colors.errorLight,
+    marginTop: Spacing.xs,
   },
   retrySmallText: { fontSize: 14, fontWeight: "700", color: Colors.error },
 
+  // ─── Hero ───────────────────────────────────────────────────────────────────
+
   heroBlock: {
     alignItems: "center",
-    gap: Spacing.md,
-    paddingTop: Spacing.base,
+    gap: Spacing.base,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  heroIconWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.successLight,
+  heroIconContainer: {
+    width: 120,
+    height: 120,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.sm,
-    ...Shadows.sm,
+    marginBottom: Spacing.xs,
   },
-  heroTitle: {
-    fontSize: 26,
+  glowRing: {
+    position: "absolute",
+    borderRadius: 9999,
+    backgroundColor: Colors.accentLight,
+  },
+  glowRingOuter: {
+    width: 120,
+    height: 120,
+    opacity: 0.6,
+  },
+  glowRingMid: {
+    width: 88,
+    height: 88,
+    backgroundColor: Colors.accentLight,
+    opacity: 0.9,
+  },
+  shieldInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Shadows.md,
+  },
+  heroTextGroup: {
+    alignItems: "center",
+    gap: 0,
+  },
+  heroTitleLine1: {
+    fontSize: 38,
     fontWeight: "800",
     color: Colors.primary,
     textAlign: "center",
-    letterSpacing: -0.5,
+    letterSpacing: -1.5,
+    lineHeight: 42,
+    fontFamily: "NotoSerif_700Bold",
+  },
+  heroTitleLine2: {
+    fontSize: 38,
+    fontWeight: "800",
+    color: Colors.secondary,
+    textAlign: "center",
+    letterSpacing: -1.5,
+    lineHeight: 44,
     fontFamily: "NotoSerif_700Bold",
   },
   heroSub: {
@@ -560,49 +998,98 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     paddingHorizontal: Spacing.md,
   },
-  benefitsList: { gap: Spacing.sm, paddingHorizontal: Spacing.sm },
-  benefitRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-  benefitCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.success,
+
+  // ─── Benefits ────────────────────────────────────────────────────────────────
+
+  benefitsSection: {
+    gap: Spacing.sm,
+  },
+  benefitCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.sm,
+  },
+  benefitIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  benefitText: { fontSize: 14, color: Colors.text, flex: 1, lineHeight: 20 },
-
-  mainCtaWrapper: {
-    alignSelf: "stretch",
-    marginHorizontal: 0,
-    marginTop: 24,
-    marginBottom: 8,
+  benefitTextGroup: { flex: 1, gap: 2 },
+  benefitLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.text,
+    letterSpacing: -0.1,
   },
-  mainCta: {
+  benefitSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
+
+  // ─── Trust badges ────────────────────────────────────────────────────────────
+
+  trustRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  trustChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.full,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.sm,
+  },
+  trustChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.secondary,
+    letterSpacing: 0.1,
+  },
+
+  // ─── CTA ─────────────────────────────────────────────────────────────────────
+
+  ctaSection: { gap: Spacing.sm },
+  ctaWrapper: { alignSelf: "stretch" },
+  ctaInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#16a34a",
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     height: 60,
-    paddingHorizontal: 24,
-    overflow: "hidden",
-    shadowColor: "#16a34a",
-    shadowOpacity: 0.35,
+    paddingHorizontal: Spacing.xl,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  mainCtaDisabled: { opacity: 0.6 },
-  mainCtaText: {
-    fontSize: 18,
+  ctaDisabled: { opacity: 0.6 },
+  ctaText: {
+    fontSize: 17,
     fontWeight: "800",
     color: "#ffffff",
     letterSpacing: -0.2,
     includeFontPadding: false,
   },
+
+  // ─── FAQ link ────────────────────────────────────────────────────────────────
 
   faqLink: {
     flexDirection: "row",
@@ -613,72 +1100,137 @@ const styles = StyleSheet.create({
   },
   faqLinkText: { fontSize: 13, color: Colors.textSecondary, fontWeight: "600" },
 
+  // ─── Verified card ───────────────────────────────────────────────────────────
+
   verifiedCard: {
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.successLight,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xl,
     borderWidth: 1.5,
     borderColor: Colors.success,
-    ...Shadows.sm,
+    ...Shadows.md,
   },
-  verifiedIconWrap: { marginBottom: Spacing.sm },
+  verifiedIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.successLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
   verifiedTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.success,
-    textAlign: "center",
-    letterSpacing: -0.3,
-  },
-  verifiedDate: { fontSize: 13, color: Colors.textSecondary, textAlign: "center" },
-  verifiedSub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 21,
-  },
-
-  processingCard: {
-    alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.accent,
-    ...Shadows.sm,
-  },
-  processingIconRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  pulsingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.secondary },
-  processingTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "800",
     color: Colors.primary,
     textAlign: "center",
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
+    fontFamily: "NotoSerif_700Bold",
   },
-  processingSub: {
+  verifiedDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  verifiedDate: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  verifiedSub: {
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
   },
-  processingRefreshBtn: {
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.successLight,
+    borderRadius: Radius.full,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.success,
+    letterSpacing: 0.2,
+  },
+
+  // ─── Processing card ─────────────────────────────────────────────────────────
+
+  processingCard: {
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.md,
+  },
+  processingRingContainer: {
+    width: 88,
+    height: 88,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  processingRing: {
+    position: "absolute",
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: Colors.accent,
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+  },
+  processingRingCenter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.accentLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  processingTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.primary,
+    textAlign: "center",
+    letterSpacing: -0.4,
+    fontFamily: "NotoSerif_700Bold",
+  },
+  processingRotMsg: {
+    fontSize: 14,
+    color: Colors.secondary,
+    textAlign: "center",
+    fontWeight: "600",
+    letterSpacing: -0.1,
+  },
+  processingSub: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  processingRefreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
     backgroundColor: Colors.secondary,
     borderRadius: Radius.full,
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: Spacing.xl,
-    marginTop: Spacing.sm,
-    minWidth: 160,
-    height: 44,
+    marginTop: Spacing.xs,
+    height: 48,
     ...Shadows.sm,
   },
   processingRefreshBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
@@ -686,13 +1238,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: Radius.full,
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: Spacing.xl,
-    marginTop: Spacing.xs,
-    minWidth: 160,
-    height: 40,
+    height: 44,
     borderWidth: 1.5,
-    borderColor: Colors.textSecondary,
+    borderColor: Colors.border,
   },
   processingRestartBtnText: {
     fontSize: 13,
@@ -700,65 +1250,82 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  warningCard: {
+  // ─── Requires input card ──────────────────────────────────────────────────────
+
+  requiresCard: {
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.warningLight,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.warning,
-    ...Shadows.sm,
+    borderColor: Colors.warningLight,
+    ...Shadows.md,
   },
-  warningTitle: {
-    fontSize: 20,
+  requiresIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.warningLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  requiresTitle: {
+    fontSize: 22,
     fontWeight: "800",
-    color: Colors.warning,
+    color: Colors.primary,
     textAlign: "center",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    fontFamily: "NotoSerif_700Bold",
   },
-  warningSub: {
+  requiresSub: {
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
   },
-  retryCta: {
+  requiresTipCard: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.warning,
-    borderRadius: Radius.full,
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.xl,
-    marginTop: Spacing.sm,
-    minWidth: 140,
-    height: 48,
-    ...Shadows.sm,
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    alignSelf: "stretch",
   },
-  retryCtaText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  requiresTipText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+
+  // ─── Footer ───────────────────────────────────────────────────────────────────
 
   footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    marginTop: Spacing.sm,
+    gap: 5,
+    marginTop: Spacing.xs,
   },
   footerText: { fontSize: 11, color: Colors.textTertiary },
+
+  // ─── FAQ Sheet ────────────────────────────────────────────────────────────────
 
   faqOverlay: { flex: 1, justifyContent: "flex-end" },
   faqBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(2,36,32,0.45)",
   },
   faqSheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: Radius.xxl,
+    borderTopRightRadius: Radius.xxl,
     padding: Spacing.xl,
     paddingBottom: 40,
-    maxHeight: "80%",
+    maxHeight: "82%",
     gap: Spacing.md,
     ...Shadows.lg,
   },
@@ -766,7 +1333,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.border,
     alignSelf: "center",
     marginBottom: Spacing.sm,
   },
@@ -774,18 +1341,60 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: Colors.primary,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    fontFamily: "NotoSerif_700Bold",
+    marginBottom: Spacing.xs,
+  },
+  faqAccordion: {
+    backgroundColor: Colors.backgroundAlt,
+    borderRadius: Radius.lg,
+    overflow: "hidden",
     marginBottom: Spacing.sm,
   },
-  faqItem: { gap: Spacing.xs, marginBottom: Spacing.md },
-  faqQ: { fontSize: 14, fontWeight: "700", color: Colors.text, lineHeight: 20 },
-  faqA: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
-  faqCloseBtn: {
-    backgroundColor: Colors.backgroundAlt,
-    borderRadius: Radius.full,
+  faqAccordionHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    marginTop: Spacing.sm,
+    gap: Spacing.md,
+    padding: Spacing.base,
   },
-  faqCloseBtnText: { fontSize: 15, fontWeight: "700", color: Colors.primary },
+  faqAccordionIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    ...Shadows.sm,
+  },
+  faqAccordionQ: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.text,
+    lineHeight: 18,
+  },
+  faqAccordionBody: {
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.base,
+    paddingTop: 0,
+  },
+  faqAccordionA: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  faqCloseBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
+    alignItems: "center",
+    paddingVertical: 16,
+    marginTop: Spacing.xs,
+  },
+  faqCloseBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: -0.1,
+  },
 });
