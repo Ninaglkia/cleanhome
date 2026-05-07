@@ -88,6 +88,13 @@ serve(async (req: Request) => {
       return_url: "cleanhome://stripe-identity/return",
     } as any);
 
+    // ── Create ephemeral key for the React Native SDK ─────────────────────
+    // The SDK requires sessionId + ephemeralKeySecret to present the sheet.
+    const ephemeralKey = await (stripe as any).ephemeralKeys.create(
+      { verification_session: session.id },
+      { apiVersion: "2020-03-02" }
+    );
+
     // ── Persist session id and set status to processing ────────────────────
     const { error: updateErr } = await supabase
       .from("cleaner_profiles")
@@ -103,9 +110,10 @@ serve(async (req: Request) => {
       return json({ error: "Impossibile salvare la sessione di verifica" }, 500);
     }
 
-    // The Stripe Identity React Native SDK requires the `client_secret` from
-    // the VerificationSession to present the document capture flow.
-    return json({ client_secret: session.client_secret });
+    return json({
+      sessionId: session.id,
+      ephemeralKeySecret: ephemeralKey.secret,
+    });
   } catch (err: any) {
     const msg = err?.message ?? String(err);
     console.error("[stripe-identity-create-session]", msg);
