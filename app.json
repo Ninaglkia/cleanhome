@@ -23,6 +23,7 @@
         "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e le foto delle case da pulire.",
         "NSPhotoLibraryAddUsageDescription": "CleanHome può salvare ricevute e conferme nella tua libreria foto quando glielo chiedi.",
         "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità e per le pulizie.",
+        "NSMicrophoneUsageDescription": "CleanHome usa il microfono durante la verifica liveness del documento d'identità Stripe.",
         "NSUserTrackingUsageDescription": "CleanHome non traccia la tua attività tra app di terze parti.",
         "UIBackgroundModes": [
           "remote-notification"
@@ -92,7 +93,8 @@
         }
       ],
       "@sentry/react-native",
-      "expo-secure-store"
+      "expo-secure-store",
+      "react-native-bottom-tabs"
     ],
     "extra": {
       "router": {},
