@@ -39,20 +39,6 @@ function formatDateIT(iso: string): string {
   });
 }
 
-/** Parses a Stripe Identity client_secret into sessionId + ephemeralKeySecret.
- *  Format: "<sessionId>_secret_<random>"  */
-function parseClientSecret(
-  clientSecret: string
-): { sessionId: string; ephemeralKeySecret: string } {
-  const idx = clientSecret.indexOf("_secret_");
-  if (idx === -1) {
-    throw new Error("Formato client_secret non valido");
-  }
-  return {
-    sessionId: clientSecret.slice(0, idx),
-    ephemeralKeySecret: clientSecret,
-  };
-}
 
 // ─── FAQ Modal ────────────────────────────────────────────────────────────────
 
@@ -268,7 +254,10 @@ function WelcomeContent({
       </Animated.View>
 
       {/* CTA */}
-      <Animated.View entering={FadeInDown.delay(240).springify().damping(22)}>
+      <Animated.View
+        entering={FadeInDown.delay(240).springify().damping(22)}
+        style={styles.mainCtaWrapper}
+      >
         <Pressable
           style={({ pressed }) => [
             styles.mainCta,
@@ -333,8 +322,7 @@ export default function DocumentsScreen() {
   // useStripeIdentity requires a stable optionsProvider ref.
   // We use a ref-stable callback that calls startVerification internally.
   const optionsProvider = useCallback(async () => {
-    const clientSecret = await startVerification();
-    const { sessionId, ephemeralKeySecret } = parseClientSecret(clientSecret);
+    const { sessionId, ephemeralKeySecret } = await startVerification();
     return {
       sessionId,
       ephemeralKeySecret,
@@ -620,18 +608,20 @@ const styles = StyleSheet.create({
   },
 
   // Main CTA
+  mainCtaWrapper: {
+    alignSelf: "stretch",
+    marginHorizontal: 20,
+    marginTop: 24,
+  },
   mainCta: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "stretch",
     gap: Spacing.sm,
     backgroundColor: "#006b55",
     borderRadius: Radius.xl,
     height: 56,
     paddingHorizontal: 20,
-    marginHorizontal: 20,
-    marginTop: 24,
     ...Shadows.md,
   },
   mainCtaDisabled: {

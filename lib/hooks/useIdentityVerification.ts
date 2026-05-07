@@ -5,6 +5,11 @@ import type { StripeIdentityStatus } from "../types";
 
 // ─── Return shape ─────────────────────────────────────────────────────────────
 
+export interface IdentityVerificationSession {
+  sessionId: string;
+  ephemeralKeySecret: string;
+}
+
 export interface UseIdentityVerificationResult {
   status: StripeIdentityStatus | null;
   verifiedAt: string | null;
@@ -13,8 +18,8 @@ export interface UseIdentityVerificationResult {
   isProcessing: boolean;
   isLoading: boolean;
   error: Error | null;
-  /** Calls the Edge Function, returns the client_secret for the Stripe Identity SDK */
-  startVerification: () => Promise<string>;
+  /** Calls the Edge Function, returns { sessionId, ephemeralKeySecret } for the Stripe Identity SDK */
+  startVerification: () => Promise<IdentityVerificationSession>;
   refetch: () => Promise<void>;
 }
 
@@ -138,51 +143,61 @@ export function useIdentityVerification(
     };
   }, [cleanerId]);
 
-  // ── startVerification — calls Edge Function, returns client_secret ──────────
-  const startVerification = useCallback(async (): Promise<string> => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    if (!token) {
-      throw new Error("Sessione non valida. Effettua di nuovo il login.");
-    }
-
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error("EXPO_PUBLIC_SUPABASE_URL non configurato");
-    }
-
-    const res = await fetch(
-      `${supabaseUrl}/functions/v1/stripe-identity-create-session`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({}),
+  // ── startVerification — calls Edge Function, returns { sessionId, ephemeralKeySecret } ──────────
+  const startVerification =
+    useCallback(async (): Promise<IdentityVerificationSession> => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        throw new Error("Sessione non valida. Effettua di nuovo il login.");
       }
-    );
 
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(
-        (errBody as { error?: string }).error ??
-          "Impossibile avviare la verifica"
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error("EXPO_PUBLIC_SUPABASE_URL non configurato");
+      }
+
+      const res = await fetch(
+        `${supabaseUrl}/functions/v1/stripe-identity-create-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        }
       );
-    }
 
-    const body = (await res.json()) as { client_secret?: string };
-    if (!body.client_secret) {
-      throw new Error("Risposta della funzione non valida: client_secret mancante");
-    }
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(
+          (errBody as { error?: string }).error ??
+            "Impossibile avviare la verifica"
+        );
+      }
 
-    // Optimistically set local state to processing
-    if (isMountedRef.current) {
-      setStatus("processing");
-    }
+      const body = (await res.json()) as {
+        sessionId?: string;
+        ephemeralKeySecret?: string;
+      };
 
-    return body.client_secret;
-  }, []);
+      if (!body.sessionId || !body.ephemeralKeySecret) {
+        throw new Error(
+          "Risposta della funzione non valida: sessionId o ephemeralKeySecret mancanti"
+        );
+      }
+
+      // Optimistically set local state to processing
+      if (isMountedRef.current) {
+        setStatus("processing");
+      }
+
+      return {
+        sessionId: body.sessionId,
+        ephemeralKeySecret: body.ephemeralKeySecret,
+      };
+    }, []);
 
   return {
     status,
