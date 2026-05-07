@@ -188,11 +188,6 @@ export function useIdentityVerification(
         );
       }
 
-      // Optimistically set local state to processing
-      if (isMountedRef.current) {
-        setStatus("processing");
-      }
-
       return {
         sessionId: body.sessionId,
         ephemeralKeySecret: body.ephemeralKeySecret,
