@@ -432,20 +432,21 @@ function CleanerView({
         <Pressable
           style={clientStyles.avatarWrapper}
           onPress={onAvatarPress}
+          disabled={avatarUploading}
           accessibilityLabel="Cambia foto profilo"
           accessibilityRole="button"
         >
           <AvatarDisplay
             avatarUrl={avatarUrl}
             initials={initials}
-            size={96}
-            backgroundColor={clientStyles.avatarSquare.backgroundColor}
-            initialsColor={C.primary}
+            size={88}
+            backgroundColor="#006b55"
+            initialsColor="#ffffff"
             borderRadius={999}
             uploading={avatarUploading}
           />
-          <View style={clientStyles.verifiedBadge}>
-            <Ionicons name="checkmark" size={12} color="#fff" />
+          <View style={clientStyles.editBadge}>
+            <Ionicons name="camera-outline" size={12} color="#022420" />
           </View>
         </Pressable>
         <Text style={clientStyles.heroName}>{fullName}</Text>
@@ -634,20 +635,21 @@ function ClientView({
         <Pressable
           style={styles.avatarWrapper}
           onPress={onAvatarPress}
+          disabled={avatarUploading}
           accessibilityLabel="Cambia foto profilo"
           accessibilityRole="button"
         >
           <AvatarDisplay
             avatarUrl={avatarUrl}
             initials={initials}
-            size={96}
-            backgroundColor="#D4A574"
-            initialsColor="#fff"
+            size={88}
+            backgroundColor="#6f4627"
+            initialsColor="#ffffff"
             borderRadius={999}
             uploading={avatarUploading}
           />
-          <View style={[styles.verifiedBadge, { backgroundColor: C.cleanerAmber }]}>
-            <Ionicons name="checkmark" size={12} color="#fff" />
+          <View style={styles.editBadge}>
+            <Ionicons name="camera-outline" size={12} color="#6f4627" />
           </View>
         </Pressable>
         <Text style={styles.heroName}>{fullName}</Text>
@@ -1325,20 +1327,20 @@ const styles = StyleSheet.create({
   // ── Profile hero ──────────────────────────────────────────────────────────────
   heroSection: {
     alignItems: "center",
-    paddingTop: 24,
-    paddingBottom: 8,
+    paddingTop: 19,
+    paddingBottom: 6,
     paddingHorizontal: 24,
   },
   avatarWrapper: {
     position: "relative",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  // Square avatar: w-24 h-24 rounded-lg
+  // Square avatar: w-22 h-22 rounded-lg
   avatarSquare: {
-    width: 96,
-    height: 96,
+    width: 88,
+    height: 88,
     borderRadius: 12,
-    backgroundColor: C.primaryContainer,
+    backgroundColor: "#6f4627",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: C.onSurface,
@@ -1348,32 +1350,32 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   avatarInitials: {
-    fontSize: 30,
+    fontSize: 29,
     fontWeight: "800",
-    color: "#abcec6",
+    color: "#ffffff",
     letterSpacing: 1,
   },
-  // Verified badge: bottom-right -2 -2
-  verifiedBadge: {
+  // Edit badge: bottom-right, white circle with camera icon
+  editBadge: {
     position: "absolute",
-    bottom: -6,
-    right: -6,
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: C.secondary,
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.onSurface,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
     shadowRadius: 4,
     elevation: 4,
   },
-  // name: font-headline text-3xl bold
+  // name: font-headline text-2xl bold
   heroName: {
     fontFamily: "NotoSerif_700Bold",
-    fontSize: 28,
+    fontSize: 23,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.4,
@@ -1611,18 +1613,18 @@ const clientStyles = StyleSheet.create({
   // ── Hero ────────────────────────────────────────────────────────────────────
   heroSection: {
     alignItems: "center",
-    paddingTop: 28,
-    paddingBottom: 8,
+    paddingTop: 22,
+    paddingBottom: 6,
     paddingHorizontal: 24,
   },
   avatarWrapper: {
     position: "relative",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  // 96x96, rounded-lg (12px), bg surface-container-low
+  // 88x88, rounded-lg (12px), bg surface-container-low
   avatarSquare: {
-    width: 96,
-    height: 96,
+    width: 88,
+    height: 88,
     borderRadius: 12,
     backgroundColor: C.surfaceLow,
     alignItems: "center",
@@ -1634,32 +1636,32 @@ const clientStyles = StyleSheet.create({
     elevation: 4,
   },
   avatarInitials: {
-    fontSize: 32,
+    fontSize: 29,
     fontWeight: "800",
-    color: C.primary,
+    color: "#ffffff",
     letterSpacing: 1,
   },
-  // verified badge: bottom-right, rounded-md
-  verifiedBadge: {
+  // edit badge: bottom-right, white circle with camera icon
+  editBadge: {
     position: "absolute",
-    bottom: -6,
-    right: -6,
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: C.secondary,
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.onSurface,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 4,
     elevation: 4,
   },
-  // name: 30px bold, primary dark green
+  // name: 25px bold, primary dark green
   heroName: {
     fontFamily: "NotoSerif_700Bold",
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.5,
