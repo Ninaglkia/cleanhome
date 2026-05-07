@@ -21,6 +21,8 @@ export interface UseIdentityVerificationResult {
   /** Calls the Edge Function, returns { sessionId, ephemeralKeySecret } for the Stripe Identity SDK */
   startVerification: () => Promise<IdentityVerificationSession>;
   refetch: () => Promise<void>;
+  /** Fetches the real status from Stripe API, updates DB, then reloads from DB. Use instead of refetch() when status may be stale (e.g. webhook delayed). */
+  syncFromStripe: () => Promise<void>;
 }
 
 // ─── Row shape fetched from cleaner_profiles ──────────────────────────────────
@@ -143,6 +145,45 @@ export function useIdentityVerification(
     };
   }, [cleanerId]);
 
+  // ── syncFromStripe — pulls real status from Stripe API, updates DB, reloads ─
+  const syncFromStripe = useCallback(async (): Promise<void> => {
+    if (!cleanerId) return;
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      throw new Error("Sessione non valida. Effettua di nuovo il login.");
+    }
+
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error("EXPO_PUBLIC_SUPABASE_URL non configurato");
+    }
+
+    const res = await fetch(
+      `${supabaseUrl}/functions/v1/stripe-identity-sync-status`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(
+        (errBody as { error?: string }).error ??
+          "Impossibile sincronizzare lo stato con Stripe"
+      );
+    }
+
+    // Edge Function already updated DB; reload local state from DB to stay consistent.
+    await loadData();
+  }, [cleanerId, loadData]);
+
   // ── startVerification — calls Edge Function, returns { sessionId, ephemeralKeySecret } ──────────
   const startVerification =
     useCallback(async (): Promise<IdentityVerificationSession> => {
@@ -204,5 +245,6 @@ export function useIdentityVerification(
     error,
     startVerification,
     refetch: loadData,
+    syncFromStripe,
   };
 }

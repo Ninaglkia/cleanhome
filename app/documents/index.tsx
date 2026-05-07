@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -311,6 +311,7 @@ export default function DocumentsScreen() {
     error,
     startVerification,
     refetch,
+    syncFromStripe,
   } = useIdentityVerification(user?.id);
 
   const [sdkLoading, setSdkLoading] = useState(false);
@@ -357,14 +358,35 @@ export default function DocumentsScreen() {
     }
   }, [isCtaLoading, present, refetch]);
 
+  // "Aggiorna stato" now syncs directly with Stripe API instead of just rereading
+  // the DB. This resolves stuck "processing" states when the webhook hasn't arrived yet.
   const handleRefetch = useCallback(async () => {
     setIsRefreshing(true);
     try {
+      await syncFromStripe();
+    } catch {
+      // Fallback to a plain DB read if the Stripe sync call fails
       await refetch();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch]);
+  }, [syncFromStripe, refetch]);
+
+  // Auto-sync on mount when status is stuck in "processing" and the DB row
+  // hasn't been updated in the last 30 seconds (likely a stale webhook state).
+  const autoSyncDoneRef = useRef(false);
+  useEffect(() => {
+    if (
+      !isLoading &&
+      status === "processing" &&
+      !autoSyncDoneRef.current
+    ) {
+      autoSyncDoneRef.current = true;
+      syncFromStripe().catch(() => {
+        // Silently ignore — the manual "Aggiorna stato" button remains available
+      });
+    }
+  }, [isLoading, status, syncFromStripe]);
 
   const handleFaqOpen = useCallback(() => setFaqVisible(true), []);
   const handleFaqClose = useCallback(() => setFaqVisible(false), []);
