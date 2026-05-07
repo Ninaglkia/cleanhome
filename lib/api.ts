@@ -127,16 +127,36 @@ export interface AddressSuggestion {
 
 export async function searchAddresses(
   query: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  bias?: { latitude: number; longitude: number; radiusMeters?: number }
 ): Promise<AddressSuggestion[]> {
   const trimmed = query.trim();
-  if (trimmed.length < 3) return [];
+  if (trimmed.length < 1) return [];
 
   const googleKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 
   // Prefer Google Places when enabled — richer structured results.
   if (googleKey) {
     try {
+      const requestBody: Record<string, unknown> = {
+        input: trimmed,
+        languageCode: "it",
+        regionCode: "it",
+        includedRegionCodes: ["it"],
+      };
+      // Bias suggestions toward the user's current location so single-letter
+      // queries return locally-relevant streets first (Google-Maps style).
+      if (bias) {
+        requestBody.locationBias = {
+          circle: {
+            center: {
+              latitude: bias.latitude,
+              longitude: bias.longitude,
+            },
+            radius: bias.radiusMeters ?? 50000, // 50 km default
+          },
+        };
+      }
       const res = await fetch(
         "https://places.googleapis.com/v1/places:autocomplete",
         {
@@ -145,12 +165,7 @@ export async function searchAddresses(
             "Content-Type": "application/json",
             "X-Goog-Api-Key": googleKey,
           },
-          body: JSON.stringify({
-            input: trimmed,
-            languageCode: "it",
-            regionCode: "it",
-            includedRegionCodes: ["it"],
-          }),
+          body: JSON.stringify(requestBody),
           signal,
         }
       );
@@ -919,17 +934,18 @@ export async function deleteOwnAccount(): Promise<void> {
  * updates the profile's avatar_url, and returns the public URL.
  */
 export async function uploadAvatar(userId: string, localUri: string): Promise<string> {
-  // Build a unique file path: avatars/<userId>/<timestamp>.jpg
+  const { File } = await import("expo-file-system");
+
   const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
   const fileName = `${userId}/${Date.now()}.${ext}`;
 
-  // Fetch the local file as a Blob
-  const response = await fetch(localUri);
-  const blob = await response.blob();
+  // RN-safe upload: read file as ArrayBuffer via expo-file-system.
+  // fetch(uri).blob() is unreliable on iOS RN and silently uploads 0 bytes.
+  const arrayBuffer = await new File(localUri).arrayBuffer();
 
   const { error: uploadError } = await supabase.storage
     .from("avatars")
-    .upload(fileName, blob, {
+    .upload(fileName, arrayBuffer, {
       contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
       upsert: true,
     });
