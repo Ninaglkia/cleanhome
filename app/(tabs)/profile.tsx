@@ -19,6 +19,8 @@ import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
+import { supabase } from "../../lib/supabase";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -350,6 +352,7 @@ interface CleanerViewProps {
   onEditProfile: () => void;
   onListing: () => void;
   onDocuments: () => void;
+  onBankData: () => void;
   onLegal: () => void;
   onPrivacy: () => void;
   onSwitchRole: () => void;
@@ -374,6 +377,7 @@ function CleanerView({
   onEditProfile,
   onListing,
   onDocuments,
+  onBankData,
   onLegal,
   onPrivacy,
   onSwitchRole,
@@ -462,6 +466,14 @@ function CleanerView({
             cardStyle
           />
         </View>
+        <MenuRow
+          icon="card-outline"
+          label="Dati bancari"
+          sublabel="Conto collegato a Stripe"
+          onPress={onBankData}
+          iconBgColor={C.surfaceLow}
+          cardStyle
+        />
         <View ref={documentsRef}>
           <MenuRow
             icon="document-text-outline"
@@ -734,6 +746,9 @@ export default function ProfileScreen() {
   // avoid setState-after-unmount + stuck animation if user navigates away.
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Prevent double-tap while Stripe Connect link is loading
+  const [invokingBank, setInvokingBank] = useState(false);
+
   // ── Profile coach marks ────────────────────────────────────────────────────
   const [showProfileCoach, setShowProfileCoach] = useState(false);
   const [profileCoachSteps, setProfileCoachSteps] = useState<CoachMarkStep[]>([]);
@@ -992,9 +1007,32 @@ export default function ProfileScreen() {
     router.push("/legal/privacy");
   }, [router]);
 
+  // Used by ClientView "Metodo di Pagamento" row
   const handleBankData = useCallback(() => {
     router.push("/payments");
   }, [router]);
+
+  const handleCleanerBankData = useCallback(async () => {
+    if (invokingBank) return;
+    setInvokingBank(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "stripe-connect-onboarding-link",
+        { body: {} }
+      );
+      if (error) throw error;
+      const url = (data as { url?: string } | null)?.url;
+      if (!url) throw new Error("Nessun URL ricevuto");
+      await WebBrowser.openAuthSessionAsync(url, "cleanhome://stripe-connect/return");
+    } catch (err) {
+      Alert.alert(
+        "Errore",
+        err instanceof Error ? err.message : "Impossibile aprire la dashboard Stripe"
+      );
+    } finally {
+      setInvokingBank(false);
+    }
+  }, [invokingBank]);
 
   const handleViewListing = useCallback(() => {
     router.push("/cleaner/profile-view");
@@ -1058,6 +1096,7 @@ export default function ProfileScreen() {
               onEditProfile={handleEditProfile}
               onListing={handleListing}
               onDocuments={handleDocuments}
+              onBankData={handleCleanerBankData}
               onLegal={handleLegal}
               onPrivacy={handlePrivacy}
               onSwitchRole={handleSwitchRole}
