@@ -500,9 +500,12 @@ export default function CleanerHomeScreen() {
     } else if (firstMissing === "document") {
       router.push("/documents" as never);
     } else if (firstMissing === "stripe_connect") {
-      router.push("/(tabs)/profile" as never);
+      router.push("/(tabs)/profile?focus=stripe" as never);
+    } else if (firstMissing === "full_name" || firstMissing === "avatar") {
+      router.push("/profile/edit" as never);
     } else {
-      router.push("/(tabs)/profile" as never);
+      // edge case: firstMissing is undefined (profile fully complete or unknown step)
+      router.push("/profile/edit" as never);
     }
   }, [cleanerCompletion.missingSteps, router]);
 

@@ -25,10 +25,15 @@ import Animated, {
   FadeIn,
   FadeOut,
   Layout,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withRepeat,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimatedToggle } from "../../components/AnimatedToggle";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { UserProfile } from "../../lib/types";
@@ -363,6 +368,8 @@ interface CleanerViewProps {
   editProfileRef?: React.RefObject<View | null>;
   listingRef?: React.RefObject<View | null>;
   documentsRef?: React.RefObject<View | null>;
+  payoutSectionRef?: React.RefObject<View | null>;
+  highlightStripe?: boolean;
 }
 
 function CleanerView({
@@ -387,7 +394,29 @@ function CleanerView({
   editProfileRef,
   listingRef,
   documentsRef,
+  payoutSectionRef,
+  highlightStripe,
 }: CleanerViewProps) {
+  const stripeHighlightOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (highlightStripe) {
+      stripeHighlightOpacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 300 }),
+          withTiming(0, { duration: 300 })
+        ),
+        6,
+        false
+      );
+    }
+  }, [highlightStripe, stripeHighlightOpacity]);
+
+  const stripeHighlightStyle = useAnimatedStyle(() => ({
+    borderWidth: 2,
+    borderColor: `rgba(79, 196, 163, ${stripeHighlightOpacity.value})`,
+    borderRadius: 12,
+  }));
   return (
     <>
       {/* ── Photo preview modal ── */}
@@ -440,8 +469,10 @@ function CleanerView({
       </View>
 
       {/* ── Sezione pagamenti / Stripe Connect ── */}
-      <View style={payoutStyles.section}>
-        <CleanerPayoutSection cleanerId={cleanerId} />
+      <View ref={payoutSectionRef} style={payoutStyles.section}>
+        <Animated.View style={highlightStripe ? stripeHighlightStyle : undefined}>
+          <CleanerPayoutSection cleanerId={cleanerId} />
+        </Animated.View>
       </View>
 
       {/* ── Menu rows (card indipendenti) — monocolore verde ── */}
@@ -737,6 +768,7 @@ function ClientView({
 export default function ProfileScreen() {
   const { user, profile, signOut, setActiveRole, refreshProfile } = useAuth();
   const router = useRouter();
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
   const isCleaner = profile?.active_role === "cleaner";
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -748,6 +780,24 @@ export default function ProfileScreen() {
 
   // Prevent double-tap while Stripe Connect link is loading
   const [invokingBank, setInvokingBank] = useState(false);
+
+  // ── Stripe focus highlight ─────────────────────────────────────────────────
+  const [highlightStripe, setHighlightStripe] = useState(false);
+  const payoutSectionRef = useRef<View>(null);
+
+  useEffect(() => {
+    if (focus === "stripe" && isCleaner) {
+      const timer = setTimeout(() => {
+        payoutSectionRef.current?.measureInWindow((_x, y) => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
+          setHighlightStripe(true);
+          setTimeout(() => setHighlightStripe(false), 3600);
+        });
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [focus, isCleaner]);
 
   // ── Profile coach marks ────────────────────────────────────────────────────
   const [showProfileCoach, setShowProfileCoach] = useState(false);
@@ -1106,6 +1156,8 @@ export default function ProfileScreen() {
               editProfileRef={editProfileRef}
               listingRef={listingRef}
               documentsRef={documentsRef}
+              payoutSectionRef={payoutSectionRef}
+              highlightStripe={highlightStripe}
             />
           ) : (
             <ClientView
