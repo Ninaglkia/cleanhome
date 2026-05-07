@@ -332,7 +332,7 @@ function WelcomeContent({
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Ionicons name="shield-checkmark" size={22} color="#fff" />
+              <Ionicons name="shield-checkmark" size={24} color="#fff" />
               <Text style={styles.mainCtaText}>Inizia verifica</Text>
             </>
           )}
@@ -694,20 +694,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#006b55",
+    backgroundColor: Colors.primary,
     borderRadius: Radius.xl,
     height: 56,
     paddingHorizontal: 20,
-    ...Shadows.md,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   mainCtaDisabled: {
     opacity: 0.65,
   },
   mainCtaText: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     color: "#fff",
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
 
   // FAQ link
