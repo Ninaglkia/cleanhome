@@ -147,50 +147,46 @@ function ProcessingCard({ onRefresh, onRestart, isRefreshing, isRestarting }: Pr
     return () => clearTimeout(timer);
   }, []);
   return (
-    <Animated.View entering={FadeInDown.springify().damping(20)}>
-      <View style={styles.processingCard}>
-        <View style={styles.processingIconRow}>
-          <PulsingDot />
-          <ActivityIndicator size="small" color={Colors.secondary} />
-          <PulsingDot />
-        </View>
-        <Text style={styles.processingTitle}>Verifica in corso...</Text>
-        <Text style={styles.processingSub}>
-          Stiamo controllando i tuoi dati. Riceverai una notifica appena pronto.{"\n"}
-          (di solito 2-5 minuti)
-        </Text>
+    <View style={styles.processingCard}>
+      <View style={styles.processingIconRow}>
+        <PulsingDot />
+        <ActivityIndicator size="small" color={Colors.secondary} />
+        <PulsingDot />
+      </View>
+      <Text style={styles.processingTitle}>Verifica in corso...</Text>
+      <Text style={styles.processingSub}>
+        Stiamo controllando i tuoi dati. Riceverai una notifica appena pronto.{"\n"}
+        (di solito 2-5 minuti)
+      </Text>
+      <Pressable
+        style={styles.processingRefreshBtn}
+        onPress={onRefresh}
+        disabled={isRefreshing}
+        accessibilityLabel="Aggiorna stato verifica"
+        accessibilityRole="button"
+      >
+        {isRefreshing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
+        )}
+      </Pressable>
+      {restartVisible && (
         <Pressable
-          style={({ pressed }) => [styles.processingRefreshBtn, pressed && { opacity: 0.85 }]}
-          onPress={onRefresh}
-          disabled={isRefreshing}
-          accessibilityLabel="Aggiorna stato verifica"
+          style={styles.processingRestartBtn}
+          onPress={onRestart}
+          disabled={isRestarting}
+          accessibilityLabel="Ricomincia la verifica identità"
           accessibilityRole="button"
         >
-          {isRefreshing ? (
-            <ActivityIndicator size="small" color={Colors.secondary} />
+          {isRestarting ? (
+            <ActivityIndicator size="small" color={Colors.textSecondary} />
           ) : (
-            <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
+            <Text style={styles.processingRestartBtnText}>Ricomincia verifica</Text>
           )}
         </Pressable>
-        {restartVisible && (
-          <Animated.View entering={FadeInDown.springify().damping(20)}>
-            <Pressable
-              style={({ pressed }) => [styles.processingRestartBtn, pressed && { opacity: 0.75 }]}
-              onPress={onRestart}
-              disabled={isRestarting}
-              accessibilityLabel="Ricomincia la verifica identità"
-              accessibilityRole="button"
-            >
-              {isRestarting ? (
-                <ActivityIndicator size="small" color={Colors.textSecondary} />
-              ) : (
-                <Text style={styles.processingRestartBtnText}>Ricomincia verifica</Text>
-              )}
-            </Pressable>
-          </Animated.View>
-        )}
-      </View>
-    </Animated.View>
+      )}
+    </View>
   );
 }
 
