@@ -631,15 +631,20 @@ function CompletionBanner({ items }: { items: CompletionItem[] }) {
     );
   }
 
+  // The listing itself is published & visible as soon as the cleaner's
+  // subscription is active — completeness is an OPTIONAL quality nudge,
+  // not a publication gate. The previous "Completa X campi per
+  // pubblicare" copy was misleading because the listing was already
+  // online. Re-tone to amber/info ("Migliora") instead of red/error.
   return (
     <View
       style={{
-        backgroundColor: "#FEF2F2",
+        backgroundColor: "#FFFBEB",
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: "#FCA5A5",
+        borderColor: "#FCD34D",
       }}
     >
       <View
@@ -650,22 +655,21 @@ function CompletionBanner({ items }: { items: CompletionItem[] }) {
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: "#FEE2E2",
+            backgroundColor: "#FEF3C7",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Ionicons name="alert-circle" size={22} color="#DC2626" />
+          <Ionicons name="sparkles-outline" size={22} color="#B45309" />
         </View>
         <View style={{ flex: 1 }}>
           <Text
-            style={{ fontSize: 15, fontWeight: "700", color: "#991B1B", marginBottom: 2 }}
+            style={{ fontSize: 15, fontWeight: "700", color: "#92400E", marginBottom: 2 }}
           >
-            Annuncio incompleto ({progress}/{items.length})
+            Migliora l'annuncio ({progress}/{items.length})
           </Text>
-          <Text style={{ fontSize: 12, color: "#B91C1C", lineHeight: 16 }}>
-            Completa questi {missing.length}{" "}
-            {missing.length === 1 ? "campo" : "campi"} per pubblicare:
+          <Text style={{ fontSize: 12, color: "#B45309", lineHeight: 16 }}>
+            L'annuncio è già online. Aggiungi questi dettagli per attirare più clienti:
           </Text>
         </View>
       </View>
@@ -682,7 +686,7 @@ function CompletionBanner({ items }: { items: CompletionItem[] }) {
               padding: 12,
               gap: 10,
               borderWidth: 1,
-              borderColor: "#FECACA",
+              borderColor: "#FDE68A",
             }}
           >
             <View
@@ -690,25 +694,25 @@ function CompletionBanner({ items }: { items: CompletionItem[] }) {
                 width: 32,
                 height: 32,
                 borderRadius: 16,
-                backgroundColor: "#FEE2E2",
+                backgroundColor: "#FEF3C7",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Ionicons name={item.icon} size={18} color="#DC2626" />
+              <Ionicons name={item.icon} size={18} color="#B45309" />
             </View>
             <View style={{ flex: 1 }}>
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: "700",
-                  color: "#7F1D1D",
+                  color: "#78350F",
                   marginBottom: 2,
                 }}
               >
                 {item.label}
               </Text>
-              <Text style={{ fontSize: 12, color: "#991B1B", lineHeight: 16 }}>
+              <Text style={{ fontSize: 12, color: "#92400E", lineHeight: 16 }}>
                 {item.hint}
               </Text>
             </View>
