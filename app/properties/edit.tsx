@@ -807,19 +807,19 @@ export default function PropertyEditScreen() {
               </View>
             </FieldBlock>
 
-            {/* Map picker CTA — outer View carries the bg, Pressable handles taps */}
+            {/* Map picker CTA — secondary action under the address field.
+                Outlined / ghost button rather than a heavy dark pill so it
+                doesn't compete visually with the primary "Salva" CTA. */}
             <View
               style={{
-                marginTop: 14,
-                height: 52,
-                borderRadius: 14,
-                backgroundColor: "#062a23",
+                marginTop: 10,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: "transparent",
+                borderWidth: 1.5,
+                borderColor: Colors.secondary,
                 overflow: "hidden",
-                shadowColor: "#062a23",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.18,
-                shadowRadius: 12,
-                elevation: 4,
+                alignSelf: "flex-start",
               }}
             >
               <Pressable
@@ -830,19 +830,18 @@ export default function PropertyEditScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 8,
-                    paddingHorizontal: 18,
+                    paddingHorizontal: 14,
                   },
-                  pressed && { opacity: 0.88 },
+                  pressed && { opacity: 0.7 },
                 ]}
               >
-                <Ionicons name="map-outline" size={18} color="#ffffff" />
+                <Ionicons name="map-outline" size={16} color={Colors.secondary} />
                 <Text
                   style={{
-                    fontSize: 15,
-                    fontWeight: "700",
-                    color: "#ffffff",
-                    letterSpacing: -0.15,
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: Colors.secondary,
+                    marginLeft: 8,
                   }}
                 >
                   Scegli sulla mappa
@@ -1802,20 +1801,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   saveBtn: {
-    height: 60,
-    borderRadius: Radius.full,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: Colors.secondary,
     shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 4,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 24,
+    gap: 8,
+    paddingHorizontal: 20,
   },
   saveBtnDisabled: {
     backgroundColor: Colors.textTertiary,
@@ -1823,10 +1822,10 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   saveBtnText: {
-    fontSize: 17,
-    fontWeight: "900",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#fff",
-    letterSpacing: 0.8,
+    letterSpacing: 0.2,
   },
 });
 
@@ -1874,20 +1873,14 @@ function AnimatedSaveButton({
       ) : (
         <>
           <Ionicons
-            name="checkmark-circle"
-            size={22}
+            name="checkmark"
+            size={18}
             color="#fff"
             pointerEvents="none"
           />
           <Text style={styles.saveBtnText} pointerEvents="none">
-            {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
+            {isEdit ? "Salva modifiche" : "Salva casa"}
           </Text>
-          <Ionicons
-            name="arrow-forward"
-            size={18}
-            color="rgba(255,255,255,0.8)"
-            pointerEvents="none"
-          />
         </>
       )}
     </Animated.View>
