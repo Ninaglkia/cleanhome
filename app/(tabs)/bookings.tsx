@@ -217,7 +217,6 @@ function AnimatedCTA({ onPress, label, icon, accessibilityLabel, primaryColor }:
         accessibilityRole="button"
         style={[styles.ctaBtn, { backgroundColor: primaryColor }]}
       >
-        <View style={styles.ctaBtnOverlay} />
         <Ionicons name={icon} size={17} color="#fff" />
         <Text style={styles.ctaBtnText}>{label}</Text>
       </Pressable>
@@ -1095,15 +1094,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     overflow: "hidden",
-  },
-  ctaBtnOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "50%",
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 16,
   },
   ctaBtnText: {
     fontSize: 15,
