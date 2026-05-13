@@ -787,6 +787,11 @@ export default function ListingScreen() {
   // True while the Image bitmap is being downloaded/decoded. Used to show a
   // skeleton placeholder with identical dimensions so there is no layout shift.
   const [isCoverLoading, setIsCoverLoading] = useState(false);
+  // True from mount until the listing row has been fetched from the DB.
+  // Without this we briefly render the "Aggiungi un tuo selfie" empty state
+  // for the cleaner who already uploaded a cover — because `coverUrl` is
+  // still null during the network fetch.
+  const [isFetchingListing, setIsFetchingListing] = useState(true);
 
   // ── Dirty tracking ────────────────────────────────────────────────────────
   // Snapshot of all editable fields captured once the listing is fetched from
@@ -2156,6 +2161,8 @@ export default function ListingScreen() {
       } catch {
         // Listing not found or transient error — keep defaults.
         // initialSnapshot stays null → isDirty stays false → CTA stays muted.
+      } finally {
+        if (!cancelled) setIsFetchingListing(false);
       }
     })();
     return () => {
@@ -2242,7 +2249,13 @@ export default function ListingScreen() {
 
           {/* ── Cover image / empty state ── */}
           <View style={styles.coverContainer}>
-            {coverUrl ? (
+            {isFetchingListing ? (
+              // While the listing row is still being fetched we can't yet
+              // know whether the cleaner has a cover or not — show a neutral
+              // skeleton instead of flashing the "Aggiungi un tuo selfie"
+              // empty state for users who actually have a photo.
+              <View style={[styles.coverImage, styles.coverSkeleton]} />
+            ) : coverUrl ? (
               <>
                 {/* Skeleton shown while the bitmap is being downloaded.
                     Same dimensions as coverImage → zero layout shift. */}
