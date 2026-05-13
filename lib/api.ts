@@ -986,31 +986,42 @@ export class ListingCoverRejectedError extends Error {
 }
 
 export async function uploadListingCover(
-  userId: string,
+  _userId: string,
   listingId: string,
   localUri: string
 ): Promise<string> {
-  const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const fileName = `listing-covers/${userId}/${listingId}/${Date.now()}.${ext}`;
+  // Send the bytes to the edge function (service-role storage upload +
+  // SafeSearch moderation + cleaner_listings update) instead of writing
+  // to storage directly from RN. The direct client.storage.upload path
+  // is fragile in React Native (blob/auth-token interactions) and was
+  // returning "row-level security policy" errors even with valid policies.
 
-  const response = await fetch(localUri);
-  const blob = await response.blob();
+  const ext = localUri.split(".").pop()?.toLowerCase().split("?")[0] ?? "jpg";
+  const contentType =
+    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(fileName, blob, {
-      contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
-      upsert: true,
+  // Read the local image as base64. expo-file-system gives us this in
+  // one call; fall back to fetch+arrayBuffer if the module isn't linked.
+  let base64: string;
+  try {
+    // Lazy require so a missing native module doesn't crash the bundle.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const FileSystem = require("expo-file-system");
+    base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType?.Base64 ?? "base64",
     });
+  } catch {
+    const response = await fetch(localUri);
+    const buf = await response.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    base64 = globalThis.btoa(binary);
+  }
 
-  if (uploadError) throw uploadError;
-
-  // SafeSearch moderation gate. The edge function itself updates
-  // cleaner_listings.cover_url on success and removes the storage
-  // object on rejection.
   const { data, error } = await supabase.functions.invoke(
     "moderate-listing-cover",
-    { body: { listing_id: listingId, storage_path: fileName } }
+    { body: { listing_id: listingId, image_base64: base64, content_type: contentType } }
   );
 
   if (error) {
@@ -1028,13 +1039,10 @@ export async function uploadListingCover(
         if (parseErr instanceof ListingCoverRejectedError) throw parseErr;
       }
     }
-    // Best-effort cleanup if moderation failed for non-policy reasons.
-    await supabase.storage.from("avatars").remove([fileName]).catch(() => {});
     throw error;
   }
 
   if (!data?.approved || !data?.public_url) {
-    await supabase.storage.from("avatars").remove([fileName]).catch(() => {});
     throw new Error("La foto non è stata approvata. Riprova.");
   }
 
