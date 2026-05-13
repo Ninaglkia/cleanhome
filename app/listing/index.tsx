@@ -1768,11 +1768,10 @@ export default function ListingScreen() {
           try {
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: false,
+              allowsEditing: true,
+              aspect: [1, 1],
               quality: 0.8,
-              cameraType: ImagePicker.CameraType.back,
-              presentationStyle:
-                ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+              cameraType: ImagePicker.CameraType.front,
             });
             await persistPickedCover(result);
           } catch (err) {
