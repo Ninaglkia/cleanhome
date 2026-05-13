@@ -250,7 +250,7 @@ serve(async (req: Request) => {
     } catch (err: any) {
       const msg = err?.message ?? String(err);
       console.error(`[auto-cancel] booking ${bk.id} failed:`, msg);
-      results.push({ booking_id: bk.id, action: "error", ok: false, error: msg });
+      results.push({ booking_id: bk.id, action: "error", ok: false, error: "internal_error" });
     }
   }
 

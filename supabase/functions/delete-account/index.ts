@@ -67,6 +67,6 @@ serve(async (req) => {
     return json({ ok: true });
   } catch (err: any) {
     console.error("[delete-account]", err?.message);
-    return json({ error: err?.message ?? "Delete failed" }, 500);
+    return json({ error: "Impossibile eliminare l'account. Riprova più tardi." }, 500);
   }
 });
