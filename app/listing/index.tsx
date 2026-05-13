@@ -438,7 +438,6 @@ interface RadiusSliderProps {
 
 function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const startX = useSharedValue(0);
   const thumbX = useSharedValue(0);
 
   // Sync thumb position when radiusKm changes from outside
@@ -471,13 +470,19 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
     [trackWidth, onRadiusChange]
   );
 
+  // Tap-or-drag anywhere on the track jumps the thumb to the touch point.
+  // `e.x` is the X coordinate inside the track view (0 at left edge), so
+  // a single tap immediately sets the value without requiring a drag from
+  // the thumb. minDistance(0) makes the Pan gesture activate on touch-down.
   const panGesture = Gesture.Pan()
-    .onBegin(() => {
-      startX.value = thumbX.value;
+    .minDistance(0)
+    .onBegin((e) => {
+      const newX = Math.min(Math.max(e.x, 0), trackWidth);
+      thumbX.value = newX;
+      runOnJS(updateRadius)(newX);
     })
     .onUpdate((e) => {
-      const raw = startX.value + e.translationX;
-      const newX = Math.min(Math.max(raw, 0), trackWidth);
+      const newX = Math.min(Math.max(e.x, 0), trackWidth);
       thumbX.value = newX;
       runOnJS(updateRadius)(newX);
     });
@@ -495,20 +500,21 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
         <Text style={styles.sliderKmValue}>{radiusKm} km</Text>
         <Text style={styles.sliderLabelRight}>{SLIDER_MAX_KM} km</Text>
       </View>
-      <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
-        {/* Track background */}
-        <View style={styles.sliderTrack} />
-        {/* Filled portion */}
-        <View style={[styles.sliderFill, { width: fillWidth }]} />
-        {/* Thumb */}
-        <GestureDetector gesture={panGesture}>
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
+          {/* Track background */}
+          <View style={styles.sliderTrack} />
+          {/* Filled portion */}
+          <View style={[styles.sliderFill, { width: fillWidth }]} />
+          {/* Thumb — visual only, gesture is on the whole track wrapper */}
           <Animated.View
             style={[styles.sliderThumbWrapper, thumbAnimStyle]}
+            pointerEvents="none"
           >
             <View style={styles.sliderThumb} />
           </Animated.View>
-        </GestureDetector>
-      </View>
+        </View>
+      </GestureDetector>
     </View>
   );
 }
@@ -527,7 +533,6 @@ interface PriceSliderProps {
 
 function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const startX = useSharedValue(0);
   const thumbX = useSharedValue(0);
 
   const fraction = trackWidth > 0
@@ -560,12 +565,14 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
   );
 
   const panGesture = Gesture.Pan()
-    .onBegin(() => {
-      startX.value = thumbX.value;
+    .minDistance(0)
+    .onBegin((e) => {
+      const newX = Math.min(Math.max(e.x, 0), trackWidth);
+      thumbX.value = newX;
+      runOnJS(updatePrice)(newX);
     })
     .onUpdate((e) => {
-      const raw = startX.value + e.translationX;
-      const newX = Math.min(Math.max(raw, 0), trackWidth);
+      const newX = Math.min(Math.max(e.x, 0), trackWidth);
       thumbX.value = newX;
       runOnJS(updatePrice)(newX);
     });
@@ -583,15 +590,18 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
         <Text style={styles.sliderKmValue}>€{priceEur}/ora</Text>
         <Text style={styles.sliderLabelRight}>€{PRICE_MAX}</Text>
       </View>
-      <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
-        <View style={styles.sliderTrack} />
-        <View style={[styles.sliderFill, { width: fillWidth }]} />
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.sliderThumbWrapper, thumbAnimStyle]}>
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
+          <View style={styles.sliderTrack} />
+          <View style={[styles.sliderFill, { width: fillWidth }]} />
+          <Animated.View
+            style={[styles.sliderThumbWrapper, thumbAnimStyle]}
+            pointerEvents="none"
+          >
             <View style={styles.sliderThumb} />
           </Animated.View>
-        </GestureDetector>
-      </View>
+        </View>
+      </GestureDetector>
     </View>
   );
 }
