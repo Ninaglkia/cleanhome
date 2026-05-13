@@ -581,6 +581,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   assistanceBtnPrimary: {
+    flex: 1,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
@@ -597,6 +598,7 @@ const styles = StyleSheet.create({
     color: Colors.textOnDark,
   },
   assistanceBtnSecondary: {
+    flex: 1,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
