@@ -214,6 +214,24 @@ function calcPolygonMaxReachKm(points: LatLng[]): number {
 
 type ListingStatus = "active" | "review" | "draft" | "paused";
 
+// Snapshot of the editable fields used for dirty-tracking.
+// Captured once from the DB at mount time; isDirty compares current form
+// state against this baseline.
+interface ListingSnapshot {
+  hourlyRate: string;
+  description: string;
+  selectedServices: string[];
+  availableDays: string[];
+  coverUrl: string | null;
+  draftCity: string;
+  draftRadiusKm: number;
+  centerLat: number;
+  centerLng: number;
+  zoneMode: "circle" | "draw";
+  drawnPolygon: Array<{ latitude: number; longitude: number }>;
+  isZoneConfirmed: boolean;
+}
+
 interface ServiceTag {
   id: string;
   label: string;
@@ -766,6 +784,15 @@ export default function ListingScreen() {
   // Cover photo state — synced with cleaner_profiles.avatar_url.
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  // True while the Image bitmap is being downloaded/decoded. Used to show a
+  // skeleton placeholder with identical dimensions so there is no layout shift.
+  const [isCoverLoading, setIsCoverLoading] = useState(false);
+
+  // ── Dirty tracking ────────────────────────────────────────────────────────
+  // Snapshot of all editable fields captured once the listing is fetched from
+  // the DB. isDirty compares current state against this snapshot; the save CTA
+  // is disabled (muted) when there are no changes.
+  const [initialSnapshot, setInitialSnapshot] = useState<ListingSnapshot | null>(null);
 
   // Listing active/inactive — synced with cleaner_profiles.is_available.
   const [isActive, setIsActive] = useState(true);
@@ -807,6 +834,49 @@ export default function ListingScreen() {
   // While true the on-map "Conferma" / "Ridisegna" controls are hidden
   // and the zone stays visible. Reset on redraw / mode change / edit.
   const [isZoneConfirmed, setIsZoneConfirmed] = useState(false);
+
+  // ── isDirty: true when the current form state differs from the snapshot ──
+  // JSON.stringify is sufficient here — data is small (<2 KB) and all values
+  // are primitives or shallow arrays of primitives.
+  const isDirty = useMemo<boolean>(() => {
+    if (initialSnapshot === null) {
+      // Fetch failed or still loading → treat as NOT dirty so the CTA
+      // stays disabled until the baseline is established.
+      return false;
+    }
+    const currentSnapshot: ListingSnapshot = {
+      hourlyRate,
+      description,
+      selectedServices: services.filter((s) => s.selected).map((s) => s.id),
+      availableDays: days.filter((d) => d.available).map((d) => d.day),
+      coverUrl,
+      draftCity,
+      draftRadiusKm,
+      centerLat: centerCoords.latitude,
+      centerLng: centerCoords.longitude,
+      zoneMode,
+      drawnPolygon: drawnPolygon.map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+      })),
+      isZoneConfirmed,
+    };
+    return JSON.stringify(currentSnapshot) !== JSON.stringify(initialSnapshot);
+  }, [
+    initialSnapshot,
+    hourlyRate,
+    description,
+    services,
+    days,
+    coverUrl,
+    draftCity,
+    draftRadiusKm,
+    centerCoords,
+    zoneMode,
+    drawnPolygon,
+    isZoneConfirmed,
+  ]);
+
   // ── Address search (Google Places API New) ──
   // Uses the modern `places:autocomplete` + `places/{id}` endpoints so we
   // get accurate, disambiguated results for Italian cities and addresses.
@@ -1960,19 +2030,49 @@ export default function ListingScreen() {
         const existing = await fetchListing(listingId);
         if (cancelled || !existing) return;
 
-        if (existing.city) setDraftCity(existing.city);
-        if (existing.cover_url) setCoverUrl(existing.cover_url);
-        if (existing.hourly_rate != null) {
-          setHourlyRate(String(existing.hourly_rate));
+        // ── Hydrate fields ──────────────────────────────────────────────────
+
+        const city = existing.city ?? "";
+        if (city) setDraftCity(city);
+
+        const cover = existing.cover_url ?? null;
+        if (cover) {
+          // Pre-warm the image cache so the bitmap is ready before the Image
+          // component asks for it — eliminates the 1-2 s blank area on open.
+          setIsCoverLoading(true);
+          Image.prefetch(cover).catch(() => {
+            // If prefetch fails (offline, bad URL) we still show the Image
+            // normally; onLoadEnd will clear the skeleton.
+          });
+          setCoverUrl(cover);
         }
-        if (existing.description) setDescription(existing.description);
+
+        const rate = existing.hourly_rate != null ? String(existing.hourly_rate) : "25";
+        if (existing.hourly_rate != null) setHourlyRate(rate);
+
+        const desc = existing.description ?? "";
+        if (desc) setDescription(desc);
+
+        let resolvedServices = INITIAL_SERVICES;
         if (existing.services && existing.services.length > 0) {
           const persisted = new Set(existing.services);
-          setServices((prev) =>
-            prev.map((s) => ({ ...s, selected: persisted.has(s.id) }))
-          );
+          resolvedServices = INITIAL_SERVICES.map((s) => ({
+            ...s,
+            selected: persisted.has(s.id),
+          }));
+          setServices(resolvedServices);
         }
+
         setIsActive(existing.is_active !== false);
+
+        // ── Coverage zone ────────────────────────────────────────────────────
+
+        let resolvedZoneMode: "circle" | "draw" = "circle";
+        let resolvedCenterLat = ROME_COORDS.latitude;
+        let resolvedCenterLng = ROME_COORDS.longitude;
+        let resolvedRadiusKm = 10;
+        let resolvedPolygon: Array<{ latitude: number; longitude: number }> = [];
+        let resolvedZoneConfirmed = false;
 
         if (
           existing.coverage_mode === "circle" &&
@@ -1983,6 +2083,11 @@ export default function ListingScreen() {
           const lat = Number(existing.coverage_center_lat);
           const lng = Number(existing.coverage_center_lng);
           const radiusKm = Number(existing.coverage_radius_km);
+          resolvedZoneMode = "circle";
+          resolvedCenterLat = lat;
+          resolvedCenterLng = lng;
+          resolvedRadiusKm = radiusKm;
+          resolvedZoneConfirmed = true;
           setZoneMode("circle");
           setCenterCoords({ latitude: lat, longitude: lng });
           setDraftRadiusKm(radiusKm);
@@ -2004,6 +2109,9 @@ export default function ListingScreen() {
             latitude: Number(p.lat),
             longitude: Number(p.lng),
           }));
+          resolvedZoneMode = "draw";
+          resolvedPolygon = polygon;
+          resolvedZoneConfirmed = true;
           setZoneMode("draw");
           setDrawnPolygon(polygon);
           setHasDrawnOnce(true);
@@ -2016,6 +2124,8 @@ export default function ListingScreen() {
             }),
             { latitude: 0, longitude: 0 }
           );
+          resolvedCenterLat = centroid.latitude;
+          resolvedCenterLng = centroid.longitude;
           initialMapRegionRef.current = {
             latitude: centroid.latitude,
             longitude: centroid.longitude,
@@ -2023,8 +2133,29 @@ export default function ListingScreen() {
             longitudeDelta: 0.3,
           };
         }
+
+        // ── Capture the initial snapshot for dirty-tracking ─────────────────
+        // This is set once and never updated, so the user always compares
+        // against what was saved in the DB at mount time.
+        setInitialSnapshot({
+          hourlyRate: existing.hourly_rate != null ? String(existing.hourly_rate) : "25",
+          description: desc,
+          selectedServices: resolvedServices
+            .filter((s) => s.selected)
+            .map((s) => s.id),
+          availableDays: INITIAL_DAYS.filter((d) => d.available).map((d) => d.day),
+          coverUrl: cover,
+          draftCity: city,
+          draftRadiusKm: resolvedRadiusKm,
+          centerLat: resolvedCenterLat,
+          centerLng: resolvedCenterLng,
+          zoneMode: resolvedZoneMode,
+          drawnPolygon: resolvedPolygon,
+          isZoneConfirmed: resolvedZoneConfirmed,
+        });
       } catch {
         // Listing not found or transient error — keep defaults.
+        // initialSnapshot stays null → isDirty stays false → CTA stays muted.
       }
     })();
     return () => {
@@ -2112,11 +2243,26 @@ export default function ListingScreen() {
           {/* ── Cover image / empty state ── */}
           <View style={styles.coverContainer}>
             {coverUrl ? (
-              <Image
-                source={{ uri: coverUrl }}
-                style={styles.coverImage}
-                resizeMode="cover"
-              />
+              <>
+                {/* Skeleton shown while the bitmap is being downloaded.
+                    Same dimensions as coverImage → zero layout shift. */}
+                {isCoverLoading && (
+                  <View style={[styles.coverImage, styles.coverSkeleton]} />
+                )}
+                <Image
+                  source={{ uri: coverUrl }}
+                  style={[
+                    styles.coverImage,
+                    // Keep the image in the tree even while loading so
+                    // prefetch + decode happen in parallel. Hide it visually
+                    // until onLoadEnd fires to avoid flicker.
+                    isCoverLoading && { position: "absolute", opacity: 0 },
+                  ]}
+                  resizeMode="cover"
+                  onLoadStart={() => setIsCoverLoading(true)}
+                  onLoadEnd={() => setIsCoverLoading(false)}
+                />
+              </>
             ) : (
               <View style={[styles.coverImage, styles.coverEmpty]}>
                 <View style={styles.coverEmptyIconCircle}>
@@ -2575,14 +2721,27 @@ export default function ListingScreen() {
           </View>
 
           {/* ── Save button ── */}
-          <View style={[styles.saveButton, isSaving && { opacity: 0.6 }]}>
+          {/* Visible but muted when there are no unsaved changes, so the
+              user always knows where the save action lives. */}
+          <View
+            style={[
+              styles.saveButton,
+              (isSaving || !isDirty) && { opacity: isSaving ? 0.6 : 0.4 },
+            ]}
+          >
             <Pressable
               onPress={handleSave}
-              disabled={isSaving}
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              disabled={isSaving || !isDirty}
+              android_ripple={isDirty ? { color: "rgba(255,255,255,0.18)" } : undefined}
               style={StyleSheet.absoluteFill}
               accessibilityRole="button"
-              accessibilityLabel={isSaving ? "Caricamento in corso" : "Conferma e carica annuncio"}
+              accessibilityLabel={
+                isSaving
+                  ? "Caricamento in corso"
+                  : !isDirty
+                  ? "Nessuna modifica da salvare"
+                  : "Conferma e carica annuncio"
+              }
             />
             <Ionicons
               name={isSaving ? "sync-outline" : "checkmark-circle-outline"}
@@ -2591,7 +2750,7 @@ export default function ListingScreen() {
               style={{ marginRight: 10 }}
             />
             <Text style={styles.saveButtonText}>
-              {isSaving ? "Caricamento…" : "Conferma e carica"}
+              {isSaving ? "Caricamento…" : !isDirty ? "Nessuna modifica" : "Conferma e carica"}
             </Text>
           </View>
 
@@ -3069,6 +3228,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 28,
     gap: 10,
+  },
+  coverSkeleton: {
+    // Light grey placeholder shown while the cover image is loading.
+    // Uses the same width/height as coverImage so there is no layout shift.
+    backgroundColor: "#dde4e2",
   },
   coverEmptyIconCircle: {
     width: 64,
