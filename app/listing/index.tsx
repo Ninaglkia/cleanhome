@@ -1990,21 +1990,24 @@ export default function ListingScreen() {
     const selectedServices = services.filter((s) => s.selected).map((s) => s.id);
 
     setIsSaving(true);
+    // Optimistic: kick off the save and navigate IMMEDIATELY so the tap
+    // feels instant. The DB write resolves in the background; on error
+    // we surface an Alert which still works even after the component
+    // has unmounted (the alert is rendered by the OS).
+    const savePromise = updateListing(listingId, {
+      city: draftCity || null,
+      hourly_rate: parseFloat(hourlyRate) || null,
+      description: description.trim() || null,
+      services: selectedServices.length > 0 ? selectedServices : null,
+      coverage_mode: isCircle ? "circle" : "polygon",
+      coverage_center_lat: centerCoords.latitude,
+      coverage_center_lng: centerCoords.longitude,
+      coverage_radius_km: isCircle ? draftRadiusKm : null,
+      coverage_polygon: !isCircle ? polygonPoints : null,
+    });
+    router.replace("/listings");
     try {
-      await updateListing(listingId, {
-        city: draftCity || null,
-        hourly_rate: parseFloat(hourlyRate) || null,
-        description: description.trim() || null,
-        services: selectedServices.length > 0 ? selectedServices : null,
-        coverage_mode: isCircle ? "circle" : "polygon",
-        coverage_center_lat: centerCoords.latitude,
-        coverage_center_lng: centerCoords.longitude,
-        coverage_radius_km: isCircle ? draftRadiusKm : null,
-        coverage_polygon: !isCircle ? polygonPoints : null,
-      });
-      // Skip the blocking success alert — navigate straight back to the
-      // listings hub so the user sees the updated card immediately.
-      router.replace("/listings");
+      await savePromise;
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Errore sconosciuto";
