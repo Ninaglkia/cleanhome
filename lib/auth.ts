@@ -8,7 +8,12 @@ export interface AuthState {
   profile: UserProfile | null;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    fullName: string,
+    options?: { role?: "client" | "cleaner"; phone?: string }
+  ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;

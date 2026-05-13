@@ -153,12 +153,18 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Register push notifications when user is authenticated
+  // Register push notifications AFTER onboarding rather than at first
+  // launch. Apple flags apps that prompt for push permission with no
+  // user context as a common review reason — we defer until the user
+  // has a populated profile (i.e. confirmed signup, completed role
+  // selection / cleaner setup), so the system prompt appears after
+  // they've already engaged with the app. The lib helper is itself a
+  // no-op if permissions were already requested previously.
   useEffect(() => {
-    if (user) {
+    if (user && profile?.full_name && profile.full_name.length > 0) {
       registerForPushNotifications(user.id).catch(() => {});
     }
-  }, [user]);
+  }, [user, profile?.full_name]);
 
   // Redirect to correct dashboard only on first load (not on role switch)
   const hasRedirected = useRef(false);
@@ -293,11 +299,27 @@ export default function RootLayout() {
     if (error) throw error;
   };
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    fullName: string,
+    options?: { role?: "client" | "cleaner"; phone?: string }
+  ) => {
+    // role + phone are read by the handle_new_user trigger from
+    // raw_user_meta_data to populate profiles.active_role and
+    // profiles.phone. Without them every signup defaulted to 'client'
+    // and the phone was discarded — that was the registration bug
+    // where "Professionista" became "Cliente".
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: {
+          full_name: fullName,
+          ...(options?.role ? { role: options.role } : {}),
+          ...(options?.phone ? { phone: options.phone } : {}),
+        },
+      },
     });
     if (error) throw error;
   };

@@ -168,7 +168,20 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      await signUpWithEmail(trimmedEmail, password, trimmedName);
+      // Map UI role → DB role and build the E.164-ish phone string so
+      // both land in raw_user_meta_data and the handle_new_user trigger
+      // can populate profiles.active_role + profiles.phone correctly.
+      const dbRole: "client" | "cleaner" =
+        selectedRole === "professionista" ? "cleaner" : "client";
+      const trimmedPhone = phone.trim();
+      const fullPhone = trimmedPhone
+        ? `${selectedCountry.prefix}${trimmedPhone.replace(/\s+/g, "")}`
+        : undefined;
+
+      await signUpWithEmail(trimmedEmail, password, trimmedName, {
+        role: dbRole,
+        phone: fullPhone,
+      });
       Alert.alert(
         "Registrazione completata",
         "Ti abbiamo inviato un'email di conferma. Apri il link nella tua casella per attivare l'account."
@@ -181,7 +194,16 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
-  }, [fullName, email, password, signUpWithEmail, router]);
+  }, [
+    fullName,
+    email,
+    password,
+    phone,
+    selectedRole,
+    selectedCountry,
+    signUpWithEmail,
+    router,
+  ]);
 
   const handleBack = useCallback(() => {
     router.back();
