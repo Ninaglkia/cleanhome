@@ -2210,6 +2210,9 @@ export default function ListingScreen() {
           scrollEnabled={!isDrawingActive && !isMapTouching}
         >
           {/* ── Completion checklist ── */}
+          {/* Hide while the listing is still being fetched — otherwise the
+              banner flashes "incomplete" with default values for a moment. */}
+          {!isFetchingListing && (
           <CompletionBanner
             items={[
               {
@@ -2259,6 +2262,7 @@ export default function ListingScreen() {
               },
             ]}
           />
+          )}
 
           {/* ── Cover image / empty state ── */}
           <View style={styles.coverContainer}>
