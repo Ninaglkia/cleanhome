@@ -750,16 +750,18 @@ function ListingCard({
             e.stopPropagation();
             onDelete();
           }}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 12,
-            paddingVertical: 10,
-            marginTop: 8,
-            gap: 6,
-            opacity: pressed ? 0.6 : 1,
-          })}
+          style={({ pressed }) => [
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 12,
+              paddingVertical: 10,
+              marginTop: 8,
+              gap: 6,
+            },
+            pressed && { opacity: 0.6 },
+          ]}
         >
           <Ionicons name="trash-outline" size={16} color="#b3261e" />
           <Text style={{ fontSize: 13, fontWeight: "600", color: "#b3261e" }}>
