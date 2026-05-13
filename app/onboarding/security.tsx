@@ -72,7 +72,10 @@ function Bullet({ icon, title, description, delay }: BulletProps) {
       delay,
       withSpring(0, { damping: 18, stiffness: 160 })
     );
-  }, []);
+    // Reanimated shared values are stable refs — no need to list as deps.
+    // `delay` is the prop the animation depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [delay]);
 
   return (
     <Animated.View style={[styles.bullet, animStyle]}>
@@ -117,6 +120,8 @@ export default function SecurityScreen() {
       200,
       withSpring(0, { damping: 18, stiffness: 160 })
     );
+    // Reanimated shared values are stable refs — no deps needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Final CTA of the marketing tour — persist "seen" flag so the tour
@@ -234,9 +239,11 @@ export default function SecurityScreen() {
           onPress={handleGetStarted}
           activeOpacity={0.82}
           style={styles.ctaBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Inizia ora"
         >
           <Text style={styles.ctaText} numberOfLines={1}>
-            Inizia ora  →
+            Inizia ora →
           </Text>
         </TouchableOpacity>
 
@@ -245,10 +252,12 @@ export default function SecurityScreen() {
           activeOpacity={0.5}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.altBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Ho già un account — Accedi"
         >
           <Text style={styles.altText}>
             Ho già un account
-            <Text style={styles.altTextLink}>  ·  Accedi</Text>
+            <Text style={styles.altTextLink}> · Accedi</Text>
           </Text>
         </TouchableOpacity>
       </View>

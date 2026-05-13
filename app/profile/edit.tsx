@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -25,14 +25,16 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [saving, setSaving] = useState(false);
 
+  const trimmedName = fullName.trim();
   const hasChanges =
-    fullName.trim().length > 0 && fullName.trim() !== (profile?.full_name ?? "");
+    trimmedName.length > 0 && trimmedName !== (profile?.full_name ?? "");
+  const isValid = trimmedName.length >= 2;
 
-  const handleSave = async () => {
-    if (!user || !hasChanges) return;
+  const handleSave = useCallback(async () => {
+    if (!user || !hasChanges || !isValid) return;
     setSaving(true);
     try {
-      await updateProfileName(user.id, fullName);
+      await updateProfileName(user.id, trimmedName);
       await refreshProfile();
       router.back();
     } catch {
@@ -40,7 +42,26 @@ export default function EditProfileScreen() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, hasChanges, isValid, trimmedName, refreshProfile, router]);
+
+  const handleBack = useCallback(() => {
+    if (hasChanges && !saving) {
+      Alert.alert(
+        "Annullare le modifiche?",
+        "Le modifiche non salvate andranno perse.",
+        [
+          { text: "Continua a modificare", style: "cancel" },
+          {
+            text: "Esci senza salvare",
+            style: "destructive",
+            onPress: () => router.back(),
+          },
+        ]
+      );
+      return;
+    }
+    router.back();
+  }, [hasChanges, saving, router]);
 
   return (
     <SafeAreaView
@@ -59,7 +80,7 @@ export default function EditProfileScreen() {
         }}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.8}
           accessibilityLabel="Indietro"
           accessibilityRole="button"
@@ -204,11 +225,19 @@ export default function EditProfileScreen() {
         >
           <TouchableOpacity
             activeOpacity={0.85}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || !isValid || saving}
             onPress={handleSave}
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !hasChanges || !isValid || saving,
+              busy: saving,
+            }}
+            accessibilityLabel="Salva modifiche al profilo"
             style={{
               backgroundColor:
-                !hasChanges || saving ? Colors.textTertiary : Colors.secondary,
+                !hasChanges || !isValid || saving
+                  ? Colors.textTertiary
+                  : Colors.secondary,
               borderRadius: 16,
               height: 56,
               alignItems: "center",

@@ -8,11 +8,10 @@
 // account".
 // ============================================================================
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
@@ -69,6 +68,8 @@ export default function FeaturesScreen() {
       withSpring(0, { damping: 18, stiffness: 160 })
     );
     ctaOpacity.value = withDelay(500, withTiming(1, { duration: 400 }));
+    // Reanimated shared values are stable refs — no need to list them as deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleNext = useCallback(() => {
@@ -140,9 +141,11 @@ export default function FeaturesScreen() {
           onPress={handleNext}
           activeOpacity={0.82}
           style={styles.ctaBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Avanti"
         >
           <Text style={styles.ctaText} numberOfLines={1}>
-            Avanti  →
+            Avanti →
           </Text>
         </TouchableOpacity>
 
@@ -151,10 +154,12 @@ export default function FeaturesScreen() {
           activeOpacity={0.5}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.altBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Ho già un account — Accedi"
         >
           <Text style={styles.altText}>
             Ho già un account
-            <Text style={styles.altTextLink}>  ·  Accedi</Text>
+            <Text style={styles.altTextLink}> · Accedi</Text>
           </Text>
         </TouchableOpacity>
       </Animated.View>

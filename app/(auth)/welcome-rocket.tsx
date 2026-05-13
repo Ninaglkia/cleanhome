@@ -18,7 +18,7 @@
  * Total on-screen time before choice: ~2.0 seconds.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,7 +38,8 @@ import WelcomeModal from "../../components/WelcomeModal";
 // Storage key for signalling the home screen to open the tour
 export const START_TOUR_KEY = "cleanhome.start_tour_on_next_home";
 
-const { width: SW, height: SH } = Dimensions.get("window");
+// SH is intentionally unused for now — kept available for future responsive sizing.
+const { width: SW } = Dimensions.get("window");
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const BG = "#062a23";      // dark forest green background
@@ -69,38 +70,40 @@ export default function WelcomeRocketScreen() {
   const titleOpacity = useSharedValue(0);
   const subtitleOpacity = useSharedValue(0);
 
-  const navigateToHome = () => {
+  const navigateToHome = useCallback(() => {
     const destination =
       profile?.active_role === "cleaner"
         ? "/(tabs)/cleaner-home"
         : "/(tabs)/home";
     router.replace(destination as never);
-  };
+  }, [profile?.active_role, router]);
 
-  const markFirstLogin = async () => {
+  const markFirstLogin = useCallback(async () => {
     try {
       await AsyncStorage.setItem("cleanhome.first_login_done", "1");
     } catch {
       // non-critical — proceed anyway
     }
-  };
+  }, []);
 
-  const handleShowModal = () => {
+  const handleShowModal = useCallback(() => {
     setShowModal(true);
-  };
+  }, []);
 
   // User chose to start the guided tour — set flag so the home screen
   // opens the coach marks on next mount, then navigate
-  const handleStartTour = async () => {
+  const handleStartTour = useCallback(async () => {
     try {
       await AsyncStorage.setItem(START_TOUR_KEY, "1");
-    } catch {}
+    } catch {
+      // non-critical — proceed anyway
+    }
     navigateToHome();
-  };
+  }, [navigateToHome]);
 
-  const handleSkipTour = () => {
+  const handleSkipTour = useCallback(() => {
     navigateToHome();
-  };
+  }, [navigateToHome]);
 
   useEffect(() => {
     markFirstLogin();

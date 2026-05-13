@@ -206,9 +206,23 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* Accedi button — View wrapper pattern */}
-            <View style={styles.accediOuter}>
-              <Pressable onPress={handleLogin} disabled={loading} style={styles.accediTap}>
+            {/* Accedi button — disabled when fields empty or while loading */}
+            <View
+              style={[
+                styles.accediOuter,
+                (loading || !email.trim() || !password) && styles.accediOuterDisabled,
+              ]}
+            >
+              <Pressable
+                onPress={handleLogin}
+                disabled={loading || !email.trim() || !password}
+                style={styles.accediTap}
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: loading || !email.trim() || !password,
+                  busy: loading,
+                }}
+              >
                 {loading ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
@@ -248,8 +262,12 @@ export default function LoginScreen() {
             {/* Google — View wrapper */}
             <View style={styles.googleOuter}>
               <Pressable onPress={handleGoogleSignIn} style={styles.socialTap}>
-                <GoogleLogo size={20} />
-                <Text style={styles.googleText}>Accedi con Google</Text>
+                {/* Inner View wraps the row content — fixes iOS Pressable+flex-row layout bug
+                    when Pressable has flexDirection: "row" with multiple direct children */}
+                <View style={styles.socialInner}>
+                  <GoogleLogo size={20} />
+                  <Text style={styles.googleText}>Accedi con Google</Text>
+                </View>
               </Pressable>
             </View>
 
@@ -260,8 +278,10 @@ export default function LoginScreen() {
                 disabled={Platform.OS !== "ios"}
                 style={styles.socialTap}
               >
-                <AppleLogo size={20} color="#ffffff" />
-                <Text style={styles.appleText}>Accedi con Apple</Text>
+                <View style={styles.socialInner}>
+                  <AppleLogo size={20} color="#ffffff" />
+                  <Text style={styles.appleText}>Accedi con Apple</Text>
+                </View>
               </Pressable>
             </View>
 
@@ -399,6 +419,11 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
+  accediOuterDisabled: {
+    backgroundColor: `${C.primary}99`,
+    shadowOpacity: 0.05,
+    elevation: 2,
+  },
   accediTap: {
     flex: 1,
     alignItems: "center",
@@ -461,8 +486,15 @@ const styles = StyleSheet.create({
   },
   appleText: { fontSize: 14, fontWeight: "600", color: "#ffffff" },
 
-  // Shared social tap area
+  // Shared social tap area — Pressable should NOT carry the row layout
+  // when it has multiple direct children (iOS bug). Inner View handles
+  // the row layout instead.
   socialTap: {
+    flex: 1,
+    alignItems: "stretch",
+    justifyContent: "center",
+  },
+  socialInner: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",

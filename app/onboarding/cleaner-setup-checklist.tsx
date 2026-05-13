@@ -151,8 +151,9 @@ export default function CleanerSetupChecklistScreen() {
       // Persist the derived state back so it survives re-installs
       const all = Object.values(liveStatus).every(Boolean);
       saveCleanerSetupProgress(user.id, liveStatus, all).catch(() => {});
-    } catch (err) {
-      // Errore silenzioso: lo stato di fallback dei task riflette i defaults (tutto incompleto)
+    } catch {
+      // Silent error: the fallback status reflects defaults (everything incomplete).
+      // Better to render the checklist with placeholders than block the user.
     } finally {
       setLoading(false);
     }
@@ -201,6 +202,17 @@ export default function CleanerSetupChecklistScreen() {
       <SafeAreaView style={styles.root} edges={["top"]}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={Colors.secondary} />
+          <Text style={styles.loaderText}>Carico la tua checklist…</Text>
+          {/* Escape hatch — if the request hangs, the user is not trapped */}
+          <Pressable
+            onPress={() => router.replace("/(tabs)/cleaner-home")}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Vai alla dashboard senza attendere"
+            style={styles.loaderSkipBtn}
+          >
+            <Text style={styles.loaderSkipText}>Salta e vai alla dashboard</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -333,9 +345,9 @@ function StepCard({
       entranceDelay,
       withSpring(0, { damping: 18, stiffness: 160 })
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     // entranceOpacity/entranceTranslate are Reanimated shared values — stable refs,
     // including them would trigger redundant animations on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entranceDelay]);
 
   useEffect(() => {
@@ -369,6 +381,8 @@ function StepCard({
       cancelAnimation(pulse);
       cancelAnimation(fingerX);
     };
+    // Reanimated shared values are stable refs — no need to list as deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNext, done]);
 
   const entranceStyle = useAnimatedStyle(() => ({
@@ -470,7 +484,30 @@ function StepCard({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
-  loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loaderWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  loaderText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  loaderSkipBtn: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  loaderSkipText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.secondary,
+    textDecorationLine: "underline",
+  },
 
   scroll: {
     paddingHorizontal: Spacing.base,

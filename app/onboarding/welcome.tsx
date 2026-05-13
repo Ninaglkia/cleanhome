@@ -160,13 +160,20 @@ export default function OnboardingScreen() {
                     key={r.id}
                     onPress={() => setSelectedRole(r.id)}
                     style={[styles.option, active && styles.optionActive]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${r.title}. ${r.desc}`}
                   >
-                    <View style={styles.optionText}>
-                      <Text style={[styles.optionTitle, active && { color: C.primary }]}>{r.title}</Text>
-                      <Text style={styles.optionDesc}>{r.desc}</Text>
-                    </View>
-                    <View style={[styles.radio, active && styles.radioActive]}>
-                      {active && <View style={styles.radioDot} />}
+                    {/* Inner View carries the row layout — fixes iOS Pressable+row
+                        bug when Pressable has 2+ direct children laid out in a row */}
+                    <View style={styles.optionInner}>
+                      <View style={styles.optionText}>
+                        <Text style={[styles.optionTitle, active && { color: C.primary }]}>{r.title}</Text>
+                        <Text style={styles.optionDesc}>{r.desc}</Text>
+                      </View>
+                      <View style={[styles.radio, active && styles.radioActive]}>
+                        {active && <View style={styles.radioDot} />}
+                      </View>
                     </View>
                   </Pressable>
                 );
@@ -205,6 +212,8 @@ export default function OnboardingScreen() {
       -1,
       true
     );
+    // btnScale / btnGlow are Reanimated shared values — stable refs, no deps needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const btnAnimStyle = useAnimatedStyle(() => ({
@@ -214,10 +223,12 @@ export default function OnboardingScreen() {
 
   const handleBtnPressIn = useCallback(() => {
     btnScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBtnPressOut = useCallback(() => {
     btnScale.value = withSpring(1.03, { damping: 15, stiffness: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -233,9 +244,13 @@ export default function OnboardingScreen() {
             }}
             style={styles.backBtn}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Torna indietro"
           >
-            <Ionicons name="arrow-back" size={20} color={C.primary} />
-            <Text style={styles.backText}>Indietro</Text>
+            <View style={styles.backBtnInner}>
+              <Ionicons name="arrow-back" size={20} color={C.primary} />
+              <Text style={styles.backText}>Indietro</Text>
+            </View>
           </Pressable>
         ) : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -288,22 +303,28 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        {/* CTA button — animated pulse + scale on press */}
+        {/* CTA button — animated pulse + scale on press.
+            Inner View wraps the row content to avoid the iOS Pressable+flex-row
+            layout bug when Pressable carries flexDirection:"row" with 2 children. */}
         <Animated.View style={[styles.ctaOuter, isLastSlide && styles.ctaOuterLast, btnAnimStyle]}>
           <Pressable
             onPress={handleNext}
             onPressIn={handleBtnPressIn}
             onPressOut={handleBtnPressOut}
             style={styles.ctaTap}
+            accessibilityRole="button"
+            accessibilityLabel={isLastSlide ? "Inizia" : "Avanti"}
           >
-            <Text style={[styles.ctaText, isLastSlide && styles.ctaTextLast]}>
-              {isLastSlide ? "Inizia" : "Avanti"}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={20}
-              color={isLastSlide ? "#ffffff" : C.mintDark}
-            />
+            <View style={styles.ctaInner}>
+              <Text style={[styles.ctaText, isLastSlide && styles.ctaTextLast]}>
+                {isLastSlide ? "Inizia" : "Avanti"}
+              </Text>
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color={isLastSlide ? "#ffffff" : C.mintDark}
+              />
+            </View>
           </Pressable>
         </Animated.View>
       </View>
@@ -324,8 +345,8 @@ const styles = StyleSheet.create({
     height: 48,
   },
   brand: { fontSize: 22, fontWeight: "900", color: C.primary },
-  skip: { fontSize: 13, fontWeight: "700", color: C.secondary, letterSpacing: 1 },
-  backBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  backBtn: { paddingVertical: 4 },
+  backBtnInner: { flexDirection: "row", alignItems: "center", gap: 6 },
   backText: { fontSize: 15, fontWeight: "600", color: C.primary },
 
   flatList: { flex: 1 },
@@ -387,9 +408,11 @@ const styles = StyleSheet.create({
   // Role options (slide 0)
   rolesContainer: { width: "100%", gap: 8, marginTop: 8 },
   option: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12,
     borderWidth: 2, borderColor: `${C.outlineVariant}4D`, backgroundColor: C.surface,
+  },
+  optionInner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   optionActive: { borderColor: C.primary, backgroundColor: `${C.primary}08` },
   optionText: { flex: 1, marginRight: 12 },
@@ -430,6 +453,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
   },
   ctaTap: {
+    flex: 1,
+    alignItems: "stretch",
+    justifyContent: "center",
+  },
+  ctaInner: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
