@@ -324,20 +324,10 @@ export default function BookingDetailScreen() {
               <Pressable
                 onPress={() => setShowMarkDone(true)}
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={({ pressed }) => ({
-                  width: "100%",
-                  height: "100%",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingVertical: Spacing.md,
-                  gap: 8,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={styles.primaryBtnText}>Lavoro completato</Text>
-              </Pressable>
+                style={StyleSheet.absoluteFill}
+              />
+              <Ionicons name="checkmark-circle" size={20} color="#fff" pointerEvents="none" />
+              <Text style={styles.primaryBtnText} pointerEvents="none">Lavoro completato</Text>
             </View>
           )}
           {canClientReview && (
@@ -347,44 +337,26 @@ export default function BookingDetailScreen() {
                   onPress={() => setShowDispute(true)}
                   disabled={confirming}
                   android_ripple={{ color: "rgba(0,0,0,0.06)" }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingVertical: Spacing.md,
-                    gap: 6,
-                    opacity: pressed ? 0.8 : 1,
-                  })}
-                >
-                  <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-                  <Text style={styles.disputeBtnText}>Segnala problema</Text>
-                </Pressable>
+                  style={StyleSheet.absoluteFill}
+                />
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.error} pointerEvents="none" />
+                <Text style={styles.disputeBtnText} pointerEvents="none">Segnala problema</Text>
               </View>
-              <View style={[styles.actionBtn, styles.confirmBtn]}>
+              <View style={[styles.actionBtn, styles.confirmBtn, confirming && { opacity: 0.6 }]}>
                 <Pressable
                   onPress={handleConfirm}
                   disabled={confirming}
                   android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingVertical: Spacing.md,
-                    gap: 6,
-                    opacity: confirming ? 0.6 : pressed ? 0.9 : 1,
-                  })}
-                >
-                  {confirming ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={18} color="#fff" />
-                      <Text style={styles.confirmBtnText}>Conferma</Text>
-                    </>
-                  )}
-                </Pressable>
+                  style={StyleSheet.absoluteFill}
+                />
+                {confirming ? (
+                  <ActivityIndicator color="#fff" size="small" pointerEvents="none" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={18} color="#fff" pointerEvents="none" />
+                    <Text style={styles.confirmBtnText} pointerEvents="none">Conferma</Text>
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -590,6 +562,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    gap: 8,
   },
   primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   dualBtn: { flexDirection: "row", gap: 8 },
@@ -597,6 +574,11 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: Radius.md,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    gap: 6,
   },
   disputeBtn: { backgroundColor: Colors.errorLight, borderWidth: 1, borderColor: Colors.error },
   disputeBtnText: { color: Colors.error, fontWeight: "600", fontSize: 14 },

@@ -512,24 +512,18 @@ export default function ChatScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !text.trim() || sending }}
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={({ pressed }) => ({
-                  width: "100%",
-                  height: "100%",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: pressed && text.trim() ? 0.85 : 1,
-                })}
-              >
-                {sending ? (
-                  <ActivityIndicator size="small" color={Colors.textOnDark} />
-                ) : (
-                  <Ionicons
-                    name="arrow-up"
-                    size={20}
-                    color={text.trim() ? Colors.textOnDark : Colors.textTertiary}
-                  />
-                )}
-              </Pressable>
+                style={StyleSheet.absoluteFill}
+              />
+              {sending ? (
+                <ActivityIndicator size="small" color={Colors.textOnDark} pointerEvents="none" />
+              ) : (
+                <Ionicons
+                  name="arrow-up"
+                  size={20}
+                  color={text.trim() ? Colors.textOnDark : Colors.textTertiary}
+                  pointerEvents="none"
+                />
+              )}
             </View>
           </View>
 
@@ -749,6 +743,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     flexShrink: 0,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
     ...Shadows.sm,
   },
   sendBtnDisabled: {

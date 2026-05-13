@@ -181,21 +181,11 @@ export default function PaymentsScreen() {
               <Pressable
                 onPress={handleUpdatePayment}
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={({ pressed }) => ({
-                  width: "100%",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: Spacing.sm,
-                  paddingVertical: 14,
-                  paddingHorizontal: Spacing.base,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Ionicons name="create-outline" size={16} color={Colors.textOnDark} />
-                <Text style={styles.updateLinkText}>Aggiorna metodo di pagamento</Text>
-                <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} />
-              </Pressable>
+                style={StyleSheet.absoluteFill}
+              />
+              <Ionicons name="create-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
+              <Text style={styles.updateLinkText} pointerEvents="none">Aggiorna metodo di pagamento</Text>
+              <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} pointerEvents="none" />
             </View>
           </View>
         </View>
@@ -482,6 +472,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.base,
   },
   updateLinkText: {
     fontSize: 14,

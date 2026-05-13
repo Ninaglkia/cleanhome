@@ -164,20 +164,10 @@ export default function SupportScreen() {
                   accessibilityLabel="Inizia chat con assistente AI"
                   onPress={handleStartAIChat}
                   android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                  style={({ pressed }) => ({
-                    width: "100%",
-                    height: "100%",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    paddingVertical: 14,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOnDark} />
-                  <Text style={styles.btnPrimaryText}>Inizia Chat AI</Text>
-                </Pressable>
+                  style={StyleSheet.absoluteFill}
+                />
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
+                <Text style={styles.btnPrimaryText} pointerEvents="none">Inizia Chat AI</Text>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -217,22 +207,11 @@ export default function SupportScreen() {
                 accessibilityLabel="Apri chat assistente"
                 onPress={handleTalkToConcierge}
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={({ pressed }) => ({
-                  width: "100%",
-                  height: "100%",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Ionicons name="sparkles" size={18} color="#fff" />
-                <Text style={styles.stillBtnFullText}>Parla con l'assistente</Text>
-                <Ionicons name="chevron-forward" size={18} color="#fff" />
-              </Pressable>
+                style={StyleSheet.absoluteFill}
+              />
+              <Ionicons name="sparkles" size={18} color="#fff" pointerEvents="none" />
+              <Text style={styles.stillBtnFullText} pointerEvents="none">Parla con l'assistente</Text>
+              <Ionicons name="chevron-forward" size={18} color="#fff" pointerEvents="none" />
             </View>
           </View>
 
@@ -369,6 +348,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
   },
   btnPrimaryText: {
     fontSize: 14,
@@ -503,6 +487,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   stillBtnFullText: {
     flex: 1,

@@ -195,17 +195,9 @@ function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void 
               accessibilityLabel="Chiudi"
               accessibilityRole="button"
               android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => ({
-                width: "100%",
-                height: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 16,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Text style={styles.faqCloseBtnText}>Chiudi</Text>
-            </Pressable>
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.faqCloseBtnText} pointerEvents="none">Chiudi</Text>
           </View>
         </View>
       </View>
@@ -342,27 +334,18 @@ function PremiumCta({
           accessibilityRole="button"
           accessibilityLabel={label}
           android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-          style={({ pressed }) => ({
-            width: "100%",
-            height: "100%",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: Spacing.sm,
-            opacity: isLoading ? 1 : pressed ? 0.92 : 1,
-          })}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <>
-              <Animated.View style={iconAnimStyle}>
-                <Ionicons name={iconName} size={22} color="#ffffff" />
-              </Animated.View>
-              <Text style={styles.ctaText}>{label}</Text>
-            </>
-          )}
-        </Pressable>
+          style={StyleSheet.absoluteFill}
+        />
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#ffffff" pointerEvents="none" />
+        ) : (
+          <>
+            <Animated.View style={iconAnimStyle} pointerEvents="none">
+              <Ionicons name={iconName} size={22} color="#ffffff" />
+            </Animated.View>
+            <Text style={styles.ctaText} pointerEvents="none">{label}</Text>
+          </>
+        )}
       </View>
     </Animated.View>
   );
@@ -531,26 +514,16 @@ function ProcessingCard({
             accessibilityLabel="Aggiorna stato verifica"
             accessibilityRole="button"
             android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-            style={({ pressed }) => ({
-              width: "100%",
-              height: "100%",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: Spacing.sm,
-              paddingHorizontal: Spacing.xl,
-              opacity: isRefreshing ? 1 : pressed ? 0.92 : 1,
-            })}
-          >
-            {isRefreshing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="refresh-outline" size={16} color="#fff" />
-                <Text style={styles.processingRefreshBtnText}>Aggiorna stato</Text>
-              </>
-            )}
-          </Pressable>
+            style={StyleSheet.absoluteFill}
+          />
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" pointerEvents="none" />
+          ) : (
+            <>
+              <Ionicons name="refresh-outline" size={16} color="#fff" pointerEvents="none" />
+              <Text style={styles.processingRefreshBtnText} pointerEvents="none">Aggiorna stato</Text>
+            </>
+          )}
         </View>
       </Animated.View>
       {restartVisible && (
@@ -1110,6 +1083,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
   },
   ctaDisabled: { opacity: 0.6 },
   ctaText: {
@@ -1257,6 +1234,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     height: 48,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
     ...Shadows.sm,
   },
   processingRefreshBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
@@ -1416,6 +1398,9 @@ const styles = StyleSheet.create({
     height: 52,
     marginTop: Spacing.xs,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
   },
   faqCloseBtnText: {
     fontSize: 15,

@@ -158,16 +158,9 @@ export default function PropertiesListScreen() {
             onPress={handleAdd}
             accessibilityLabel="Aggiungi una nuova casa"
             android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-            style={({ pressed }) => ({
-              width: "100%",
-              height: "100%",
-              alignItems: "center",
-              justifyContent: "center",
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            })}
-          >
-            <Ionicons name="add" size={26} color="#fff" />
-          </Pressable>
+            style={StyleSheet.absoluteFill}
+          />
+          <Ionicons name="add" size={26} color="#fff" pointerEvents="none" />
         </View>
       )}
     </SafeAreaView>
@@ -476,6 +469,8 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     backgroundColor: "#d97706",
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
     ...Shadows.lg,
   },
 });

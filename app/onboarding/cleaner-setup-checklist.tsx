@@ -279,27 +279,18 @@ export default function CleanerSetupChecklistScreen() {
             accessibilityRole="button"
             accessibilityLabel={allDone ? "Vai alla dashboard" : "Continua alla dashboard, completa dopo"}
             android_ripple={{ color: allDone ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.06)" }}
-            style={({ pressed }) => ({
-              width: "100%",
-              height: "100%",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              opacity: pressed ? 0.9 : 1,
-            })}
-          >
-            {allDone ? (
-              <>
-                <Ionicons name="rocket" size={20} color="#fff" />
-                <Text style={styles.finishBtnTextPrimary}>Vai alla dashboard</Text>
-              </>
-            ) : (
-              <Text style={styles.finishBtnText}>
-                Continua alla dashboard — completa dopo
-              </Text>
-            )}
-          </Pressable>
+            style={StyleSheet.absoluteFill}
+          />
+          {allDone ? (
+            <>
+              <Ionicons name="rocket" size={20} color="#fff" pointerEvents="none" />
+              <Text style={styles.finishBtnTextPrimary} pointerEvents="none">Vai alla dashboard</Text>
+            </>
+          ) : (
+            <Text style={styles.finishBtnText} pointerEvents="none">
+              Continua alla dashboard — completa dopo
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -681,6 +672,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: "transparent",
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   finishBtnPrimary: {
     backgroundColor: Colors.secondary,
