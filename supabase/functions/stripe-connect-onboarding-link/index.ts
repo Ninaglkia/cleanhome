@@ -131,12 +131,33 @@ serve(async (req: Request) => {
       if (updErr) throw updErr;
     }
 
-    // ── Generate an AccountLink URL for onboarding ──────────────
+    // ── Decide which link to return ─────────────────────────────
+    // If the account is fully onboarded (charges_enabled +
+    // details_submitted) we return a one-shot Express Dashboard
+    // login link so the cleaner lands on the bank/payouts UI.
+    // Otherwise we return an account_onboarding link so they can
+    // finish KYC. This is what the "Gestisci pagamenti e dati
+    // bancari" CTA depends on after a successful onboarding —
+    // without this branch every tap dumped users back into the
+    // KYC form and "didn't work".
+    const account = await stripeFetch(`accounts/${accountId}`);
+    const fullyOnboarded =
+      !!account?.charges_enabled && !!account?.details_submitted;
+
+    if (fullyOnboarded) {
+      const loginLink = await stripeFetch(
+        `accounts/${accountId}/login_links`,
+        {}
+      );
+      return json({
+        url: loginLink.url as string,
+        account_id: accountId,
+        kind: "dashboard",
+      });
+    }
+
     const accountLink = await stripeFetch("account_links", {
       account: accountId,
-      // When Stripe finishes or the user bails out, bounce them back
-      // to the app via deep-link so the RN router can show either a
-      // success toast or let them retry.
       refresh_url: `${APP_SCHEME}://stripe-connect/refresh`,
       return_url: `${APP_SCHEME}://stripe-connect/return`,
       type: "account_onboarding",
@@ -145,6 +166,7 @@ serve(async (req: Request) => {
     return json({
       url: accountLink.url as string,
       account_id: accountId,
+      kind: "onboarding",
     });
   } catch (err: any) {
     const msg = err?.message ?? String(err);
