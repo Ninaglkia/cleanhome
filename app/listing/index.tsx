@@ -455,6 +455,19 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
     [radiusKm, thumbX]
   );
 
+  // Re-sync the thumb position whenever the external `radiusKm` changes
+  // AFTER the first layout (e.g. when the listing fetch hydrates the
+  // saved value). Without this the thumb would stay where it was when
+  // the layout fired, even though the numeric label and fill updated.
+  useEffect(() => {
+    if (trackWidth > 0) {
+      thumbX.value = withTiming(
+        ((radiusKm - SLIDER_MIN_KM) / (SLIDER_MAX_KM - SLIDER_MIN_KM)) * trackWidth,
+        { duration: 150 }
+      );
+    }
+  }, [radiusKm, trackWidth, thumbX]);
+
   const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), max);
 
@@ -548,6 +561,17 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
     },
     [priceEur, thumbX]
   );
+
+  // Re-sync thumb position when `priceEur` changes after first layout —
+  // same reason as RadiusSlider above.
+  useEffect(() => {
+    if (trackWidth > 0) {
+      thumbX.value = withTiming(
+        ((priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * trackWidth,
+        { duration: 150 }
+      );
+    }
+  }, [priceEur, trackWidth, thumbX]);
 
   const clamp = (v: number, min: number, max: number) =>
     Math.min(Math.max(v, min), max);
