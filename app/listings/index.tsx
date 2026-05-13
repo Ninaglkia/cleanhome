@@ -41,8 +41,6 @@ const C = {
   success: "#006b55",
 };
 
-const FALLBACK_COVER =
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80";
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function MyListingsScreen() {
@@ -614,11 +612,57 @@ function ListingCard({
     >
       {/* Cover */}
       <View>
-        <Image
-          source={{ uri: listing.cover_url || FALLBACK_COVER }}
-          style={{ width: "100%", height: 170, backgroundColor: "#eef3f1" }}
-          resizeMode="cover"
-        />
+        {listing.cover_url ? (
+          <Image
+            source={{ uri: listing.cover_url }}
+            style={{ width: "100%", height: 170, backgroundColor: "#eef3f1" }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: "100%",
+              height: 170,
+              backgroundColor: "#eef3f1",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingHorizontal: 24,
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: "rgba(2,36,32,0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="person-outline" size={28} color={C.primary} />
+            </View>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: C.onSurface,
+                textAlign: "center",
+              }}
+            >
+              Aggiungi un tuo selfie
+            </Text>
+            <Text
+              style={{
+                fontSize: 11,
+                color: C.onSurfaceVariant,
+                textAlign: "center",
+              }}
+            >
+              Tocca per caricare la foto del tuo annuncio
+            </Text>
+          </View>
+        )}
         {/* Top-left: status badge */}
         <View
           pointerEvents="none"
