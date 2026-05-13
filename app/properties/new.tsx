@@ -1840,30 +1840,36 @@ export function MapPicker({
             elevation: 20,
           }}
         >
-          {/* Search pill */}
+          {/* Search pill — Google Maps style. When the dropdown is active,
+              we round only the top corners so the bar and the list below
+              read as one continuous white surface. */}
           <View
             style={{
               backgroundColor: "#ffffff",
-              borderRadius: 14,
+              borderTopLeftRadius: 12,
+              borderTopRightRadius: 12,
+              borderBottomLeftRadius: isSearchActive ? 0 : 12,
+              borderBottomRightRadius: isSearchActive ? 0 : 12,
               paddingHorizontal: 16,
               paddingVertical: 12,
               flexDirection: "row",
               alignItems: "center",
-              gap: 10,
-              shadowColor: "#062a23",
-              shadowOffset: { width: 0, height: isSearchActive ? 12 : 6 },
-              shadowOpacity: isSearchActive ? 0.25 : 0.15,
-              shadowRadius: isSearchActive ? 32 : 20,
-              elevation: isSearchActive ? 12 : 6,
+              gap: 12,
+              shadowColor: "#000000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 4,
             }}
           >
-            {/* Search icon */}
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
+            {/* Search icon — Google neutral gray */}
+            <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path
                 d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-                stroke="#062a23"
+                stroke="#5f6368"
                 strokeWidth={2}
                 strokeLinecap="round"
+                fill="none"
               />
             </Svg>
 
@@ -1902,11 +1908,11 @@ export function MapPicker({
                 }
               }}
               placeholder="Cerca un indirizzo"
-              placeholderTextColor="rgba(6,42,35,0.4)"
+              placeholderTextColor="#9aa0a6"
               style={{
                 flex: 1,
-                fontSize: 15,
-                color: "#062a23",
+                fontSize: 16,
+                color: "#202124",
                 paddingVertical: 0,
               }}
               autoCapitalize="none"
@@ -1914,30 +1920,31 @@ export function MapPicker({
               autoCorrect={false}
             />
 
-            {/* Clear button — visible only when query is not empty */}
+            {/* Clear button — Google Maps style: flat gray X, no bg pill */}
             {searchQuery.length > 0 && (
               <Pressable
                 onPress={() => {
                   setSearchQuery("");
                   setSearchResults([]);
                 }}
-                hitSlop={8}
+                hitSlop={12}
                 accessible
                 accessibilityLabel="Cancella ricerca"
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(6,42,35,0.08)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                style={({ pressed }) => [
+                  {
+                    width: 24,
+                    height: 24,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                  pressed && { opacity: 0.6 },
+                ]}
               >
-                <Svg width={14} height={14} viewBox="0 0 24 24">
+                <Svg width={20} height={20} viewBox="0 0 24 24">
                   <Path
                     d="M18 6L6 18M6 6l12 12"
-                    stroke="#062a23"
-                    strokeWidth={2.2}
+                    stroke="#5f6368"
+                    strokeWidth={2}
                     strokeLinecap="round"
                   />
                 </Svg>
@@ -1945,20 +1952,24 @@ export function MapPicker({
             )}
           </View>
 
-          {/* Dropdown — shown when searching or results exist */}
+          {/* Dropdown — Google Maps style. Visually attached to the search
+              bar above (no gap, only bottom corners rounded), light shadow,
+              hairline separator from the bar. */}
           {isSearchActive && (
             <View
               style={{
-                marginTop: 8,
                 backgroundColor: "#ffffff",
-                borderRadius: 14,
+                borderBottomLeftRadius: 12,
+                borderBottomRightRadius: 12,
                 overflow: "hidden",
                 maxHeight: screenHeight * 0.6,
-                shadowColor: "#062a23",
-                shadowOffset: { width: 0, height: 24 },
-                shadowOpacity: 0.25,
-                shadowRadius: 48,
-                elevation: 24,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: "rgba(0,0,0,0.08)",
+                shadowColor: "#000000",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.10,
+                shadowRadius: 16,
+                elevation: 8,
               }}
             >
               <ScrollView
@@ -1966,41 +1977,31 @@ export function MapPicker({
                 showsVerticalScrollIndicator={false}
                 bounces={false}
               >
-                {/* "Use my location" — fixed at the top of the dropdown so
-                    the user can skip typing entirely. Always shown when
-                    the dropdown is open. */}
+                {/* "Use my location" — Google Maps style: flat row, simple
+                    accent-colored icon (no circle background), normal weight
+                    text in the accent color. Always shown at the top of the
+                    dropdown so the user can skip typing entirely. */}
                 <Pressable
                   onPress={handleUseMyLocation}
                   accessible
                   accessibilityRole="button"
                   accessibilityLabel="Usa la mia posizione attuale"
+                  android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                   style={({ pressed }) => [
                     {
                       flexDirection: "row",
                       alignItems: "center",
-                      gap: 12,
+                      gap: 16,
                       paddingHorizontal: 16,
-                      paddingVertical: 14,
+                      paddingVertical: 12,
                       backgroundColor: "#ffffff",
-                      borderBottomWidth: 1,
-                      borderBottomColor: "rgba(6,42,35,0.08)",
-                      minHeight: 52,
+                      minHeight: 56,
                     },
-                    pressed && { backgroundColor: "rgba(0,107,85,0.08)" },
+                    pressed && { backgroundColor: "rgba(0,0,0,0.04)" },
                   ]}
                 >
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: "rgba(0,107,85,0.12)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Svg width={18} height={18} viewBox="0 0 24 24">
+                  <View style={{ width: 24, alignItems: "center", flexShrink: 0 }}>
+                    <Svg width={22} height={22} viewBox="0 0 24 24">
                       <Path
                         d="M12 2v2 M12 20v2 M2 12h2 M20 12h2"
                         stroke="#006b55"
@@ -2013,8 +2014,8 @@ export function MapPicker({
                   </View>
                   <Text
                     style={{
-                      fontSize: 15,
-                      fontWeight: "700",
+                      fontSize: 16,
+                      fontWeight: "500",
                       color: "#006b55",
                       flex: 1,
                     }}
@@ -2025,56 +2026,75 @@ export function MapPicker({
 
                 {/* Loading state */}
                 {searching && searchResults.length === 0 && (
-                  <View style={{ paddingVertical: 24, paddingHorizontal: 16, alignItems: "center" }}>
-                    <Text style={{ fontSize: 13, color: "rgba(6,42,35,0.6)" }}>
-                      Cerco...
+                  <View
+                    style={{
+                      paddingVertical: 20,
+                      paddingHorizontal: 16,
+                      alignItems: "center",
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: "rgba(0,0,0,0.08)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: "#5f6368" }}>
+                      Cerco…
                     </Text>
                   </View>
                 )}
 
                 {/* Empty state — query typed but no results and not loading */}
                 {!searching && searchQuery.trim().length >= 3 && searchResults.length === 0 && (
-                  <View style={{ paddingVertical: 24, paddingHorizontal: 16, alignItems: "center" }}>
-                    <Text style={{ fontSize: 13, color: "rgba(6,42,35,0.6)", textAlign: "center" }}>
+                  <View
+                    style={{
+                      paddingVertical: 20,
+                      paddingHorizontal: 16,
+                      alignItems: "center",
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: "rgba(0,0,0,0.08)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: "#5f6368", textAlign: "center" }}>
                       Nessun risultato
                     </Text>
                   </View>
                 )}
 
-                {/* Result rows */}
-                {searchResults.slice(0, 6).map((s, index) => (
+                {/* Result rows — Google Maps style: hairline separator at the
+                    top of each row, simple gray pin icon, two-line text
+                    hierarchy (medium black + light gray). */}
+                {searchResults.slice(0, 6).map((s) => (
                   <Pressable
                     key={s.placeId}
                     onPress={() => pickSearchResult(s)}
                     accessible
                     accessibilityRole="button"
                     accessibilityLabel={s.mainText + (s.secondaryText ? `, ${s.secondaryText}` : "")}
+                    android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                     style={({ pressed }) => [
                       {
                         flexDirection: "row",
                         alignItems: "center",
-                        gap: 12,
+                        gap: 16,
                         paddingHorizontal: 16,
-                        paddingVertical: 14,
+                        paddingVertical: 12,
                         backgroundColor: "#ffffff",
-                        borderBottomWidth: index < Math.min(searchResults.length, 6) - 1 ? 1 : 0,
-                        borderBottomColor: "rgba(6,42,35,0.08)",
-                        minHeight: 52,
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                        borderTopColor: "rgba(0,0,0,0.08)",
+                        minHeight: 56,
                       },
-                      pressed && { backgroundColor: "rgba(6,42,35,0.05)" },
+                      pressed && { backgroundColor: "rgba(0,0,0,0.04)" },
                     ]}
                   >
-                    {/* Pin outline icon 20×20 */}
-                    <View style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Svg width={20} height={20} viewBox="0 0 24 24">
+                    {/* Pin outline icon — neutral gray, Google Maps style */}
+                    <View style={{ width: 24, alignItems: "center", flexShrink: 0 }}>
+                      <Svg width={22} height={22} viewBox="0 0 24 24">
                         <Path
                           d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"
-                          stroke="#062a23"
+                          stroke="#5f6368"
                           strokeWidth={1.8}
                           fill="none"
                           strokeLinejoin="round"
                         />
-                        <Circle cx={12} cy={9} r={2.5} fill="#062a23" />
+                        <Circle cx={12} cy={9} r={2.5} fill="#5f6368" />
                       </Svg>
                     </View>
 
@@ -2083,9 +2103,10 @@ export function MapPicker({
                       <Text
                         numberOfLines={1}
                         style={{
-                          fontSize: 15,
-                          fontWeight: "600",
-                          color: "#062a23",
+                          fontSize: 16,
+                          fontWeight: "500",
+                          color: "#202124",
+                          lineHeight: 22,
                         }}
                       >
                         {s.mainText}
@@ -2094,9 +2115,10 @@ export function MapPicker({
                         <Text
                           numberOfLines={1}
                           style={{
-                            fontSize: 12,
-                            color: "rgba(6,42,35,0.6)",
+                            fontSize: 14,
+                            color: "#5f6368",
                             marginTop: 2,
+                            lineHeight: 18,
                           }}
                         >
                           {s.secondaryText}
@@ -2106,23 +2128,25 @@ export function MapPicker({
                   </Pressable>
                 ))}
 
-                {/* Footer attribution */}
+                {/* Footer attribution — Google Places ToS requirement.
+                    Kept low-key but readable, mirroring Google Maps. */}
                 <View
                   style={{
                     paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderTopWidth: 1,
-                    borderTopColor: "rgba(6,42,35,0.08)",
+                    paddingVertical: 10,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: "rgba(0,0,0,0.08)",
                   }}
                 >
                   <Text
                     style={{
-                      fontSize: 10,
-                      color: "rgba(6,42,35,0.6)",
+                      fontSize: 11,
+                      color: "#5f6368",
                       textAlign: "right",
+                      fontWeight: "500",
                     }}
                   >
-                    Powered by Google
+                    powered by Google
                   </Text>
                 </View>
               </ScrollView>
