@@ -2306,7 +2306,9 @@ export default function ListingScreen() {
               </View>
             )}
             <View style={styles.coverOverlay}>
-              <StatusBadge status={isActive ? "active" : "paused"} />
+              {/* Hide status badge while the listing is still loading — a paused
+                  listing would otherwise flash "Attivo" for the fetch duration. */}
+              {!isFetchingListing && <StatusBadge status={isActive ? "active" : "paused"} />}
               <Pressable
                 style={styles.coverEditBtn}
                 onPress={handleChangeCoverPhoto}
@@ -2348,7 +2350,9 @@ export default function ListingScreen() {
               Media zona: €22–€30
             </Text>
 
-            {/* Active / inactive switch */}
+            {/* Active / inactive switch — hidden during initial fetch to avoid
+                flashing "Annuncio attivo" for a listing that is actually paused. */}
+            {!isFetchingListing && (
             <View style={styles.activeRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.activeLabel}>
@@ -2368,6 +2372,7 @@ export default function ListingScreen() {
                 ios_backgroundColor="#cfd6d4"
               />
             </View>
+            )}
           </View>
 
 
