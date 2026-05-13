@@ -112,13 +112,38 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
     if (!cleanerId) return;
     setInvoking(true);
     try {
-      // Re-use the same onboarding link endpoint — Stripe returns an
-      // "account_onboarding" or "account_update" link depending on the account state.
+      // Re-use the same onboarding link endpoint — for an active
+      // account it returns an Express Dashboard login link; for one
+      // still in KYC it returns an account_onboarding link.
       const { data, error } = await supabase.functions.invoke(
         "stripe-connect-onboarding-link",
         { body: {} }
       );
-      if (error) throw error;
+
+      if (error) {
+        // The Edge Function returns the underlying Stripe error in
+        // `detail` (added temporarily for debugging) when it returns
+        // 500. Pull it out so the alert shows the real cause instead
+        // of the generic message.
+        type EdgeError = Error & {
+          context?: { json?: () => Promise<unknown> };
+        };
+        let detail: string | undefined;
+        const ctx = (error as EdgeError).context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            const payload = (await ctx.json()) as {
+              error?: string;
+              detail?: string;
+            };
+            detail = payload?.detail;
+          } catch {
+            // best-effort — fall back to the generic error.message
+          }
+        }
+        throw new Error(detail ?? error.message ?? "Errore sconosciuto");
+      }
+
       const url = (data as { url?: string } | null)?.url;
       if (!url) throw new Error("Nessun URL ricevuto");
 

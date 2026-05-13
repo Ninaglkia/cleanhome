@@ -94,7 +94,9 @@ serve(async (req: Request) => {
     //    Cleaner" during onboarding). ─────────────────────────────
     const { data: cleanerProfile, error: cpErr } = await supabase
       .from("cleaner_profiles")
-      .select("id, full_name, stripe_account_id")
+      .select(
+        "id, full_name, stripe_account_id, stripe_onboarding_complete, stripe_charges_enabled"
+      )
       .eq("id", user.id)
       .maybeSingle();
 
@@ -132,19 +134,19 @@ serve(async (req: Request) => {
     }
 
     // ── Decide which link to return ─────────────────────────────
-    // If the account is fully onboarded (charges_enabled +
-    // details_submitted) we return a one-shot Express Dashboard
-    // login link so the cleaner lands on the bank/payouts UI.
-    // Otherwise we return an account_onboarding link so they can
-    // finish KYC. This is what the "Gestisci pagamenti e dati
-    // bancari" CTA depends on after a successful onboarding —
-    // without this branch every tap dumped users back into the
-    // KYC form and "didn't work".
-    const account = await stripeFetch(`accounts/${accountId}`);
-    const fullyOnboarded =
-      !!account?.charges_enabled && !!account?.details_submitted;
+    // Use the cached flags from cleaner_profiles instead of calling
+    // GET /v1/accounts/{id} on Stripe. The restricted key may not
+    // grant "Connect: Read" permission, and the cached flags are
+    // already kept in sync by the stripe-webhook handler.
+    //
+    // Active (charges_enabled) → one-shot Express Dashboard login
+    // link, bank/payouts UI.
+    // Otherwise → account_onboarding link to finish KYC.
+    const isActive =
+      !!cleanerProfile.stripe_onboarding_complete &&
+      !!cleanerProfile.stripe_charges_enabled;
 
-    if (fullyOnboarded) {
+    if (isActive) {
       const loginLink = await stripeFetch(
         `accounts/${accountId}/login_links`,
         {}
@@ -172,7 +174,14 @@ serve(async (req: Request) => {
     const msg = err?.message ?? String(err);
     console.error("[stripe-connect-onboarding-link]", msg);
     return json(
-      { error: "Impossibile avviare la verifica. Riprova più tardi." },
+      {
+        error: "Impossibile avviare la verifica. Riprova più tardi.",
+        // TEMPORARY DEBUG — surfacing the underlying error so the
+        // client logs / Sentry / our Bash audit can see WHY the
+        // function 500s. Remove this `detail` field once we've
+        // identified the root cause.
+        detail: msg,
+      },
       500
     );
   }
