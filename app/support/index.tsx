@@ -103,7 +103,9 @@ export default function SupportScreen() {
   }, [router]);
 
   const handleEmailSupport = useCallback(async () => {
-    await Linking.openURL("mailto:support@cleanhomeapp.com").catch(() => {});
+    await Linking.openURL(
+      "mailto:info@cleanhomeapp.com?subject=Richiesta%20supporto%20CleanHome"
+    ).catch(() => {});
   }, []);
 
   return (

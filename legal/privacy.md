@@ -12,7 +12,7 @@ Il Titolare del trattamento dei dati personali è:
 - **Ragione sociale:** [NINO: COMPILARE — es. CleanHome S.r.l.s. / Ditta Individuale Mariano Lai]
 - **Sede legale:** [NINO: COMPILARE — Via, CAP, Città, Provincia]
 - **P.IVA / Codice Fiscale:** [NINO: COMPILARE]
-- **Email contatto privacy:** [NINO: COMPILARE — es. privacy@cleanhome.it]
+- **Email contatto privacy:** info@cleanhomeapp.com
 - **PEC:** [NINO: COMPILARE]
 
 ## 2. Dati raccolti
@@ -95,7 +95,7 @@ Hai il diritto di:
 - **Opposizione** al trattamento basato su legittimo interesse
 - **Reclamo al Garante Privacy** (www.garanteprivacy.it)
 
-Per esercitarli scrivi a: **[NINO: COMPILARE — privacy@cleanhome.it]**
+Per esercitarli scrivi a: **info@cleanhomeapp.com**
 Risposta entro 30 giorni.
 
 ## 9. Cookie e tracciamento
@@ -122,6 +122,6 @@ Eventuali modifiche saranno comunicate via email e in-app con almeno 30 giorni d
 
 ## 13. Contatti
 
-- **Privacy:** [NINO: COMPILARE — privacy@cleanhome.it]
+- **Privacy:** info@cleanhomeapp.com
 - **DPO (se nominato):** [NINO: COMPILARE o "non nominato — non obbligatorio"]
 - **Reclami Garante:** www.garanteprivacy.it

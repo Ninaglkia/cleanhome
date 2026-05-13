@@ -21,7 +21,7 @@ CleanHome agisce come **piattaforma di intermediazione**. I rimborsi sono erogat
 | **No-show del cliente** | 0% (no rimborso) |
 
 ### 2.1 Casi di forza maggiore
-In caso di emergenze documentabili (malattia con certificato medico, lutto familiare, calamità naturali) il cliente può richiedere rimborso integrale a **[NINO: COMPILARE — support@cleanhome.it]** entro 7 giorni. CleanHome valuta caso per caso.
+In caso di emergenze documentabili (malattia con certificato medico, lutto familiare, calamità naturali) il cliente può richiedere rimborso integrale a **info@cleanhomeapp.com** entro 7 giorni. CleanHome valuta caso per caso.
 
 ## 3. Cancellazione da parte del cleaner
 
@@ -100,7 +100,7 @@ Il cleaner può cancellare l'abbonamento dall'app: Listings → Gestisci abbonam
 - Eccezioni per malfunzionamenti tecnici della piattaforma valutate caso per caso
 
 ### 7.3 Diritto di recesso 14gg (consumatori)
-Se il cleaner sottoscrive l'abbonamento come consumatore (caso raro essendo richiesta P.IVA), può recedere entro 14 giorni dalla sottoscrizione tramite email a [NINO: COMPILARE — support@cleanhome.it], a meno che non abbia già pubblicato listings durante quel periodo (esecuzione del servizio digitale con consenso espresso).
+Se il cleaner sottoscrive l'abbonamento come consumatore (caso raro essendo richiesta P.IVA), può recedere entro 14 giorni dalla sottoscrizione tramite email a info@cleanhomeapp.com, a meno che non abbia già pubblicato listings durante quel periodo (esecuzione del servizio digitale con consenso espresso).
 
 ## 8. Tempistiche dei rimborsi
 
@@ -113,7 +113,7 @@ Se il cleaner sottoscrive l'abbonamento come consumatore (caso raro essendo rich
 ## 9. Come richiedere un rimborso
 
 1. **Dall'app:** Booking specifico → "Richiedi rimborso" (motivare)
-2. **Via email:** [NINO: COMPILARE — refund@cleanhome.it]
+2. **Via email:** info@cleanhomeapp.com
 3. **Documenti utili:** screenshot, foto, eventuali comunicazioni con il cleaner
 
 CleanHome risponde entro **5 giorni lavorativi**.
@@ -128,5 +128,5 @@ In caso di mancato accordo:
 
 ## 11. Contatti
 
-- **Customer support:** [NINO: COMPILARE — support@cleanhome.it]
-- **Rimborsi:** [NINO: COMPILARE — refund@cleanhome.it]
+- **Customer support:** info@cleanhomeapp.com
+- **Rimborsi:** info@cleanhomeapp.com

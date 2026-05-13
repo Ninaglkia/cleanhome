@@ -109,7 +109,9 @@ export default function PaymentsScreen() {
   }, [router]);
 
   const handleEmailBilling = useCallback(async () => {
-    await Linking.openURL("mailto:billing@cleanhomeapp.com").catch(() => {});
+    await Linking.openURL(
+      "mailto:info@cleanhomeapp.com?subject=Pagamenti%20e%20fatture%20%E2%80%94%20Richiesta"
+    ).catch(() => {});
   }, []);
 
   return (

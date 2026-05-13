@@ -12,7 +12,7 @@ CleanHome è gestita da:
 - **Sede legale:** [NINO: COMPILARE]
 - **P.IVA / C.F.:** [NINO: COMPILARE]
 - **Iscrizione REA:** [NINO: COMPILARE o "non applicabile"]
-- **Email:** [NINO: COMPILARE — info@cleanhome.it]
+- **Email:** info@cleanhomeapp.com
 - **PEC:** [NINO: COMPILARE]
 
 (di seguito "**CleanHome**" o "**noi**")
@@ -226,6 +226,6 @@ Per controversie online il consumatore può accedere alla piattaforma ODR della 
 
 ## 17. Contatti
 
-- **Customer support:** [NINO: COMPILARE — support@cleanhome.it]
-- **Legale:** [NINO: COMPILARE — legal@cleanhome.it]
+- **Customer support:** info@cleanhomeapp.com
+- **Legale:** info@cleanhomeapp.com
 - **PEC:** [NINO: COMPILARE]
