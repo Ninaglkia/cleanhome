@@ -332,9 +332,10 @@ function formatDateIT(dateStr: string | null): string {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function NewBookingScreen() {
-  const { cleanerId, cleanerName, hourlyRate } = useLocalSearchParams<{
+  const { cleanerId, cleanerName, cleanerAvatar, hourlyRate } = useLocalSearchParams<{
     cleanerId: string;
     cleanerName: string;
+    cleanerAvatar?: string;
     hourlyRate: string;
   }>();
   const { user } = useAuth();
@@ -1421,6 +1422,32 @@ export default function NewBookingScreen() {
         <View style={[s.progressFill, { width: `${((step + 1) / totalDisplaySteps) * 100}%` }]} />
       </View>
 
+      {/* ── Cleaner identity strip — visible across all steps so the user
+              always sees who they are booking with ── */}
+      {cleanerId && (
+        <View style={s.cleanerStrip}>
+          {cleanerAvatar ? (
+            <Image
+              source={{ uri: cleanerAvatar }}
+              style={s.cleanerStripAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[s.cleanerStripAvatar, s.cleanerStripAvatarFallback]}>
+              <Text style={s.cleanerStripAvatarText}>
+                {displayName.slice(0, 2).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={s.cleanerStripLabel}>Prenoti con</Text>
+            <Text style={s.cleanerStripName} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Price indicator */}
       <View style={s.priceBar}>
         <Text style={s.priceBarLabel}>Stima totale</Text>
@@ -1950,6 +1977,44 @@ const s = StyleSheet.create({
   checkCircleSelected: {
     backgroundColor: Colors.secondary,
     borderColor: Colors.secondary,
+  },
+  cleanerStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  cleanerStripAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  cleanerStripAvatarFallback: {
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cleanerStripAvatarText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.accent,
+  },
+  cleanerStripLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.textTertiary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  cleanerStripName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.text,
+    marginTop: 2,
   },
   cleanerAvatar: {
     width: 52,

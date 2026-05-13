@@ -627,6 +627,7 @@ export default function CleanerDetailScreen() {
               params: {
                 cleanerId: cleaner.id,
                 cleanerName: cleaner.full_name,
+                cleanerAvatar: cleaner.avatar_url ?? "",
                 hourlyRate: String(cleaner.hourly_rate ?? 15),
               },
             });

@@ -156,11 +156,19 @@ export default function CleanerProfileViewScreen() {
 
   const handleBook = useCallback(() => {
     if (id) {
-      router.push(`/booking/new?cleanerId=${id}`);
+      router.push({
+        pathname: "/booking/new",
+        params: {
+          cleanerId: id,
+          cleanerName: cleaner?.full_name ?? "",
+          cleanerAvatar: cleaner?.avatar_url ?? "",
+          hourlyRate: String(cleaner?.hourly_rate ?? 15),
+        },
+      });
     } else {
       router.push("/booking/new");
     }
-  }, [router, id]);
+  }, [router, id, cleaner]);
 
   const handleReviews = useCallback(() => {
     router.push("/cleaner/reviews");
