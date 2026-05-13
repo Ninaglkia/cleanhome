@@ -58,6 +58,7 @@ import type { AddressSuggestion } from "../../lib/api";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import type { ClientProperty } from "../../lib/types";
 import TypologySheet, { TypologyValue } from "../../components/TypologySheet";
+import { MapPicker } from "./new";
 
 const ROOM_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 const NAME_MAX = 60;
@@ -109,6 +110,7 @@ export default function PropertyEditScreen() {
     AddressSuggestion[]
   >([]);
   const [addressSearching, setAddressSearching] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addressAbortRef = useRef<AbortController | null>(null);
   const [notes, setNotes] = useState("");
@@ -804,7 +806,63 @@ export default function PropertyEditScreen() {
                   )}
               </View>
             </FieldBlock>
+
+            {/* Map picker CTA — outer View carries the bg, Pressable handles taps */}
+            <View
+              style={{
+                marginTop: 14,
+                height: 52,
+                borderRadius: 14,
+                backgroundColor: "#062a23",
+                overflow: "hidden",
+                shadowColor: "#062a23",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.18,
+                shadowRadius: 12,
+                elevation: 4,
+              }}
+            >
+              <Pressable
+                onPress={() => setMapPickerOpen(true)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingHorizontal: 18,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+              >
+                <Ionicons name="map-outline" size={18} color="#ffffff" />
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: "700",
+                    color: "#ffffff",
+                    letterSpacing: -0.15,
+                  }}
+                >
+                  Scegli sulla mappa
+                </Text>
+              </Pressable>
+            </View>
           </View>
+
+          {/* Map picker modal — same component used in /properties/new */}
+          <MapPicker
+            visible={mapPickerOpen}
+            initial={addressLatLng}
+            onClose={() => setMapPickerOpen(false)}
+            onPick={(coord, formatted) => {
+              setMapPickerOpen(false);
+              if (formatted) {
+                setAddress(formatted.slice(0, ADDRESS_MAX));
+              }
+              setAddressLatLng(coord);
+              setAddressSuggestions([]);
+            }}
+          />
 
           {/* ─────────────────────── Dimensioni ─────────────────────── */}
           <View style={styles.card}>

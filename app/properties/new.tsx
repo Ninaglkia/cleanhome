@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -1226,45 +1227,42 @@ function Step3Details({
 }
 
 function SqmInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  // Preset ranges. The stored value is the median of each range — that's what
+  // the cleaner pricing engine uses to compute the base price (€1.30/m²).
+  const PRESETS: Array<{ label: string; storeValue: string; min: number; max: number }> = [
+    { label: "Fino a 40 m²", storeValue: "40",  min: 0,   max: 40 },
+    { label: "40 – 60 m²",   storeValue: "50",  min: 41,  max: 60 },
+    { label: "60 – 80 m²",   storeValue: "70",  min: 61,  max: 80 },
+    { label: "80 – 100 m²",  storeValue: "90",  min: 81,  max: 100 },
+    { label: "100 – 150 m²", storeValue: "125", min: 101, max: 150 },
+    { label: "Oltre 150 m²", storeValue: "175", min: 151, max: 9999 },
+  ];
+
   const n = Number(value);
   const hasValue = value.length > 0 && Number.isFinite(n) && n > 0;
-  // Surface both ends of the valid range so the user gets feedback on
-  // typos like "1" (too small) and "9999" (too big) instead of just
-  // seeing the CTA stay disabled.
-  const showFloorHint   = hasValue && n < MIN_SQM;
-  const showCeilingHint = hasValue && n > MAX_SQM;
-  const isInvalid       = showFloorHint || showCeilingHint;
+
+  const isActive = (p: typeof PRESETS[number]) =>
+    hasValue && n >= p.min && n <= p.max;
+
   return (
-    <>
-      <View style={[styles.inputWrap, isInvalid && styles.inputWrapInvalid]}>
-        <Ionicons
-          name="resize-outline"
-          size={18}
-          color={isInvalid ? "#c95c5c" : Colors.textTertiary}
-        />
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          placeholder="Es. 85"
-          placeholderTextColor={Colors.textTertiary}
-          keyboardType="number-pad"
-          style={styles.inputText}
-          maxLength={4}
-          accessibilityLabel="Superficie in metri quadrati"
-        />
-        <Text style={styles.unitTxt}>m²</Text>
-      </View>
-      {showFloorHint && (
-        <Text style={styles.errorHint}>
-          La superficie minima è {MIN_SQM} m². Controlla il valore inserito.
-        </Text>
-      )}
-      {showCeilingHint && (
-        <Text style={styles.errorHint}>
-          La superficie massima è {MAX_SQM} m².
-        </Text>
-      )}
-    </>
+    <View style={styles.sqmChipsWrap}>
+      {PRESETS.map((p) => {
+        const active = isActive(p);
+        return (
+          <Pressable
+            key={p.storeValue}
+            onPress={() => onChange(p.storeValue)}
+            style={[styles.sqmChip, active && styles.sqmChipActive]}
+            accessibilityLabel={`Superficie ${p.label}`}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.sqmChipText, active && styles.sqmChipTextActive]}>
+              {p.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -1492,7 +1490,7 @@ function PremiumCTA({
 // User pans the map under the pin, taps "Conferma" → reverse-geocode
 // the center coordinate via expo-location and bubble both the coord and
 // the formatted address up to the wizard.
-function MapPicker({
+export function MapPicker({
   visible, initial, onClose, onPick,
 }: {
   visible: boolean;
@@ -1591,26 +1589,36 @@ function MapPicker({
 
   // ── Search autocomplete (debounced, abortable) ──────────────
   const onSearchChange = (text: string) => {
-    setSearchQuery(text);
+    // Strip leading space placeholder injected by onFocus seed.
+    const cleaned = text.replace(/^ +/, "");
+    setSearchQuery(cleaned);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     if (searchAbortRef.current) searchAbortRef.current.abort();
-    if (text.trim().length < 3) {
+    // Empty query → clear results, hide dropdown
+    if (cleaned.length === 0) {
       setSearchResults([]);
+      setSearching(false);
       return;
     }
+    // Show "searching" state immediately so the dropdown reacts to the first keystroke
+    setSearching(true);
     searchDebounceRef.current = setTimeout(async () => {
       const ctrl = new AbortController();
       searchAbortRef.current = ctrl;
-      setSearching(true);
       try {
-        const results = await searchAddresses(text, ctrl.signal);
+        // Bias toward the current map center so 1-letter queries return
+        // locally-relevant streets (Google-Maps style).
+        const bias = isValidCoord(center)
+          ? { latitude: center.latitude, longitude: center.longitude }
+          : undefined;
+        const results = await searchAddresses(cleaned, ctrl.signal, bias);
         if (!ctrl.signal.aborted) setSearchResults(results);
       } catch {
         // user is still typing
       } finally {
         if (!ctrl.signal.aborted) setSearching(false);
       }
-    }, 300);
+    }, 150);
   };
 
   const pickSearchResult = async (s: AddressSuggestion) => {
@@ -1668,62 +1676,235 @@ function MapPicker({
   // MapView in the background still consumes location/GPU.
   if (!visible) return null;
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.mapModalRoot} edges={["top", "bottom"]}>
-        <View style={styles.mapModalHeader}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.mapModalClose}>
-            <Ionicons name="close" size={22} color={Colors.text} />
-          </Pressable>
-          <Text style={styles.mapModalTitle}>Scegli sulla mappa</Text>
-          <View style={{ width: 36 }} />
-        </View>
+  // True when the user is actively typing in the search bar
+  const isSearchActive = searchQuery.length > 0;
 
-        <View style={{ flex: 1 }}>
-          <MapView
-            ref={mapRef}
-            style={StyleSheet.absoluteFillObject}
-            initialRegion={{
+  // GPS FAB removed from this design — handler kept for future reuse only.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleGpsFab = async () => {
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const target = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      if (Math.abs(target.latitude) < 0.001 && Math.abs(target.longitude) < 0.001) return;
+      ignoreNextRegionChangeRef.current = true;
+      setCenter(target);
+      mapRef.current?.animateToRegion({ ...target, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 600);
+      setTimeout(() => { ignoreNextRegionChangeRef.current = false; }, 700);
+    } catch {
+      // GPS unavailable — silently ignore
+    }
+  };
+
+  // Safe-area top inset — needed to offset the topbar below the notch.
+  // We approximate 44 on iOS (standard notch device) and 0 on Android where
+  // the Modal's windowSoftInputMode already handles insets.
+  const safeTop = Platform.OS === "ios" ? 44 : 0;
+  // Topbar total height = safeTop + content (44px)
+  const topbarHeight = safeTop + 44;
+  const screenHeight = Dimensions.get("window").height;
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      {/* Root: warm background, full screen */}
+      <View style={{ flex: 1, backgroundColor: "#f4f1ea" }}>
+
+        {/* ── MAP (layer 0, absoluteFillObject) ── */}
+        <MapView
+          ref={mapRef}
+          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
+          initialRegion={{
+            latitude: center.latitude,
+            longitude: center.longitude,
+            latitudeDelta: 0.012,
+            longitudeDelta: 0.012,
+          }}
+          onMapReady={() => {
+            mapRef.current?.animateToRegion({
               latitude: center.latitude,
               longitude: center.longitude,
               latitudeDelta: 0.012,
               longitudeDelta: 0.012,
+            }, 400);
+          }}
+          onRegionChangeComplete={(r) => {
+            if (ignoreNextRegionChangeRef.current) return;
+            setCenter({ latitude: r.latitude, longitude: r.longitude });
+          }}
+          onPress={(e) => {
+            const c = e.nativeEvent.coordinate;
+            setCenter({ latitude: c.latitude, longitude: c.longitude });
+            mapRef.current?.animateToRegion({
+              latitude: c.latitude,
+              longitude: c.longitude,
+              latitudeDelta: 0.012,
+              longitudeDelta: 0.012,
+            }, 250);
+          }}
+          showsUserLocation
+          showsMyLocationButton={false}
+        />
+
+        {/* ── TOPBAR (position absolute, top 0, zIndex 30) ── */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topbarHeight,
+            paddingTop: safeTop,
+            paddingHorizontal: 16,
+            paddingBottom: 0,
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#f4f1ea",
+            zIndex: 30,
+            elevation: 30,
+          }}
+        >
+          {/* Close button — 40×40 white circle with shadow */}
+          <Pressable
+            onPress={onClose}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: "#ffffff",
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#062a23",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              elevation: 6,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24">
+              <Path
+                d="M18 6L6 18M6 6l12 12"
+                stroke="#062a23"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+
+          {/* Centered title — absolute so it never shifts with button widths */}
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              alignItems: "center",
+              pointerEvents: "none",
             }}
-            onMapReady={() => {
-              // Force animate to current center on ready so GPS-derived
-              // coords (which arrive after mount) are immediately applied.
-              mapRef.current?.animateToRegion({
-                latitude: center.latitude,
-                longitude: center.longitude,
-                latitudeDelta: 0.012,
-                longitudeDelta: 0.012,
-              }, 400);
-            }}
-            onRegionChangeComplete={(r) => {
-              if (ignoreNextRegionChangeRef.current) return;
-              setCenter({ latitude: r.latitude, longitude: r.longitude });
-            }}
-            showsUserLocation
-            showsMyLocationButton
-          />
-          {/* Static center pin overlaying the map */}
-          <View pointerEvents="none" style={styles.mapPinAnchor}>
-            <View style={styles.mapPinShadow} />
-            <Ionicons name="location" size={42} color={Colors.secondary} />
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                color: "#062a23",
+                letterSpacing: -0.16,
+              }}
+            >
+              Scegli sulla mappa
+            </Text>
           </View>
 
-          {/* Search bar floating on top of the map (Google-Maps style) */}
-          <View style={styles.mapSearchBar}>
-            <Ionicons name="search" size={18} color={Colors.textSecondary} />
+          {/* Right spacer — mirrors left button for optical balance */}
+          <View style={{ width: 40, marginLeft: "auto" }} />
+        </View>
+
+        {/* ── SEARCH WRAP (position absolute, top topbarHeight, zIndex 20) ── */}
+        <View
+          style={{
+            position: "absolute",
+            top: topbarHeight,
+            left: 16,
+            right: 16,
+            zIndex: 20,
+            elevation: 20,
+          }}
+        >
+          {/* Search pill */}
+          <View
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 14,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              shadowColor: "#062a23",
+              shadowOffset: { width: 0, height: isSearchActive ? 12 : 6 },
+              shadowOpacity: isSearchActive ? 0.25 : 0.15,
+              shadowRadius: isSearchActive ? 32 : 20,
+              elevation: isSearchActive ? 12 : 6,
+            }}
+          >
+            {/* Search icon */}
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
+              <Path
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+                stroke="#062a23"
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </Svg>
+
             <TextInput
               value={searchQuery}
               onChangeText={onSearchChange}
-              placeholder="Cerca indirizzo, città, locale…"
-              placeholderTextColor={Colors.textTertiary}
-              style={styles.mapSearchInput}
+              onFocus={async () => {
+                // Google-Maps-style: when the user taps the search bar
+                // and there's no query yet, pre-populate the dropdown
+                // with streets near the current map center.
+                if (searchQuery.length > 0) return;
+                if (!isValidCoord(center)) return;
+                setSearching(true);
+                try {
+                  const ctrl = new AbortController();
+                  searchAbortRef.current = ctrl;
+                  const seedResults = await searchAddresses(
+                    "via",
+                    ctrl.signal,
+                    {
+                      latitude: center.latitude,
+                      longitude: center.longitude,
+                      radiusMeters: 3000,
+                    }
+                  );
+                  if (!ctrl.signal.aborted) {
+                    setSearchResults(seedResults);
+                    // Bump the query to a single space so the dropdown
+                    // becomes visible (isSearchActive checks length > 0).
+                    setSearchQuery(" ");
+                  }
+                } catch {
+                  // best-effort — silent fallback to manual typing
+                } finally {
+                  setSearching(false);
+                }
+              }}
+              placeholder="Cerca un indirizzo"
+              placeholderTextColor="rgba(6,42,35,0.4)"
+              style={{
+                flex: 1,
+                fontSize: 15,
+                color: "#062a23",
+                paddingVertical: 0,
+              }}
               autoCapitalize="none"
               returnKeyType="search"
+              autoCorrect={false}
             />
+
+            {/* Clear button — visible only when query is not empty */}
             {searchQuery.length > 0 && (
               <Pressable
                 onPress={() => {
@@ -1731,70 +1912,321 @@ function MapPicker({
                   setSearchResults([]);
                 }}
                 hitSlop={8}
+                accessible
+                accessibilityLabel="Cancella ricerca"
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: "rgba(6,42,35,0.08)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+                <Svg width={14} height={14} viewBox="0 0 24 24">
+                  <Path
+                    d="M18 6L6 18M6 6l12 12"
+                    stroke="#062a23"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
               </Pressable>
             )}
           </View>
 
-          {/* Search suggestions dropdown */}
-          {(searching || searchResults.length > 0) && searchQuery.length >= 3 && (
-            <View style={styles.mapSearchResults}>
-              {searching && searchResults.length === 0 && (
-                <Text style={styles.mapSearchLoading}>Cerco…</Text>
-              )}
-              {searchResults.slice(0, 6).map((s) => (
-                <Pressable
-                  key={s.placeId}
-                  onPress={() => pickSearchResult(s)}
-                  style={({ pressed }) => [
-                    styles.mapSearchRow,
-                    pressed && { backgroundColor: Colors.surfaceElevated },
-                  ]}
-                >
-                  <Ionicons name="location-outline" size={16} color={Colors.secondary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.mapSearchRowMain} numberOfLines={1}>
-                      {s.mainText}
+          {/* Dropdown — shown when searching or results exist */}
+          {isSearchActive && (
+            <View
+              style={{
+                marginTop: 8,
+                backgroundColor: "#ffffff",
+                borderRadius: 14,
+                overflow: "hidden",
+                maxHeight: screenHeight * 0.6,
+                shadowColor: "#062a23",
+                shadowOffset: { width: 0, height: 24 },
+                shadowOpacity: 0.25,
+                shadowRadius: 48,
+                elevation: 24,
+              }}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {/* Loading state */}
+                {searching && searchResults.length === 0 && (
+                  <View style={{ paddingVertical: 24, paddingHorizontal: 16, alignItems: "center" }}>
+                    <Text style={{ fontSize: 13, color: "rgba(6,42,35,0.6)" }}>
+                      Cerco...
                     </Text>
-                    {!!s.secondaryText && (
-                      <Text style={styles.mapSearchRowSub} numberOfLines={1}>
-                        {s.secondaryText}
-                      </Text>
-                    )}
                   </View>
-                </Pressable>
-              ))}
+                )}
+
+                {/* Empty state — query typed but no results and not loading */}
+                {!searching && searchQuery.trim().length >= 3 && searchResults.length === 0 && (
+                  <View style={{ paddingVertical: 24, paddingHorizontal: 16, alignItems: "center" }}>
+                    <Text style={{ fontSize: 13, color: "rgba(6,42,35,0.6)", textAlign: "center" }}>
+                      Nessun risultato
+                    </Text>
+                  </View>
+                )}
+
+                {/* Result rows */}
+                {searchResults.slice(0, 6).map((s, index) => (
+                  <Pressable
+                    key={s.placeId}
+                    onPress={() => pickSearchResult(s)}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={s.mainText + (s.secondaryText ? `, ${s.secondaryText}` : "")}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      backgroundColor: pressed ? "rgba(6,42,35,0.05)" : "#ffffff",
+                      borderBottomWidth: index < Math.min(searchResults.length, 6) - 1 ? 1 : 0,
+                      borderBottomColor: "rgba(6,42,35,0.08)",
+                      minHeight: 52,
+                    })}
+                  >
+                    {/* Pin outline icon 20×20 */}
+                    <View style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Svg width={20} height={20} viewBox="0 0 24 24">
+                        <Path
+                          d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"
+                          stroke="#062a23"
+                          strokeWidth={1.8}
+                          fill="none"
+                          strokeLinejoin="round"
+                        />
+                        <Circle cx={12} cy={9} r={2.5} fill="#062a23" />
+                      </Svg>
+                    </View>
+
+                    {/* Text */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#062a23",
+                        }}
+                      >
+                        {s.mainText}
+                      </Text>
+                      {!!s.secondaryText && (
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 12,
+                            color: "rgba(6,42,35,0.6)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {s.secondaryText}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+
+                {/* Footer attribution */}
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: "rgba(6,42,35,0.08)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: "rgba(6,42,35,0.6)",
+                      textAlign: "right",
+                    }}
+                  >
+                    Powered by Google
+                  </Text>
+                </View>
+              </ScrollView>
             </View>
           )}
         </View>
 
-        <View style={styles.mapPreviewCard}>
-          <Ionicons
-            name={resolving ? "search-outline" : "location"}
-            size={20}
-            color={resolving ? Colors.textTertiary : Colors.secondary}
-          />
-          <Text style={styles.mapPreviewTxt} numberOfLines={2}>
-            {resolving ? "Cerco indirizzo…" : previewAddress}
-          </Text>
-        </View>
-
-        <View style={styles.mapModalFooter}>
-          <Pressable
-            onPress={handleConfirm}
-            disabled={resolving || !previewAddress}
-            style={({ pressed }) => [
-              styles.mapConfirmBtn,
-              (resolving || !previewAddress) && styles.mapConfirmBtnDisabled,
-              pressed && { opacity: 0.92 },
-            ]}
+        {/* ── CENTER PIN (hidden during search, pointerEvents none, zIndex 5) ── */}
+        {!isSearchActive && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              marginLeft: -18,
+              marginTop: -36,
+              alignItems: "center",
+              zIndex: 5,
+            }}
           >
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.mapConfirmTxt}>Conferma indirizzo</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+            {/* Diamond-shaped pin: borderRadius trick for "50% 50% 50% 0" */}
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                borderBottomLeftRadius: 18,
+                borderBottomRightRadius: 0,
+                backgroundColor: "#062a23",
+                borderWidth: 3,
+                borderColor: "#ffffff",
+                transform: [{ rotate: "-45deg" }],
+                shadowColor: "#062a23",
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 16,
+                elevation: 10,
+              }}
+            />
+            {/* Oval shadow beneath the pin */}
+            <View
+              style={{
+                marginTop: 2,
+                width: 14,
+                height: 4,
+                borderRadius: 7,
+                backgroundColor: "rgba(6,42,35,0.25)",
+              }}
+            />
+          </View>
+        )}
+
+        {/* ── DIM OVERLAY (visible during search, zIndex 15, tap closes search) ── */}
+        {isSearchActive && (
+          <Pressable
+            onPress={() => {
+              setSearchQuery("");
+              setSearchResults([]);
+            }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(6,42,35,0.25)",
+              zIndex: 15,
+              elevation: 15,
+            }}
+          />
+        )}
+
+        {/* ── BOTTOM SHEET (hidden during search, position absolute, zIndex 20) ── */}
+        {!isSearchActive && (
+          <View
+            style={{
+              position: "absolute",
+              left: 16,
+              right: 16,
+              bottom: 24,
+              backgroundColor: "#ffffff",
+              borderRadius: 20,
+              padding: 20,
+              shadowColor: "#062a23",
+              shadowOffset: { width: 0, height: 20 },
+              shadowOpacity: 0.25,
+              shadowRadius: 50,
+              elevation: 20,
+              zIndex: 20,
+            }}
+          >
+            {/* Eyebrow label */}
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "800",
+                color: "#3ee0a8",
+                letterSpacing: 0.16 * 11,
+                textTransform: "uppercase",
+                marginBottom: 6,
+              }}
+            >
+              Posizione selezionata
+            </Text>
+
+            {/* Address */}
+            <Text
+              numberOfLines={2}
+              style={{
+                fontSize: 18,
+                fontWeight: "800",
+                color: "#062a23",
+                letterSpacing: -0.18,
+                lineHeight: 18 * 1.25,
+                marginBottom: 4,
+              }}
+            >
+              {resolving ? "Calcolo indirizzo..." : previewAddress || "—"}
+            </Text>
+
+            {/* City / hint */}
+            <Text
+              style={{
+                fontSize: 12,
+                color: "rgba(6,42,35,0.6)",
+                marginBottom: 16,
+              }}
+            >
+              {resolving ? " " : "Trascina la mappa per cambiare"}
+            </Text>
+
+            {/* Confirm button — outer View carries the bg + shape; Pressable handles the touch */}
+            <View
+              style={{
+                alignSelf: "stretch",
+                height: 56,
+                borderRadius: 14,
+                backgroundColor: resolving
+                  ? "rgba(6,42,35,0.15)"
+                  : "#062a23",
+                overflow: "hidden",
+              }}
+            >
+              <Pressable
+                onPress={handleConfirm}
+                disabled={resolving}
+                android_ripple={{ color: resolving ? undefined : "#0d4a3d" }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  paddingHorizontal: 20,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: resolving ? "rgba(6,42,35,0.4)" : "#ffffff",
+                    textAlign: "center",
+                  }}
+                >
+                  {resolving ? "Calcolo indirizzo..." : "Conferma posizione"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+      </View>
     </Modal>
   );
 }
@@ -2182,6 +2614,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.error,
   },
+  sqmChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  sqmChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.borderLight,
+  },
+  sqmChipActive: {
+    backgroundColor: "#022420",
+    borderColor: "#022420",
+  },
+  sqmChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  sqmChipTextActive: {
+    color: "#ffffff",
+  },
   suggestionsBox: {
     marginTop: 8,
     borderRadius: Radius.md,
@@ -2514,20 +2972,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: Colors.secondary,
-    ...Shadows.md,
+    gap: 10,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: "#022420",
+    paddingHorizontal: 24,
+    shadowColor: "#022420",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 6,
   },
   mapConfirmBtnDisabled: {
-    backgroundColor: Colors.borderLight,
+    backgroundColor: "#9ca8a4",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   mapConfirmTxt: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#fff",
-    letterSpacing: 0.5,
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: 0.3,
   },
 
   // Map search bar (floats over the MapView, Google-Maps style)
@@ -2559,35 +3024,40 @@ const styles = StyleSheet.create({
     top: 68,
     left: 12,
     right: 12,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    paddingVertical: 4,
+    paddingVertical: 6,
+    overflow: "hidden",
     ...Shadows.lg,
   },
   mapSearchLoading: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
     fontStyle: "italic",
   },
   mapSearchRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.borderLight,
   },
   mapSearchRowMain: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: Colors.text,
+    lineHeight: 19,
   },
   mapSearchRowSub: {
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 16,
   },
 });
