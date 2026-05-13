@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import AssistanceFooter from "../../components/AssistanceFooter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -273,50 +274,10 @@ export default function PaymentsScreen() {
         </View>
 
         {/* ── Footer assistance ── */}
-        <View style={styles.assistanceCard}>
-          <View style={styles.assistanceIconWrap}>
-            <Ionicons name="help-buoy-outline" size={20} color={Colors.secondary} />
-          </View>
-          <Text style={styles.assistanceTitle}>Hai ancora bisogno di aiuto?</Text>
-          <Text style={styles.assistanceSub}>
-            Il nostro team di assistenza è disponibile 7 giorni su 7.
-          </Text>
-          {/* CTA block — wrapper with alignSelf:stretch so the primary
-              button fills the card width.  The parent card uses
-              alignItems:"center", which collapses any direct child that
-              relies on alignSelf:"stretch" to 0 width.  Wrapping in a
-              View with alignSelf:"stretch" is the canonical RN fix. */}
-          <View style={styles.ctaBlock}>
-            <Pressable
-              onPress={handleChat}
-              accessibilityRole="button"
-              accessibilityLabel="Apri la chat con noi"
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => [
-                styles.assistancePrimaryBtn,
-                pressed && { opacity: 0.88 },
-              ]}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textOnDark} />
-              <Text style={styles.assistancePrimaryBtnText}>Chat con noi</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleEmailBilling}
-              accessibilityRole="link"
-              accessibilityLabel="Scrivi al team via email"
-              style={({ pressed }) => [
-                styles.assistanceSecondaryLink,
-                pressed && { opacity: 0.6 },
-              ]}
-              hitSlop={8}
-            >
-              <Ionicons name="mail-outline" size={14} color={Colors.secondary} />
-              <Text style={styles.assistanceSecondaryLinkText}>
-                Scrivi via email
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+        <AssistanceFooter
+          onChatPress={handleChat}
+          onEmailPress={handleEmailBilling}
+        />
 
         <View style={{ height: Platform.OS === "ios" ? 32 : 24 }} />
       </ScrollView>
@@ -552,74 +513,5 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.text,
     fontFamily: "PlusJakartaSans-Medium",
-  },
-  // Assistance card
-  assistanceCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    alignItems: "center",
-    gap: Spacing.sm,
-    ...Shadows.md,
-  },
-  assistanceIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.xs,
-  },
-  assistanceTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.primary,
-    textAlign: "center",
-    fontFamily: "NotoSerif-Bold",
-  },
-  assistanceSub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: Spacing.sm,
-  },
-  // Wrapper that stretches to card width — fixes the alignItems:"center"
-  // vs alignSelf:"stretch" collapse bug on the primary button.
-  ctaBlock: {
-    alignSelf: "stretch",
-    gap: Spacing.sm,
-  },
-  assistancePrimaryBtn: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    height: 52,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    ...Shadows.sm,
-  },
-  assistancePrimaryBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.textOnDark,
-    letterSpacing: 0.1,
-  },
-  assistanceSecondaryLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 8,
-  },
-  assistanceSecondaryLinkText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.secondary,
-    textDecorationLine: "underline",
-    textDecorationColor: Colors.secondary,
   },
 });

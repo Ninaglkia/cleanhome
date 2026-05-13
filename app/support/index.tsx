@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
+import AssistanceFooter from "../../components/AssistanceFooter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,10 @@ export default function SupportScreen() {
   const handleTalkToConcierge = useCallback(() => {
     router.push("/support/chat");
   }, [router]);
+
+  const handleEmailSupport = useCallback(async () => {
+    await Linking.openURL("mailto:support@cleanhomeapp.com").catch(() => {});
+  }, []);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -196,24 +201,12 @@ export default function SupportScreen() {
           </View>
 
           {/* ── Still have questions ── */}
-          <View style={styles.stillCard}>
-            <Text style={styles.stillTitle}>Hai ancora domande?</Text>
-            <Text style={styles.stillSubtitle}>
-              L'assistente AI risponde 24/7 e può trasferirti a un operatore umano per casi complessi.
-            </Text>
-            <View style={styles.stillBtnFull}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Apri chat assistente"
-                onPress={handleTalkToConcierge}
-                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={StyleSheet.absoluteFill}
-              />
-              <Ionicons name="sparkles" size={18} color="#fff" pointerEvents="none" />
-              <Text style={styles.stillBtnFullText} pointerEvents="none">Parla con l'assistente</Text>
-              <Ionicons name="chevron-forward" size={18} color="#fff" pointerEvents="none" />
-            </View>
-          </View>
+          <AssistanceFooter
+            onChatPress={handleTalkToConcierge}
+            onEmailPress={handleEmailSupport}
+            title="Hai ancora bisogno di aiuto?"
+            subtitle="Il nostro team è disponibile 7 giorni su 7"
+          />
 
           {/* ── Footer links ── */}
           <View style={styles.footer}>
@@ -440,66 +433,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.borderLight,
     marginLeft: 72,
-  },
-
-  // Still have questions
-  stillCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  stillTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Colors.text,
-    marginBottom: Spacing.xs,
-  },
-  stillSubtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 19,
-    marginBottom: Spacing.lg,
-  },
-  stillButtons: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  stillBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.full,
-    paddingVertical: 13,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  stillBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  stillBtnFull: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  stillBtnFullText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#fff",
-    textAlign: "center",
   },
 
   // Footer
