@@ -900,6 +900,29 @@ export default function HomeScreen() {
     })();
   }, [loadCleanersAtPoint, persistRegion]);
 
+  // ── Property-wins-over-GPS ─────────────────────────────────────────────────
+  // Marketplace logic: if the client has a saved house, the cleaners shown
+  // must be near that house — NOT where the phone is right now. (A client
+  // in Sardegna with a house in Milano wants Milano cleaners, not Sardinian
+  // ones.) This effect fires when the primary property resolves and shifts
+  // the map + search anchor onto it, overriding the GPS-based initial load.
+  // Manual city search (handleSearch) and direct toggle (handleToggleProperty)
+  // remain authoritative — this only triggers when selectedProperty?.id
+  // itself changes, so typing a city or panning the map does not re-snap.
+  useEffect(() => {
+    if (!selectedProperty) return;
+    const { latitude, longitude } = selectedProperty;
+    if (latitude == null || longitude == null) return;
+    setRegion({
+      latitude,
+      longitude,
+      latitudeDelta: 0.06,
+      longitudeDelta: 0.06,
+    });
+    void loadCleanersAtPoint(latitude, longitude);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProperty?.id]);
+
   const handleSearch = useCallback(
     async (city: string) => {
       setSearchText(city);
