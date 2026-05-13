@@ -19,11 +19,6 @@ import { useAuth } from "../../lib/auth";
 import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
-import ProfileCompletionBar from "../../components/ProfileCompletionBar";
-import {
-  calculateCleanerCompletion,
-  firstMissingStepLabel,
-} from "../../lib/profileCompletion";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 
 const { width: SW, height: SH } = Dimensions.get("window");
@@ -40,7 +35,6 @@ import {
 import { Booking, BookingOffer } from "../../lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCountdown } from "../../lib/hooks/useCountdown";
-import { useIdentityVerification } from "../../lib/hooks/useIdentityVerification";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 
@@ -420,7 +414,6 @@ export default function CleanerHomeScreen() {
 
   // Refs for screen-absolute measurement via measureInWindow
   const requestsSectionRef = useRef<View>(null);
-  const profileCompletionBarRef = useRef<View>(null);
   const calendarSectionRef = useRef<View>(null);
   const profileTabRef = useRef<View>(null);
 
@@ -436,16 +429,13 @@ export default function CleanerHomeScreen() {
     }, [])
   );
 
-  // Build 2 focused coach mark steps for CLEANER:
-  //   1. Requests section header → "Verifica identita per piu richieste"
-  //   2. Profile completion bar → "Crea annuncio per iniziare a guadagnare"
+  // Coach mark for CLEANER — only one step now (requests section). The
+  // profile-completion banner was removed, so its measurement target is
+  // gone too.
   useEffect(() => {
     if (!showCoachMarks) return;
     const timer = setTimeout(async () => {
-      const [requestsRect, completionRect] = await Promise.all([
-        measureInWindow(requestsSectionRef),
-        measureInWindow(profileCompletionBarRef),
-      ]);
+      const requestsRect = await measureInWindow(requestsSectionRef);
       const steps: CoachMarkStep[] = [];
       if (requestsRect) {
         steps.push({
@@ -453,14 +443,6 @@ export default function CleanerHomeScreen() {
           title: "Verifica la tua identita",
           description:
             "Carica i tuoi documenti per ottenere il badge verificato e ricevere piu richieste dai clienti.",
-        });
-      }
-      if (completionRect) {
-        steps.push({
-          rect: completionRect,
-          title: "Crea il tuo primo annuncio",
-          description:
-            "Pubblica i tuoi servizi e la zona di copertura per iniziare a guadagnare subito.",
         });
       }
       if (steps.length >= 1) setCoachSteps(steps);
@@ -471,57 +453,6 @@ export default function CleanerHomeScreen() {
   const handleCoachMarkDone = useCallback(() => {
     setShowCoachMarks(false);
   }, []);
-
-  // ── Profile completion banner ──────────────────────────────────────────────
-  // ── Profile completion banner ──────────────────────────────────────────────
-  // stripe_identity_status is fetched live from cleaner_profiles (realtime),
-  // so the banner updates automatically when the Stripe Identity webhook fires.
-  const { isVerified: hasVerifiedDoc } = useIdentityVerification(user?.id);
-  const [hasStripeConnect, setHasStripeConnect] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem("cleanhome.cleaner_stripe_connect_active")
-      .then((stripe) => {
-        setHasStripeConnect(stripe === "1");
-      })
-      .catch(() => {});
-  }, []);
-
-  const hasActiveListing = useMemo(
-    () => bookings.some((b) => b.status === "accepted" || b.status === "pending"),
-    [bookings]
-  );
-
-  const cleanerCompletion = useMemo(() => {
-    return calculateCleanerCompletion({
-      full_name: profile?.full_name,
-      avatar_url: profile?.avatar_url,
-      hasActiveListing,
-      hasVerifiedDocument: hasVerifiedDoc,
-      hasStripeConnect,
-    });
-  }, [profile, hasActiveListing, hasVerifiedDoc, hasStripeConnect]);
-
-  const cleanerCompletionSubtitle = useMemo(
-    () => firstMissingStepLabel(cleanerCompletion.missingSteps),
-    [cleanerCompletion.missingSteps]
-  );
-
-  const handleCleanerCompletionPress = useCallback(() => {
-    const firstMissing = cleanerCompletion.missingSteps[0];
-    if (firstMissing === "listing") {
-      router.push("/listing" as never);
-    } else if (firstMissing === "document") {
-      router.push("/documents" as never);
-    } else if (firstMissing === "stripe_connect") {
-      router.push("/(tabs)/profile?focus=stripe" as never);
-    } else if (firstMissing === "full_name" || firstMissing === "avatar") {
-      router.push("/profile/edit" as never);
-    } else {
-      // edge case: firstMissing is undefined (profile fully complete or unknown step)
-      router.push("/profile/edit" as never);
-    }
-  }, [cleanerCompletion.missingSteps, router]);
 
   const firstName =
     profile?.full_name?.split(" ")[0] ??
@@ -748,20 +679,6 @@ export default function CleanerHomeScreen() {
           </Text>
           <Text style={styles.greetingSub}>La tua giornata</Text>
         </View>
-
-        {/* ── Profile completion banner ── */}
-        {cleanerCompletion.percent < 100 && (
-          <View
-            ref={profileCompletionBarRef}
-            style={styles.completionBarWrapper}
-          >
-            <ProfileCompletionBar
-              percent={cleanerCompletion.percent}
-              subtitle={cleanerCompletionSubtitle}
-              onPress={handleCleanerCompletionPress}
-            />
-          </View>
-        )}
 
         {/* ── Stats grid ── */}
         <View style={styles.statsRow}>
@@ -995,13 +912,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: 0.1,
-  },
-
-  // ── Completion bar ────────────────────────────────────────────────────────
-  completionBarWrapper: {
-    marginHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 4,
   },
 
   // ── Header ────────────────────────────────────────────────────────────────
