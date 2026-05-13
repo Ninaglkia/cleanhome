@@ -1682,9 +1682,10 @@ export function MapPicker({
   // True when the user is actively typing in the search bar
   const isSearchActive = searchQuery.length > 0;
 
-  // GPS FAB removed from this design — handler kept for future reuse only.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleGpsFab = async () => {
+  // GPS shortcut — used by the "Usa la mia posizione" row at the top of the
+  // search dropdown. Fetches the device location, recenters the map and
+  // clears the search so the dropdown collapses.
+  const handleUseMyLocation = async () => {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") return;
@@ -1695,6 +1696,10 @@ export function MapPicker({
       setCenter(target);
       mapRef.current?.animateToRegion({ ...target, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 600);
       setTimeout(() => { ignoreNextRegionChangeRef.current = false; }, 700);
+      // Collapse the dropdown — the reverse-geocode side-effect fills in
+      // the preview address once the region change completes.
+      setSearchQuery("");
+      setSearchResults([]);
     } catch {
       // GPS unavailable — silently ignore
     }
@@ -1961,6 +1966,63 @@ export function MapPicker({
                 showsVerticalScrollIndicator={false}
                 bounces={false}
               >
+                {/* "Use my location" — fixed at the top of the dropdown so
+                    the user can skip typing entirely. Always shown when
+                    the dropdown is open. */}
+                <Pressable
+                  onPress={handleUseMyLocation}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Usa la mia posizione attuale"
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      backgroundColor: "#ffffff",
+                      borderBottomWidth: 1,
+                      borderBottomColor: "rgba(6,42,35,0.08)",
+                      minHeight: 52,
+                    },
+                    pressed && { backgroundColor: "rgba(0,107,85,0.08)" },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: "rgba(0,107,85,0.12)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Svg width={18} height={18} viewBox="0 0 24 24">
+                      <Path
+                        d="M12 2v2 M12 20v2 M2 12h2 M20 12h2"
+                        stroke="#006b55"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                      />
+                      <Circle cx={12} cy={12} r={7} stroke="#006b55" strokeWidth={2} fill="none" />
+                      <Circle cx={12} cy={12} r={2.5} fill="#006b55" />
+                    </Svg>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: "#006b55",
+                      flex: 1,
+                    }}
+                  >
+                    Usa la mia posizione
+                  </Text>
+                </Pressable>
+
                 {/* Loading state */}
                 {searching && searchResults.length === 0 && (
                   <View style={{ paddingVertical: 24, paddingHorizontal: 16, alignItems: "center" }}>
@@ -2068,7 +2130,14 @@ export function MapPicker({
           )}
         </View>
 
-        {/* ── CENTER PIN (hidden during search, pointerEvents none, zIndex 5) ── */}
+        {/* ── CENTER PIN ──────────────────────────────────────────────────────
+            Teardrop SVG anchored so the TIP sits exactly on the map center.
+            The container is placed at top:50% left:50% with negative margins
+            equal to (pinWidth/2, pinHeight) — that lands the bottom-center
+            of the container (= the pin's tip in the SVG) on the map center.
+            A small ground-shadow oval sits below the tip to suggest the
+            pin is floating above the surface.
+            Hidden during search to keep the dropdown overlay clean. */}
         {!isSearchActive && (
           <View
             pointerEvents="none"
@@ -2076,40 +2145,34 @@ export function MapPicker({
               position: "absolute",
               top: "50%",
               left: "50%",
-              marginLeft: -18,
-              marginTop: -36,
+              marginLeft: -16,
+              marginTop: -42,
               alignItems: "center",
               zIndex: 5,
             }}
           >
-            {/* Diamond-shaped pin: borderRadius trick for "50% 50% 50% 0" */}
+            <Svg width={32} height={42} viewBox="0 0 32 42">
+              {/* Drop shadow */}
+              <Path
+                d="M16 2 C8 2 2 8 2 16 C2 24 16 40 16 40 C16 40 30 24 30 16 C30 8 24 2 16 2 Z"
+                fill="#006b55"
+                stroke="#ffffff"
+                strokeWidth={3}
+                strokeLinejoin="round"
+              />
+              <Circle cx={16} cy={15} r={5} fill="#ffffff" />
+            </Svg>
+            {/* Ground shadow — sits just below the pin tip (= map center).
+                Translated down so it's centered slightly under the tip,
+                giving a subtle "floating" feel. */}
             <View
               style={{
-                width: 36,
-                height: 36,
-                borderTopLeftRadius: 18,
-                borderTopRightRadius: 18,
-                borderBottomLeftRadius: 18,
-                borderBottomRightRadius: 0,
-                backgroundColor: "#062a23",
-                borderWidth: 3,
-                borderColor: "#ffffff",
-                transform: [{ rotate: "-45deg" }],
-                shadowColor: "#062a23",
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.35,
-                shadowRadius: 16,
-                elevation: 10,
-              }}
-            />
-            {/* Oval shadow beneath the pin */}
-            <View
-              style={{
-                marginTop: 2,
-                width: 14,
-                height: 4,
-                borderRadius: 7,
-                backgroundColor: "rgba(6,42,35,0.25)",
+                position: "absolute",
+                bottom: -6,
+                width: 18,
+                height: 5,
+                borderRadius: 9,
+                backgroundColor: "rgba(6,42,35,0.28)",
               }}
             />
           </View>
