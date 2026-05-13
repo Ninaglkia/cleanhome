@@ -1768,20 +1768,22 @@ export function MapPicker({
           <Pressable
             onPress={onClose}
             hitSlop={8}
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: "#ffffff",
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: "#062a23",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.12,
-              shadowRadius: 12,
-              elevation: 6,
-              opacity: pressed ? 0.75 : 1,
-            })}
+            style={({ pressed }) => [
+              {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#ffffff",
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#062a23",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 12,
+                elevation: 6,
+              },
+              pressed && { opacity: 0.75 },
+            ]}
           >
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path
@@ -1982,17 +1984,20 @@ export function MapPicker({
                     accessible
                     accessibilityRole="button"
                     accessibilityLabel={s.mainText + (s.secondaryText ? `, ${s.secondaryText}` : "")}
-                    style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingHorizontal: 16,
-                      paddingVertical: 14,
-                      backgroundColor: pressed ? "rgba(6,42,35,0.05)" : "#ffffff",
-                      borderBottomWidth: index < Math.min(searchResults.length, 6) - 1 ? 1 : 0,
-                      borderBottomColor: "rgba(6,42,35,0.08)",
-                      minHeight: 52,
-                    })}
+                    style={({ pressed }) => [
+                      {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                        backgroundColor: "#ffffff",
+                        borderBottomWidth: index < Math.min(searchResults.length, 6) - 1 ? 1 : 0,
+                        borderBottomColor: "rgba(6,42,35,0.08)",
+                        minHeight: 52,
+                      },
+                      pressed && { backgroundColor: "rgba(6,42,35,0.05)" },
+                    ]}
                   >
                     {/* Pin outline icon 20×20 */}
                     <View style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2202,14 +2207,16 @@ export function MapPicker({
                 onPress={handleConfirm}
                 disabled={resolving}
                 android_ripple={{ color: resolving ? undefined : "#0d4a3d" }}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                  paddingHorizontal: 20,
-                  opacity: pressed ? 0.88 : 1,
-                })}
+                style={({ pressed }) => [
+                  {
+                    flex: 1,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    paddingHorizontal: 20,
+                  },
+                  pressed && { opacity: 0.88 },
+                ]}
               >
                 <Text
                   style={{

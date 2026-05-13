@@ -347,18 +347,20 @@ export default function MyListingsScreen() {
           <Pressable
             onPress={handleStartVerification}
             disabled={verifying}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#FEF3C7",
-              borderRadius: 16,
-              padding: 16,
-              marginBottom: 16,
-              gap: 12,
-              borderWidth: 1,
-              borderColor: "#F59E0B",
-              opacity: pressed ? 0.8 : verifying ? 0.6 : 1,
-            })}
+            style={({ pressed }) => [
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#FEF3C7",
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 16,
+                gap: 12,
+                borderWidth: 1,
+                borderColor: "#F59E0B",
+              },
+              (pressed || verifying) && { opacity: pressed ? 0.8 : 0.6 },
+            ]}
           >
             <View
               style={{
@@ -601,8 +603,8 @@ function ListingCard({
           borderRadius: 22,
           overflow: "hidden",
           marginBottom: 16,
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
+          shadowColor: "#022420",
+          shadowOpacity: 0.08,
           shadowRadius: 14,
           shadowOffset: { width: 0, height: 6 },
           elevation: 4,
@@ -826,16 +828,18 @@ function ErrorState({
       </Text>
       <Pressable
         onPress={onRetry}
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 22,
-          paddingVertical: 12,
-          borderRadius: 999,
-          backgroundColor: C.secondary,
-          opacity: pressed ? 0.9 : 1,
-        })}
+        style={({ pressed }) => [
+          {
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingHorizontal: 22,
+            paddingVertical: 12,
+            borderRadius: 999,
+            backgroundColor: C.secondary,
+          },
+          pressed && { opacity: 0.9 },
+        ]}
       >
         <Ionicons name="refresh" size={18} color="#ffffff" />
         <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>
@@ -876,11 +880,11 @@ function EmptyState({
           borderRadius: 999,
           gap: 10,
           opacity: creating ? 0.5 : 1,
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
+          shadowColor: "#006b55",
+          shadowOpacity: 0.22,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
-          elevation: 8,
+          elevation: 6,
         }}
       >
         {creating ? (
@@ -961,8 +965,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 14,
     ...({
-      shadowColor: "#000",
-      shadowOpacity: 0.08,
+      shadowColor: "#022420",
+      shadowOpacity: 0.07,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
       elevation: 3,
@@ -1127,8 +1131,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#006b55",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
+    shadowColor: "#006b55",
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,

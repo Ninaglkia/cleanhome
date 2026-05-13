@@ -824,15 +824,17 @@ export default function PropertyEditScreen() {
             >
               <Pressable
                 onPress={() => setMapPickerOpen(true)}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  paddingHorizontal: 18,
-                  opacity: pressed ? 0.88 : 1,
-                })}
+                style={({ pressed }) => [
+                  {
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingHorizontal: 18,
+                  },
+                  pressed && { opacity: 0.88 },
+                ]}
               >
                 <Ionicons name="map-outline" size={18} color="#ffffff" />
                 <Text
@@ -1808,10 +1810,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     backgroundColor: Colors.secondary,
     shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
   },
   saveBtnDisabled: {
     backgroundColor: Colors.textTertiary,

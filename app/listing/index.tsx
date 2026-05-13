@@ -2607,20 +2607,22 @@ export default function ListingScreen() {
                 ]
               );
             }}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              alignSelf: "center",
-              gap: 10,
-              marginTop: 24,
-              marginBottom: 8,
-              paddingVertical: 16,
-              paddingHorizontal: 40,
-              borderRadius: 16,
-              backgroundColor: "#fde7e7",
-              opacity: pressed ? 0.7 : 1,
-            })}
+            style={({ pressed }) => [
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                alignSelf: "center",
+                gap: 10,
+                marginTop: 24,
+                marginBottom: 8,
+                paddingVertical: 16,
+                paddingHorizontal: 40,
+                borderRadius: 16,
+                backgroundColor: "#fde7e7",
+              },
+              pressed && { opacity: 0.7 },
+            ]}
           >
             <Ionicons name="trash-outline" size={20} color="#b3261e" />
             <Text style={{ fontSize: 16, fontWeight: "700", color: "#b3261e" }}>
@@ -3800,12 +3802,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.18,
+        shadowColor: "#022420",
+        shadowOpacity: 0.1,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 4 },
     }),
   },
   fullscreenSearchInput: {
@@ -3822,12 +3824,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.22,
+        shadowColor: "#022420",
+        shadowOpacity: 0.1,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       },
-      android: { elevation: 10 },
+      android: { elevation: 6 },
     }),
   },
   fullscreenSearchRow: {
@@ -3910,12 +3912,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.3,
+        shadowColor: "#006b55",
+        shadowOpacity: 0.18,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 4 },
     }),
   },
   mapLocateButton: {
@@ -3952,12 +3954,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.22,
+        shadowColor: "#022420",
+        shadowOpacity: 0.1,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 8 },
+      android: { elevation: 5 },
     }),
   },
   mapDrawActionsRow: {
@@ -4003,8 +4005,8 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.12,
+        shadowColor: "#006b55",
+        shadowOpacity: 0.1,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
@@ -4086,12 +4088,12 @@ const styles = StyleSheet.create({
     gap: 4,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
+        shadowColor: "#022420",
+        shadowOpacity: 0.08,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 3 },
     }),
   },
   fullscreenModeButton: {
@@ -4129,12 +4131,12 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
+        shadowColor: "#006b55",
+        shadowOpacity: 0.1,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 3 },
     }),
   },
   moveCircleButtonActive: {
@@ -4163,12 +4165,12 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.2,
+        shadowColor: "#006b55",
+        shadowOpacity: 0.12,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 4 },
     }),
   },
   fullscreenMoveCircleButtonActive: {
@@ -4204,12 +4206,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.25,
+        shadowColor: "#022420",
+        shadowOpacity: 0.16,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 4 },
     }),
   },
   fullscreenLockBadgeText: {
@@ -4229,12 +4231,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.18,
+        shadowColor: "#022420",
+        shadowOpacity: 0.1,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 4 },
     }),
   },
 

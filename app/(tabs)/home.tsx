@@ -135,11 +135,11 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
             paddingVertical: 6,
             borderWidth: 2,
             borderColor: "#ffffff",
-            shadowColor: "#000",
+            shadowColor: "#022420",
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: selected ? 0.28 : 0.18,
+            shadowOpacity: selected ? 0.22 : 0.12,
             shadowRadius: selected ? 10 : 6,
-            elevation: selected ? 10 : 6,
+            elevation: selected ? 8 : 4,
             flexDirection: "row",
             alignItems: "center",
             gap: selected ? 6 : 0,
@@ -1393,16 +1393,18 @@ export default function HomeScreen() {
                   <Pressable
                     key={p.id}
                     onPress={() => handleToggleProperty(p)}
-                    style={({ pressed }) => ({
-                      borderRadius: 18,
-                      marginBottom: 10,
-                      backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
-                      borderWidth: 1.5,
-                      borderColor: selected
-                        ? "#006b55"
-                        : "rgba(193,200,197,0.3)",
-                      opacity: pressed ? 0.85 : 1,
-                    })}
+                    style={({ pressed }) => [
+                      {
+                        borderRadius: 18,
+                        marginBottom: 10,
+                        backgroundColor: selected ? "#e8fdf7" : "#f6faf9",
+                        borderWidth: 1.5,
+                        borderColor: selected
+                          ? "#006b55"
+                          : "rgba(193,200,197,0.3)",
+                      },
+                      pressed && { opacity: 0.85 },
+                    ]}
                   >
                     {/* Inner View owns the row layout — iOS-safe pattern */}
                     <View
@@ -1520,20 +1522,22 @@ export default function HomeScreen() {
                 setPropertyPickerOpen(false);
                 router.push("/properties/new");
               }}
-              style={({ pressed }) => ({
-                marginHorizontal: 20,
-                marginTop: 8,
-                paddingVertical: 14,
-                borderRadius: 14,
-                borderWidth: 2,
-                borderColor: "#d4e4e0",
-                borderStyle: "dashed",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: 8,
-                opacity: pressed ? 0.6 : 1,
-              })}
+              style={({ pressed }) => [
+                {
+                  marginHorizontal: 20,
+                  marginTop: 8,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  borderWidth: 2,
+                  borderColor: "#d4e4e0",
+                  borderStyle: "dashed",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                },
+                pressed && { opacity: 0.6 },
+              ]}
             >
               <Ionicons name="add-circle-outline" size={18} color="#006b55" />
               <Text
@@ -1615,11 +1619,11 @@ export default function HomeScreen() {
             paddingHorizontal: 16,
             paddingVertical: 12,
             gap: 12,
-            shadowColor: "#000",
+            shadowColor: "#022420",
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
+            shadowOpacity: 0.14,
             shadowRadius: 12,
-            elevation: 8,
+            elevation: 6,
           }}
         >
           <Ionicons name="location-outline" size={20} color="#ffffff" />

@@ -117,15 +117,23 @@ export default function PrivacyScreen() {
 
         <Pressable
           onPress={handleOpen}
-          style={({ pressed }) => ({
-            backgroundColor: Colors.primary,
-            paddingVertical: 16,
-            paddingHorizontal: 32,
-            borderRadius: 16,
-            width: "100%",
-            alignItems: "center",
-            opacity: pressed ? 0.85 : 1,
-          })}
+          style={({ pressed }) => [
+            {
+              backgroundColor: Colors.primary,
+              paddingVertical: 16,
+              paddingHorizontal: 32,
+              borderRadius: 16,
+              width: "100%",
+              alignItems: "center",
+              borderWidth: 0,
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              elevation: 4,
+            },
+            pressed && { opacity: 0.85, transform: [{ scale: 0.98 as number }] },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Apri Informativa Privacy sul sito ufficiale"
         >

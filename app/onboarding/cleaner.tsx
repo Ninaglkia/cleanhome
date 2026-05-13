@@ -373,18 +373,18 @@ export default function CleanerOnboardingScreen() {
                   <Pressable
                     key={s.placeId}
                     onPress={() => handleSelectCity(s)}
-                    style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      backgroundColor: pressed
-                        ? Colors.backgroundAlt
-                        : "transparent",
-                      borderTopWidth: idx === 0 ? 0 : 1,
-                      borderTopColor: Colors.borderLight,
-                    })}
+                    style={({ pressed }) => [
+                      {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        borderTopWidth: idx === 0 ? 0 : 1,
+                        borderTopColor: Colors.borderLight,
+                      },
+                      pressed && { backgroundColor: Colors.backgroundAlt },
+                    ]}
                   >
                     <Ionicons
                       name="location"

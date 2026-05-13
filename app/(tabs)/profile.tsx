@@ -179,9 +179,9 @@ function AvatarDisplay({
     backgroundColor: backgroundColor ?? C.primaryContainer,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-    shadowColor: "#000",
+    shadowColor: "#022420",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
   };
@@ -1339,11 +1339,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#022420",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 3,
   },
   // name: font-headline text-2xl bold
   heroNameRow: {
@@ -1595,11 +1595,11 @@ const clientStyles = StyleSheet.create({
     backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#022420",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 3,
   },
   // name row: flex row for name + verified badge
   heroNameRow: {
