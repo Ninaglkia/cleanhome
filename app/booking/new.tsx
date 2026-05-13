@@ -1416,7 +1416,7 @@ export default function NewBookingScreen() {
       {/* Price indicator */}
       <View style={s.priceBar}>
         <Text style={s.priceBarLabel}>Stima totale</Text>
-        <Text style={s.priceBarValue}>€{totalPrice.toFixed(0)}</Text>
+        <Text style={s.priceBarValue}>€{totalPrice.toFixed(2)}</Text>
       </View>
 
       {/* Cleaner-not-payable banner */}

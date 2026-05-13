@@ -37,6 +37,20 @@ const OUTLINE_VARIANT = "#c1c8c5";
 
 type FilterTab = "active" | "cancelled" | "history";
 
+// Format an ISO date (YYYY-MM-DD) as a short Italian date.
+// Returns the original string if it can't be parsed so the UI never
+// shows "Invalid Date" — better to keep raw than to crash visually.
+function formatItDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 // ─── Job card ─────────────────────────────────────────────────────────────────
 
 interface JobCardProps {
@@ -89,7 +103,7 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
         <View style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={13} color={Colors.textTertiary} />
           <Text style={styles.detailText}>
-            {booking.date} — {booking.time_slot}
+            {formatItDate(booking.date)} — {booking.time_slot}
           </Text>
         </View>
         <View style={styles.detailRow}>
@@ -195,7 +209,7 @@ function PaymentRow({ booking }: PaymentRowProps) {
         <Text style={styles.paymentService} numberOfLines={1}>
           {booking.service_type}
         </Text>
-        <Text style={styles.paymentDate}>{booking.date}</Text>
+        <Text style={styles.paymentDate}>{formatItDate(booking.date)}</Text>
       </View>
       <Text style={styles.paymentAmount}>€{earnings}</Text>
     </View>

@@ -81,7 +81,7 @@ export default function LiveBookingTracking() {
           .from("bookings")
           .select(
             `
-            id, cleaner_id, address, status, latitude, longitude,
+            id, cleaner_id, address, status, search_lat, search_lng,
             cleaner_profiles!bookings_cleaner_id_fkey (
               id,
               profiles:id ( full_name, avatar_url )
@@ -96,12 +96,17 @@ export default function LiveBookingTracking() {
         if (!data) throw new Error("Prenotazione non trovata");
 
         const profile = (data as any).cleaner_profiles?.profiles;
+        // Schema uses search_lat / search_lng — there is no latitude /
+        // longitude column on bookings. Falling back to Milan was wrong
+        // for every booking; pull the real coords here.
+        const lat = (data as any).search_lat as number | null;
+        const lng = (data as any).search_lng as number | null;
         setBooking({
           id: data.id,
           cleaner_id: data.cleaner_id,
           address: data.address ?? "",
-          latitude: null,
-          longitude: null,
+          latitude: typeof lat === "number" ? lat : null,
+          longitude: typeof lng === "number" ? lng : null,
           cleaner_name: profile?.full_name,
           cleaner_avatar_url: profile?.avatar_url,
           status: data.status,

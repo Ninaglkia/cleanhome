@@ -259,8 +259,35 @@ export default function NotificationsScreen() {
   const handlePress = useCallback(
     (id: string, linkPath: string | null) => {
       markAsRead(id);
-      if (linkPath) {
+      if (!linkPath) return;
+      // Whitelist routable prefixes — link_path comes from a DB column
+      // populated by edge functions / triggers, so an unexpected value
+      // (typo, manual SQL update, future schema change) would otherwise
+      // crash Expo Router. Reject anything that doesn't start with a
+      // known in-app path or the app's deep-link scheme.
+      const isInAppPath =
+        linkPath.startsWith("/booking/") ||
+        linkPath.startsWith("/chat/") ||
+        linkPath.startsWith("/listings") ||
+        linkPath.startsWith("/listing") ||
+        linkPath.startsWith("/payments") ||
+        linkPath.startsWith("/documents") ||
+        linkPath.startsWith("/(tabs)") ||
+        linkPath.startsWith("/support") ||
+        linkPath.startsWith("/cleaner/") ||
+        linkPath.startsWith("/properties") ||
+        linkPath.startsWith("/profile") ||
+        linkPath.startsWith("cleanhome://");
+      if (!isInAppPath) {
+        if (__DEV__) {
+          console.warn("[notifications] ignored unrecognised link_path:", linkPath);
+        }
+        return;
+      }
+      try {
         router.push(linkPath as never);
+      } catch (err) {
+        if (__DEV__) console.warn("[notifications] router.push failed:", err);
       }
     },
     [markAsRead, router]

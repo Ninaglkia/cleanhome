@@ -35,8 +35,11 @@ if (!__DEV__) {
     );
   }
 
+  // Inside `if (!__DEV__)` we are by definition in a production build,
+  // so the earlier `__DEV__ &&` check made this branch unreachable
+  // dead code. Drop the redundant guard.
   const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
-  if (__DEV__ && !sentryDsn) {
+  if (!sentryDsn) {
     console.warn(
       "[CleanHome] WARNING: EXPO_PUBLIC_SENTRY_DSN is not set. " +
         "Crash reports will NOT be captured by Sentry."

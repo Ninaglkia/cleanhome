@@ -31,11 +31,13 @@ export async function startLocationBroadcast(
   }
 
   const { data: sessionData } = await supabase.auth.getSession();
-  console.log(
-    "[tracking] auth session:",
-    !!sessionData.session?.access_token,
-    sessionData.session?.user?.id
-  );
+  if (__DEV__) {
+    console.log(
+      "[tracking] auth session:",
+      !!sessionData.session?.access_token,
+      sessionData.session?.user?.id
+    );
+  }
   if (sessionData.session?.access_token) {
     supabase.realtime.setAuth(sessionData.session.access_token);
   }
@@ -52,7 +54,7 @@ export async function startLocationBroadcast(
     }, 10000);
 
     channel.subscribe((state, err) => {
-      console.log("[tracking] channel state:", state, err?.message);
+      if (__DEV__) console.log("[tracking] channel state:", state, err?.message);
       if (state === "SUBSCRIBED") {
         clearTimeout(timeoutId);
         resolve();

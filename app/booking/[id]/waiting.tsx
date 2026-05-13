@@ -319,6 +319,26 @@ export default function WaitingScreen() {
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Escape hatch — the wait window can be up to 24h. Without a back
+          button the user is trapped on this screen until a cleaner
+          accepts or the request expires. Tapping the chevron routes to
+          the bookings tab so they can keep using the app; the request
+          stays open in the background. */}
+      <View style={s.topBar}>
+        <Pressable
+          onPress={() => router.replace("/(tabs)/bookings" as never)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Torna alle prenotazioni"
+          style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </Pressable>
+        <Text style={s.topBarTitle}>Richiesta in corso</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -375,6 +395,27 @@ const s = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.background,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topBarTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.text,
+    letterSpacing: -0.15,
   },
   scroll: {
     paddingHorizontal: Spacing.base,
