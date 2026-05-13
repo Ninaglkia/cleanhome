@@ -1322,15 +1322,21 @@ function YesNoToggle({
     <View style={styles.toggleRow}>
       <Pressable
         onPress={() => onChange(false)}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: !value }}
+        accessibilityLabel="No"
         style={[styles.toggleBtn, !value && styles.toggleBtnOn]}
       >
         <Text style={[styles.toggleTxt, !value && styles.toggleTxtOn]}>No</Text>
       </Pressable>
       <Pressable
         onPress={() => onChange(true)}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: value }}
+        accessibilityLabel="Sì"
         style={[styles.toggleBtn, value && styles.toggleBtnOn]}
       >
-        <Text style={[styles.toggleTxt, value && styles.toggleTxtOn]}>Si</Text>
+        <Text style={[styles.toggleTxt, value && styles.toggleTxtOn]}>Sì</Text>
       </Pressable>
     </View>
   );

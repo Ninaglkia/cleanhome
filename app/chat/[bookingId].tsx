@@ -345,6 +345,7 @@ export default function ChatScreen() {
         }).catch(() => {});
       }
     } catch (err) {
+      // Restore the draft so the user can retry without retyping
       setText(content);
       if (err instanceof MessageBlockedError) {
         Alert.alert(
@@ -352,6 +353,15 @@ export default function ChatScreen() {
           err.friendlyMessage,
           [{ text: "Ho capito", style: "default" }]
         );
+      } else {
+        // Network / generic failure — surface it instead of failing silently
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : "Connessione assente o lenta. Riprova.";
+        Alert.alert("Messaggio non inviato", msg, [
+          { text: "Ho capito", style: "default" },
+        ]);
       }
     } finally {
       setSending(false);

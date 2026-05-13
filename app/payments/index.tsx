@@ -38,16 +38,22 @@ function PaymentMethodRow({ icon, title, subtitle, onPress }: PaymentMethodRowPr
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.methodRow, pressed && { opacity: 0.75 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${subtitle}`}
+      style={({ pressed }) => [pressed && { opacity: 0.75 }]}
     >
-      <View style={styles.methodIconWrap}>
-        <Ionicons name={icon} size={22} color={Colors.secondary} />
+      {/* Inner View enforces the horizontal layout — Pressable on iOS can
+          silently drop flexDirection when the press style is a function. */}
+      <View style={styles.methodRow}>
+        <View style={styles.methodIconWrap}>
+          <Ionicons name={icon} size={22} color={Colors.secondary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.methodTitle}>{title}</Text>
+          <Text style={styles.methodSub}>{subtitle}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.methodTitle}>{title}</Text>
-        <Text style={styles.methodSub}>{subtitle}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
     </Pressable>
   );
 }
@@ -56,18 +62,24 @@ function InfoRow({ icon, title, badge, onPress }: InfoRowProps) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.infoRow, pressed && onPress && { opacity: 0.75 }]}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={title}
+      style={({ pressed }) => [pressed && onPress && { opacity: 0.75 }]}
     >
-      <Ionicons name={icon} size={16} color={Colors.textSecondary} />
-      <Text style={styles.infoRowText}>{title}</Text>
-      {badge ? (
-        <View style={styles.activeBadge}>
-          <Text style={styles.activeBadgeText}>{badge}</Text>
-        </View>
-      ) : null}
-      {onPress ? (
-        <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-      ) : null}
+      {/* Inner View ensures the horizontal layout survives on iOS even
+          when the Pressable style is a function-based style array. */}
+      <View style={styles.infoRow}>
+        <Ionicons name={icon} size={16} color={Colors.textSecondary} />
+        <Text style={styles.infoRowText}>{title}</Text>
+        {badge ? (
+          <View style={styles.activeBadge}>
+            <Text style={styles.activeBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+        {onPress ? (
+          <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -77,10 +89,11 @@ function InfoRow({ icon, title, badge, onPress }: InfoRowProps) {
 export default function PaymentsScreen() {
   const router = useRouter();
 
-  const handleUpdatePayment = useCallback(() => {
+  const handleExplainPayment = useCallback(() => {
     Alert.alert(
-      "Metodo di pagamento",
-      "La carta viene richiesta in fase di prenotazione tramite Stripe. L'addebito è immediato e i fondi vengono custoditi da CleanHome (escrow): il pagamento al cleaner viene rilasciato solo dopo la tua conferma del servizio o automaticamente dopo 48 ore dal completamento."
+      "Come funziona il pagamento",
+      "La carta viene richiesta in fase di prenotazione tramite Stripe. L'addebito è immediato e i fondi vengono custoditi da CleanHome (escrow): il pagamento al cleaner viene rilasciato solo dopo la tua conferma del servizio o automaticamente dopo 48 ore dal completamento.",
+      [{ text: "Ho capito", style: "default" }]
     );
   }, []);
 
@@ -179,12 +192,14 @@ export default function PaymentsScreen() {
             <View style={styles.cardDivider} />
             <View style={styles.updateLink}>
               <Pressable
-                onPress={handleUpdatePayment}
+                onPress={handleExplainPayment}
+                accessibilityRole="button"
+                accessibilityLabel="Come funziona il pagamento"
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
                 style={StyleSheet.absoluteFill}
               />
-              <Ionicons name="create-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
-              <Text style={styles.updateLinkText} pointerEvents="none">Aggiorna metodo di pagamento</Text>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
+              <Text style={styles.updateLinkText} pointerEvents="none">Come funziona il pagamento</Text>
               <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} pointerEvents="none" />
             </View>
           </View>

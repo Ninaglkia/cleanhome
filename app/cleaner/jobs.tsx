@@ -109,7 +109,8 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
         <View style={styles.detailRow}>
           <Ionicons name="time-outline" size={13} color={Colors.textTertiary} />
           <Text style={styles.detailText}>
-            {booking.estimated_hours}h · {booking.num_rooms} stanze
+            {booking.estimated_hours}h · {booking.num_rooms}{" "}
+            {booking.num_rooms === 1 ? "stanza" : "stanze"}
           </Text>
         </View>
       </View>
@@ -234,8 +235,13 @@ export default function CleanerJobsScreen() {
         const data = await fetchBookings(user.id, "cleaner");
         setBookings(data);
       } catch {
-        Alert.alert("Errore", "Impossibile caricare i lavori");
-        setBookings([]);
+        // Don't alert on silent reloads (focus refresh, pull-to-refresh) —
+        // the user already sees the existing list and a flaky network
+        // shouldn't bombard them. Only surface a hard failure on first load.
+        if (!silent) {
+          Alert.alert("Errore", "Impossibile caricare i lavori. Riprova trascinando verso il basso.");
+          setBookings([]);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -367,13 +373,10 @@ export default function CleanerJobsScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>I miei lavori</Text>
-          <Pressable
-            accessibilityLabel="Calendario"
-            accessibilityRole="button"
-            style={styles.calendarButton}
-          >
-            <Ionicons name="calendar-outline" size={22} color={SECONDARY} />
-          </Pressable>
+          {/* Right slot kept as spacer to keep the title centered. The old
+              calendar icon was a non-functional placeholder — re-add once
+              a calendar/agenda view is actually wired. */}
+          <View style={styles.calendarButton} />
         </View>
 
         {/* ── Motivational banner ── */}
@@ -382,10 +385,10 @@ export default function CleanerJobsScreen() {
             <Text style={styles.motivationTitle}>Cura nei dettagli</Text>
             <Text style={styles.motivationSub}>
               {activeJobs.length === 0
-                ? "Nessun incarico attivo al momento. Ricaricale dall'elenco."
+                ? "Nessun incarico attivo. Sfoglia il mercato per accettarne uno nuovo."
                 : activeJobs.length === 1
-                ? "Hai 1 incarico oggi. Dai il massimo!"
-                : `Hai ${activeJobs.length} incarichi oggi. Dai il massimo!`}
+                ? "Hai 1 incarico in corso. Dai il massimo!"
+                : `Hai ${activeJobs.length} incarichi in corso. Dai il massimo!`}
             </Text>
           </View>
           <View style={styles.motivationIllustration}>
@@ -429,12 +432,22 @@ export default function CleanerJobsScreen() {
           {displayedJobs.length === 0 ? (
             <View style={styles.emptySection}>
               <Ionicons
-                name="briefcase-outline"
+                name={
+                  activeTab === "active"
+                    ? "briefcase-outline"
+                    : activeTab === "cancelled"
+                    ? "close-circle-outline"
+                    : "archive-outline"
+                }
                 size={32}
                 color={Colors.textTertiary}
               />
               <Text style={styles.emptySectionText}>
-                Nessun lavoro in questa categoria
+                {activeTab === "active"
+                  ? "Nessun incarico attivo. Esplora il mercato per accettarne uno."
+                  : activeTab === "cancelled"
+                  ? "Nessun incarico annullato. Bene così!"
+                  : "Nessun lavoro completato ancora."}
               </Text>
             </View>
           ) : (
