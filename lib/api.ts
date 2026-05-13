@@ -220,7 +220,7 @@ export async function searchAddresses(
       `https://nominatim.openstreetmap.org/search?${params.toString()}`,
       {
         headers: {
-          "User-Agent": "CleanHome/1.0 (https://cleanhome.app)",
+          "User-Agent": "CleanHome/1.0 (https://www.cleanhomeapp.com)",
           Accept: "application/json",
         },
         signal,

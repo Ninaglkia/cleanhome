@@ -6,13 +6,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { Colors } from "../../lib/theme";
 
-const PRIVACY_URL = "https://www.cleanhomeapp.com/privacy";
+const REFUND_URL = "https://www.cleanhomeapp.com/refund";
 
-export default function PrivacyScreen() {
+export default function RefundScreen() {
   const router = useRouter();
 
   const handleOpen = useCallback(async () => {
-    await WebBrowser.openBrowserAsync(PRIVACY_URL, {
+    await WebBrowser.openBrowserAsync(REFUND_URL, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
   }, []);
@@ -62,7 +62,7 @@ export default function PrivacyScreen() {
             color: Colors.text,
           }}
         >
-          Informativa Privacy
+          Politica di Rimborso
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -87,7 +87,7 @@ export default function PrivacyScreen() {
             justifyContent: "center",
           }}
         >
-          <Ionicons name="shield-checkmark" size={36} color={Colors.primary} />
+          <Ionicons name="refresh-circle" size={36} color={Colors.primary} />
         </View>
 
         <Text
@@ -99,7 +99,7 @@ export default function PrivacyScreen() {
             letterSpacing: -0.4,
           }}
         >
-          Informativa Privacy
+          Politica di Rimborso
         </Text>
 
         <Text
@@ -110,9 +110,8 @@ export default function PrivacyScreen() {
             lineHeight: 23,
           }}
         >
-          La nostra informativa sulla privacy è disponibile sul sito ufficiale,
-          sempre aggiornata con i dati legali corretti del titolare del
-          trattamento.
+          Le condizioni di rimborso e cancellazione dei servizi CleanHome sono
+          disponibili sul sito ufficiale, sempre aggiornate.
         </Text>
 
         <Pressable
@@ -127,7 +126,7 @@ export default function PrivacyScreen() {
             opacity: pressed ? 0.85 : 1,
           })}
           accessibilityRole="button"
-          accessibilityLabel="Apri Informativa Privacy sul sito ufficiale"
+          accessibilityLabel="Apri Politica di Rimborso sul sito ufficiale"
         >
           <Text
             style={{
@@ -136,7 +135,7 @@ export default function PrivacyScreen() {
               fontSize: 16,
             }}
           >
-            Apri Informativa Privacy
+            Apri Politica di Rimborso
           </Text>
         </Pressable>
 

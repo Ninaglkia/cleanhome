@@ -100,7 +100,9 @@
       "router": {},
       "eas": {
         "projectId": "ed26a96b-0801-4170-a67a-1a46a7b671e2"
-      }
+      },
+      "privacyPolicyUrl": "https://www.cleanhomeapp.com/privacy",
+      "termsOfServiceUrl": "https://www.cleanhomeapp.com/terms"
     }
   }
 }

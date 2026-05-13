@@ -170,7 +170,7 @@ export default function CleanerProfileViewScreen() {
     if (!cleaner) return;
     try {
       await Share.share({
-        message: `Guarda il profilo di ${cleaner.full_name} su CleanHome: https://cleanhome.app/cleaner/${cleaner.id}`,
+        message: `Guarda il profilo di ${cleaner.full_name} su CleanHome: https://www.cleanhomeapp.com/cleaner/${cleaner.id}`,
       });
     } catch {
       // user cancelled or share unavailable — silent

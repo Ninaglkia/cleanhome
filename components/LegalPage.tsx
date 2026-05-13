@@ -146,7 +146,7 @@ export function LegalPage({ title, lastUpdated, intro, sections }: LegalPageProp
             }}
           >
             Per qualsiasi domanda puoi contattarci all'indirizzo {""}
-            <Text style={{ fontWeight: "800" }}>support@cleanhome.app</Text>
+            <Text style={{ fontWeight: "800" }}>info@cleanhomeapp.com</Text>
           </Text>
         </View>
       </ScrollView>
