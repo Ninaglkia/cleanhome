@@ -3,6 +3,7 @@
     "name": "CleanHome",
     "slug": "cleanhome",
     "version": "1.0.0",
+    "description": "Prenota professionisti delle pulizie verificati nella tua zona in pochi tocchi. Paga in app, traccia il cleaner in tempo reale, lascia recensioni. Niente contanti, niente trattative.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
