@@ -59,7 +59,7 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../lib/auth";
 import { createClientProperty, fetchAddressDetails, searchAddresses } from "../../lib/api";
@@ -1705,10 +1705,11 @@ export function MapPicker({
     }
   };
 
-  // Safe-area top inset — needed to offset the topbar below the notch.
-  // We approximate 44 on iOS (standard notch device) and 0 on Android where
-  // the Modal's windowSoftInputMode already handles insets.
-  const safeTop = Platform.OS === "ios" ? 44 : 0;
+  // Safe-area top inset — read from the runtime so Dynamic-Island devices
+  // (iPhone 14 Pro+) get the correct ~59pt instead of the legacy 44pt.
+  // Fall back to a sensible value when the provider is missing.
+  const insets = useSafeAreaInsets();
+  const safeTop = Platform.OS === "ios" ? Math.max(insets.top, 44) : 0;
   // Topbar total height = safeTop + content (44px)
   const topbarHeight = safeTop + 44;
   const screenHeight = Dimensions.get("window").height;
@@ -1989,39 +1990,54 @@ export function MapPicker({
                   android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                   style={({ pressed }) => [
                     {
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 16,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
                       backgroundColor: "#ffffff",
                       minHeight: 56,
                     },
                     pressed && { backgroundColor: "rgba(0,0,0,0.04)" },
                   ]}
                 >
-                  <View style={{ width: 24, alignItems: "center", flexShrink: 0 }}>
-                    <Svg width={22} height={22} viewBox="0 0 24 24">
-                      <Path
-                        d="M12 2v2 M12 20v2 M2 12h2 M20 12h2"
-                        stroke="#006b55"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                      />
-                      <Circle cx={12} cy={12} r={7} stroke="#006b55" strokeWidth={2} fill="none" />
-                      <Circle cx={12} cy={12} r={2.5} fill="#006b55" />
-                    </Svg>
-                  </View>
-                  <Text
+                  {/* Explicit inner View to enforce horizontal flex layout —
+                      Pressable style sometimes drops flexDirection on iOS. */}
+                  <View
                     style={{
-                      fontSize: 16,
-                      fontWeight: "500",
-                      color: "#006b55",
-                      flex: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      minHeight: 56,
                     }}
                   >
-                    Usa la mia posizione
-                  </Text>
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: 16,
+                      }}
+                    >
+                      <Svg width={22} height={22} viewBox="0 0 24 24">
+                        <Path
+                          d="M12 2v2 M12 20v2 M2 12h2 M20 12h2"
+                          stroke="#006b55"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                        />
+                        <Circle cx={12} cy={12} r={7} stroke="#006b55" strokeWidth={2} fill="none" />
+                        <Circle cx={12} cy={12} r={2.5} fill="#006b55" />
+                      </Svg>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "500",
+                        color: "#006b55",
+                        flex: 1,
+                      }}
+                    >
+                      Usa la mia posizione
+                    </Text>
+                  </View>
                 </Pressable>
 
                 {/* Loading state */}
@@ -2071,11 +2087,6 @@ export function MapPicker({
                     android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                     style={({ pressed }) => [
                       {
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 16,
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
                         backgroundColor: "#ffffff",
                         borderTopWidth: StyleSheet.hairlineWidth,
                         borderTopColor: "rgba(0,0,0,0.08)",
@@ -2084,46 +2095,63 @@ export function MapPicker({
                       pressed && { backgroundColor: "rgba(0,0,0,0.04)" },
                     ]}
                   >
-                    {/* Pin outline icon — neutral gray, Google Maps style */}
-                    <View style={{ width: 24, alignItems: "center", flexShrink: 0 }}>
-                      <Svg width={22} height={22} viewBox="0 0 24 24">
-                        <Path
-                          d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"
-                          stroke="#5f6368"
-                          strokeWidth={1.8}
-                          fill="none"
-                          strokeLinejoin="round"
-                        />
-                        <Circle cx={12} cy={9} r={2.5} fill="#5f6368" />
-                      </Svg>
-                    </View>
-
-                    {/* Text */}
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        numberOfLines={1}
+                    {/* Explicit inner View to enforce horizontal flex layout —
+                        Pressable style sometimes drops flexDirection on iOS. */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        minHeight: 56,
+                      }}
+                    >
+                      <View
                         style={{
-                          fontSize: 16,
-                          fontWeight: "500",
-                          color: "#202124",
-                          lineHeight: 22,
+                          width: 24,
+                          height: 24,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 16,
                         }}
                       >
-                        {s.mainText}
-                      </Text>
-                      {!!s.secondaryText && (
+                        <Svg width={22} height={22} viewBox="0 0 24 24">
+                          <Path
+                            d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"
+                            stroke="#5f6368"
+                            strokeWidth={1.8}
+                            fill="none"
+                            strokeLinejoin="round"
+                          />
+                          <Circle cx={12} cy={9} r={2.5} fill="#5f6368" />
+                        </Svg>
+                      </View>
+                      <View style={{ flex: 1 }}>
                         <Text
                           numberOfLines={1}
                           style={{
-                            fontSize: 14,
-                            color: "#5f6368",
-                            marginTop: 2,
-                            lineHeight: 18,
+                            fontSize: 16,
+                            fontWeight: "500",
+                            color: "#202124",
+                            lineHeight: 22,
                           }}
                         >
-                          {s.secondaryText}
+                          {s.mainText}
                         </Text>
-                      )}
+                        {!!s.secondaryText && (
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              fontSize: 14,
+                              color: "#5f6368",
+                              marginTop: 2,
+                              lineHeight: 18,
+                            }}
+                          >
+                            {s.secondaryText}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </Pressable>
                 ))}
