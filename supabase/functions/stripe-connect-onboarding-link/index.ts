@@ -134,54 +134,40 @@ serve(async (req: Request) => {
     }
 
     // ── Decide which link to return ─────────────────────────────
-    // Use the cached flags from cleaner_profiles instead of calling
-    // GET /v1/accounts/{id} on Stripe. The restricted key may not
-    // grant "Connect: Read" permission, and the cached flags are
-    // already kept in sync by the stripe-webhook handler.
+    // We use cached flags from cleaner_profiles to avoid a Stripe GET
+    // (the restricted live key doesn't have Connect: Read scope).
     //
-    // Active (charges_enabled) → one-shot Express Dashboard login
-    // link, bank/payouts UI.
-    // Otherwise → account_onboarding link to finish KYC.
+    // The Express Dashboard `login_links` endpoint is NOT callable
+    // with restricted keys at all (Stripe error: "required permissions
+    // are not available for use by restricted keys"), so we never use
+    // it. For an active account we mint an `account_update` link via
+    // the `account_links` API — that opens the same KYC/bank-edit
+    // surface the cleaner already knows, focused on the fields they
+    // can change post-activation. Works with the rk_live_* key.
+    //
+    // For an account still in KYC we mint an `account_onboarding`
+    // link — same as before.
     const isActive =
       !!cleanerProfile.stripe_onboarding_complete &&
       !!cleanerProfile.stripe_charges_enabled;
-
-    if (isActive) {
-      const loginLink = await stripeFetch(
-        `accounts/${accountId}/login_links`,
-        {}
-      );
-      return json({
-        url: loginLink.url as string,
-        account_id: accountId,
-        kind: "dashboard",
-      });
-    }
 
     const accountLink = await stripeFetch("account_links", {
       account: accountId,
       refresh_url: `${APP_SCHEME}://stripe-connect/refresh`,
       return_url: `${APP_SCHEME}://stripe-connect/return`,
-      type: "account_onboarding",
+      type: isActive ? "account_update" : "account_onboarding",
     });
 
     return json({
       url: accountLink.url as string,
       account_id: accountId,
-      kind: "onboarding",
+      kind: isActive ? "update" : "onboarding",
     });
   } catch (err: any) {
     const msg = err?.message ?? String(err);
     console.error("[stripe-connect-onboarding-link]", msg);
     return json(
-      {
-        error: "Impossibile avviare la verifica. Riprova più tardi.",
-        // TEMPORARY DEBUG — surfacing the underlying error so the
-        // client logs / Sentry / our Bash audit can see WHY the
-        // function 500s. Remove this `detail` field once we've
-        // identified the root cause.
-        detail: msg,
-      },
+      { error: "Impossibile avviare la verifica. Riprova più tardi." },
       500
     );
   }
