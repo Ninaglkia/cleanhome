@@ -51,6 +51,9 @@ import {
   uploadListingCover,
   ListingCoverRejectedError,
 } from "../../lib/api";
+import { supabase } from "../../lib/supabase";
+import { useStripe } from "@stripe/stripe-react-native";
+import type { SubscriptionStatus } from "../../lib/types";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -806,6 +809,13 @@ export default function ListingScreen() {
   // Persistence state for the "Salva" button.
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
+
+  // Stripe Payment Sheet hooks — needed for the premium upgrade flow on save.
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+
+  // Subscription status loaded from DB on fetch. Used to gate radius > 5 km.
+  const [currentSubscriptionStatus, setCurrentSubscriptionStatus] =
+    useState<SubscriptionStatus>("none");
 
   // Listing ID from the route query (?id=...). Required: without an id
   // we redirect the user back to the listings hub so they can pick or
@@ -1984,9 +1994,153 @@ export default function ListingScreen() {
     router.push("/listings");
   }, [router]);
 
+  // Shared helper: persist the listing fields to Supabase and navigate away.
+  // Called both from the normal save path and after a successful premium upgrade.
+  const persistAndNavigate = useCallback(async () => {
+    if (!listingId) return;
+    const isCircle = zoneMode === "circle";
+    const polygonPoints =
+      zoneMode === "draw" && drawnPolygon.length >= 3
+        ? drawnPolygon.map((p) => ({ lat: p.latitude, lng: p.longitude }))
+        : null;
+    const selectedServices = services.filter((s) => s.selected).map((s) => s.id);
+
+    // Optimistic: navigate immediately while the write resolves in background.
+    const savePromise = updateListing(listingId, {
+      city: draftCity || null,
+      hourly_rate: parseFloat(hourlyRate) || null,
+      description: description.trim() || null,
+      services: selectedServices.length > 0 ? selectedServices : null,
+      coverage_mode: isCircle ? "circle" : "polygon",
+      coverage_center_lat: centerCoords.latitude,
+      coverage_center_lng: centerCoords.longitude,
+      coverage_radius_km: isCircle ? draftRadiusKm : null,
+      coverage_polygon: !isCircle ? polygonPoints : null,
+    });
+    router.replace("/listings");
+    try {
+      await savePromise;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore sconosciuto";
+      Alert.alert("Errore nel salvataggio", msg);
+    }
+  }, [
+    listingId,
+    zoneMode,
+    drawnPolygon,
+    draftCity,
+    centerCoords,
+    draftRadiusKm,
+    hourlyRate,
+    description,
+    services,
+    router,
+  ]);
+
+  // Launch the Stripe Premium upgrade flow then, on success, re-poll the
+  // listing row until subscription_status becomes "active" (webhook-driven).
+  // Max wait: 15 s, polling every 1.5 s. Calls persistAndNavigate on success.
+  const handleUpgradeToPremium = useCallback(async () => {
+    if (!listingId) return;
+    setIsSaving(true);
+    try {
+      // 1. Ask the Edge Function for Payment Sheet params.
+      const { data: invokeData, error: invokeError } =
+        await supabase.functions.invoke("stripe-subscription-create", {
+          body: { listing_id: listingId },
+        });
+
+      if (invokeError) {
+        type EdgeFnError = Error & { context?: { text?: () => Promise<string> } };
+        let details = invokeError.message;
+        const ctx = (invokeError as EdgeFnError).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const txt = await ctx.text();
+            details = `${invokeError.message}: ${txt}`;
+          } catch { /* ignore */ }
+        }
+        throw new Error(details);
+      }
+
+      const payload = (invokeData ?? {}) as {
+        customer?: string;
+        ephemeralKey?: string;
+        paymentIntent?: string;
+        error?: string;
+      };
+      if (!payload.paymentIntent) {
+        throw new Error(payload.error || "Nessun PaymentIntent ricevuto dal server");
+      }
+
+      // 2. Init + present Payment Sheet.
+      const { error: initErr } = await initPaymentSheet({
+        merchantDisplayName: "CleanHome",
+        customerId: payload.customer,
+        customerEphemeralKeySecret: payload.ephemeralKey,
+        paymentIntentClientSecret: payload.paymentIntent,
+        allowsDelayedPaymentMethods: false,
+        returnURL: "cleanhome://stripe-redirect",
+      });
+      if (initErr) throw new Error(initErr.message);
+
+      const { error: presentErr } = await presentPaymentSheet();
+      if (presentErr) {
+        // User cancelled or card declined — stay on editor, don't save.
+        Alert.alert(
+          "Pagamento non completato",
+          presentErr.code === "Canceled"
+            ? "Hai annullato il pagamento. Le modifiche non sono state salvate."
+            : `Il pagamento non è andato a buon fine: ${presentErr.message}`
+        );
+        return;
+      }
+
+      // 3. Poll until the webhook flips subscription_status to "active".
+      //    Max 15 s, check every 1.5 s.
+      const MAX_ATTEMPTS = 10;
+      const POLL_INTERVAL_MS = 1500;
+      let activated = false;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        const refreshed = await fetchListing(listingId);
+        if (refreshed?.subscription_status === "active") {
+          activated = true;
+          setCurrentSubscriptionStatus("active");
+          break;
+        }
+      }
+
+      if (!activated) {
+        // Webhook hasn't arrived yet — warn but still save; the subscription
+        // will activate asynchronously and the listing will become Premium.
+        Alert.alert(
+          "Abbonamento in attivazione",
+          "Il pagamento è andato a buon fine. L'abbonamento si attiverà a breve."
+        );
+      }
+
+      // 4. Persist and navigate.
+      await persistAndNavigate();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore sconosciuto";
+      Alert.alert("Errore abbonamento", msg);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    listingId,
+    initPaymentSheet,
+    presentPaymentSheet,
+    persistAndNavigate,
+  ]);
+
   // Persist the coverage zone + rate to Supabase. The DB trigger
   // converts the raw inputs into a PostGIS GEOGRAPHY column used by
   // the client search.
+  //
+  // Gate: radius > 5 km requires an active Premium subscription.
+  // If not active, show an Alert offering to upgrade via Stripe.
   const handleSave = useCallback(async () => {
     if (!listingId) {
       Alert.alert(
@@ -2003,37 +2157,32 @@ export default function ListingScreen() {
       return;
     }
 
-    const isCircle = zoneMode === "circle";
-    const polygonPoints =
-      zoneMode === "draw" && drawnPolygon.length >= 3
-        ? drawnPolygon.map((p) => ({ lat: p.latitude, lng: p.longitude }))
-        : null;
+    // ── Premium paywall check ──────────────────────────────────────────────
+    // Only circle mode is checked here; polygon is a minor edge case and its
+    // equivalent radius is approximate — deferred to a future iteration.
+    const requiresPremium = zoneMode === "circle" && draftRadiusKm > 5;
+    if (requiresPremium && currentSubscriptionStatus !== "active") {
+      Alert.alert(
+        "Abbonamento richiesto",
+        "Per coprire più di 5 km serve l'abbonamento Premium a 4,99 €/mese. Vuoi attivarlo ora?",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Attiva ora",
+            style: "default",
+            onPress: () => {
+              handleUpgradeToPremium();
+            },
+          },
+        ]
+      );
+      return;
+    }
 
-    const selectedServices = services.filter((s) => s.selected).map((s) => s.id);
-
+    // ── Normal save (free or already premium) ─────────────────────────────
     setIsSaving(true);
-    // Optimistic: kick off the save and navigate IMMEDIATELY so the tap
-    // feels instant. The DB write resolves in the background; on error
-    // we surface an Alert which still works even after the component
-    // has unmounted (the alert is rendered by the OS).
-    const savePromise = updateListing(listingId, {
-      city: draftCity || null,
-      hourly_rate: parseFloat(hourlyRate) || null,
-      description: description.trim() || null,
-      services: selectedServices.length > 0 ? selectedServices : null,
-      coverage_mode: isCircle ? "circle" : "polygon",
-      coverage_center_lat: centerCoords.latitude,
-      coverage_center_lng: centerCoords.longitude,
-      coverage_radius_km: isCircle ? draftRadiusKm : null,
-      coverage_polygon: !isCircle ? polygonPoints : null,
-    });
-    router.replace("/listings");
     try {
-      await savePromise;
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Errore sconosciuto";
-      Alert.alert("Errore nel salvataggio", msg);
+      await persistAndNavigate();
     } finally {
       setIsSaving(false);
     }
@@ -2041,14 +2190,10 @@ export default function ListingScreen() {
     listingId,
     isZoneConfirmed,
     zoneMode,
-    drawnPolygon,
-    draftCity,
-    centerCoords,
     draftRadiusKm,
-    hourlyRate,
-    description,
-    services,
-    router,
+    currentSubscriptionStatus,
+    handleUpgradeToPremium,
+    persistAndNavigate,
   ]);
 
   // Redirect to the listings hub if the route lacks an ?id=... query.
@@ -2104,6 +2249,11 @@ export default function ListingScreen() {
         }
 
         setIsActive(existing.is_active !== false);
+
+        // ── Subscription status ──────────────────────────────────────────────
+        // Captured once so handleSave can decide whether to gate radius > 5 km
+        // behind the Premium paywall without a round-trip at save time.
+        setCurrentSubscriptionStatus(existing.subscription_status ?? "none");
 
         // ── Coverage zone ────────────────────────────────────────────────────
 

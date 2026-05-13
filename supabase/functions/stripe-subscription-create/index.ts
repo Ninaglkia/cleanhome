@@ -129,14 +129,6 @@ serve(async (req: Request) => {
       return json({ error: "Listing not found" }, 404);
     }
 
-    // ── Business rule: first listing is free, no subscription ──
-    if (listing.is_first_listing) {
-      return json(
-        { error: "First listing does not require a subscription" },
-        400
-      );
-    }
-
     // ── Idempotency: refuse to create a second subscription for
     // a listing that already has an active/trialing one. We still
     // allow retrying when the previous attempt is in a failed state
