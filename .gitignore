@@ -32,6 +32,25 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env*.backup*
+
+# MCP / Claude / planning local state
+.mcp.json
+.planning/
+
+# Asset experiments and backups (kept local for reference)
+assets/*.previous.bak.*
+assets/*.bak.*
+assets/*.backup
+assets/cleanhome-icon-v*.png
+assets/onboarding-sofa.png
+assets/lottie/
+
+# Demo / sandbox screens (not production)
+app/demo/
+
+# Migration helper bundle (re-run aid only)
+supabase/migrations/_RUN_ALL_IN_SUPABASE.sql
 
 # typescript
 *.tsbuildinfo
