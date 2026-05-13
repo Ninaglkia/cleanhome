@@ -14,7 +14,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@sentry/react-native": "~7.11.0",
     "@stripe/stripe-identity-react-native": "0.8.0",
-    "@stripe/stripe-react-native": "^0.63.0",
+    "@stripe/stripe-react-native": "0.65.0",
     "@supabase/supabase-js": "^2.100.1",
     "babel-preset-expo": "^55.0.12",
     "base64-arraybuffer": "^1.0.2",

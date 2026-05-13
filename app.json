@@ -71,7 +71,6 @@
       "expo-router",
       "expo-location",
       "expo-apple-authentication",
-      "@stripe/stripe-identity-react-native",
       [
         "expo-notifications",
         {
