@@ -69,7 +69,7 @@ export default function LiveBookingTracking() {
     return () => {
       cancelAnimation(pulse);
     };
-  }, []);
+  }, [pulse]);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -186,6 +186,21 @@ export default function LiveBookingTracking() {
   if (loading) {
     return (
       <View style={[styles.root, styles.center]}>
+        <SafeAreaView edges={["top"]} style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+            accessibilityLabel="Torna indietro"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chevron-back" size={22} color="#022420" />
+          </TouchableOpacity>
+          <View style={styles.topBarTitle}>
+            <Text style={styles.topBarTitleText}>Caricamento...</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </SafeAreaView>
         <ActivityIndicator size="large" color="#006b55" />
       </View>
     );

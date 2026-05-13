@@ -29,6 +29,23 @@ const RATING_LABELS: Record<number, string> = {
   5: "Eccellente",
 };
 
+// Formats a YYYY-MM-DD booking date into a friendly Italian string.
+// Falls back to the raw value if parsing fails so we never show "Invalid Date".
+function formatBookingDate(raw: string): string {
+  if (!raw) return "—";
+  const parts = raw.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return raw;
+  const [year, month, day] = parts;
+  const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function ReviewScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const router = useRouter();
@@ -58,7 +75,7 @@ export default function ReviewScreen() {
         setLoading(false);
       }
     })();
-  }, [bookingId]);
+  }, [bookingId, router]);
 
   const handleSubmit = async () => {
     if (!user || !booking) return;
@@ -94,7 +111,7 @@ export default function ReviewScreen() {
       sendPushNotification(
         booking.cleaner_id,
         "Nuova recensione ricevuta",
-        `Hai ricevuto ${rating} stelle per "${booking.service_type}"`,
+        `Hai ricevuto ${rating} ${rating === 1 ? "stella" : "stelle"} per "${booking.service_type}"`,
         { screen: "reviews", bookingId: booking.id }
       ).catch(() => {});
       Alert.alert(
@@ -232,7 +249,7 @@ export default function ReviewScreen() {
             <Text
               style={{ fontSize: 13, color: Colors.textSecondary }}
             >
-              {booking.date} · {booking.time_slot}
+              {formatBookingDate(booking.date)} · {booking.time_slot}
             </Text>
           </View>
 

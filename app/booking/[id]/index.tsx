@@ -25,7 +25,6 @@ import { Booking, UserProfile } from "../../../lib/types";
 import { Colors, Spacing, Radius, Shadows, BookingStatusConfig } from "../../../lib/theme";
 import { MarkDoneModal } from "../../../components/escrow/MarkDoneModal";
 import { DisputeModal } from "../../../components/escrow/DisputeModal";
-import { formatPrice } from "../../../lib/pricing";
 
 interface BookingPhoto {
   id: string;
@@ -141,8 +140,17 @@ export default function BookingDetailScreen() {
 
   if (loading || !booking) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Dettagli prenotazione</Text>
+          <View style={{ width: 26 }} />
+        </View>
+        <View style={styles.loadingBody}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -201,7 +209,7 @@ export default function BookingDetailScreen() {
           <TimelineRow
             done={true}
             label="Pagamento ricevuto"
-            sublabel={`€${formatPrice(booking.total_price).replace("€","")}`}
+            sublabel={`€${booking.total_price.toFixed(2)}`}
           />
           <TimelineRow
             done={booking.status === "accepted" || !!booking.work_done_at || booking.status === "completed"}
@@ -214,7 +222,9 @@ export default function BookingDetailScreen() {
             sublabel={
               booking.work_done_at
                 ? new Date(booking.work_done_at).toLocaleString("it-IT")
-                : "in attesa"
+                : booking.status === "accepted"
+                ? "In corso"
+                : "—"
             }
           />
           <TimelineRow
@@ -312,7 +322,7 @@ export default function BookingDetailScreen() {
               </ScrollView>
             )}
             <Text style={styles.disputeFooter}>
-              CleanHome esaminerà entro 5 giorni lavorativi.
+              Il nostro team esaminerà la segnalazione il prima possibile.
             </Text>
           </View>
         )}
@@ -454,9 +464,8 @@ function PriceRow({ label, value }: { label: string; value: number }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  loadingContainer: {
+  loadingBody: {
     flex: 1,
-    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },

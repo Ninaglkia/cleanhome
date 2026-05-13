@@ -413,7 +413,9 @@ export default function NewBookingScreen() {
           if (preferred.notes) setNotes(preferred.notes);
         }
       } catch (err) {
-        console.error("[booking] properties load", err);
+        if (__DEV__) {
+          console.error("[booking] properties load", err);
+        }
       } finally {
         if (!cancelled) setPropertiesLoaded(true);
       }
@@ -547,7 +549,11 @@ export default function NewBookingScreen() {
       .then((results) => {
         if (!cancelled) setNearbyListings(results.slice(0, 20));
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (__DEV__) {
+          console.error("[booking] nearby listings", err);
+        }
+      })
       .finally(() => {
         if (!cancelled) setListingsLoading(false);
       });
@@ -1052,7 +1058,7 @@ export default function NewBookingScreen() {
           <Ionicons name="checkmark-circle" size={22} color={Colors.secondary} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.text }}>
-              {categoryLabelFromSqm(sqm)} · {numRooms} stanze · ~{estimatedHours.toFixed(1)}h
+              {categoryLabelFromSqm(sqm)} · {numRooms} {numRooms === 1 ? "stanza" : "stanze"} · ~{estimatedHours.toFixed(1)}h
             </Text>
             <Text
               style={{
@@ -1195,7 +1201,7 @@ export default function NewBookingScreen() {
         {[
           { icon: "calendar-outline" as const, label: "Data", value: formatDateIT(selectedDate) },
           { icon: "time-outline" as const, label: "Fascia", value: `${windowLabel} (${timeSlotString})` },
-          { icon: "home-outline" as const, label: "Casa", value: `${categoryLabelFromSqm(sqm)} · ${numRooms} stanze · ${estimatedHours.toFixed(1)}h stimate` },
+          { icon: "home-outline" as const, label: "Casa", value: `${categoryLabelFromSqm(sqm)} · ${numRooms} ${numRooms === 1 ? "stanza" : "stanze"} · ${estimatedHours.toFixed(1)}h stimate` },
           { icon: "location-outline" as const, label: "Indirizzo", value: address },
           ...(selectedExtras.length > 0
             ? [{
@@ -1342,7 +1348,7 @@ export default function NewBookingScreen() {
                   <Text style={s.cleanerMetaText}>{stars}</Text>
                   <Text style={s.cleanerMetaDot}>·</Text>
                   <Text style={s.cleanerMetaText}>
-                    {listing.review_count} rec.
+                    {listing.review_count} {listing.review_count === 1 ? "recensione" : "recensioni"}
                   </Text>
                   {listing.city && (
                     <>
@@ -1400,7 +1406,9 @@ export default function NewBookingScreen() {
           <Ionicons name="arrow-back" size={20} color={Colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerSubtitle}>Prenota con {displayName}</Text>
+          <Text style={s.headerSubtitle}>
+            {cleanerId ? `Prenota con ${displayName}` : "Nuova prenotazione"}
+          </Text>
           <Text style={s.headerTitle}>{stepTitles[step]}</Text>
         </View>
         <View style={s.stepCounter}>
@@ -1460,7 +1468,6 @@ export default function NewBookingScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <ScrollView
           style={{ flex: 1 }}
