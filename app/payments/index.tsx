@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import {
   View,
   Text,
-  Image,
   ScrollView,
   Pressable,
   StatusBar,
@@ -130,15 +129,10 @@ export default function PaymentsScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Supporto · Help Center</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Image
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              source={require("../../assets/icon.png")}
-              style={{ width: 26, height: 26, borderRadius: 6 }}
-            />
-            <Text style={styles.headerBrand}>CleanHome</Text>
-          </View>
+          <Text style={styles.headerBrand}>CleanHome</Text>
         </View>
+        {/* Right-side spacer — visual balance to the back button */}
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -300,7 +294,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     gap: Spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.borderLight,
     backgroundColor: Colors.surface,
   },
@@ -312,20 +306,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerSpacer: {
+    width: 40,
+    height: 40,
+  },
   breadcrumb: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "800",
     color: Colors.textTertiary,
     textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 1.4,
     marginBottom: 2,
   },
   headerBrand: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: "#181c1c",
+    color: Colors.primary,
     letterSpacing: -0.3,
+    fontFamily: "NotoSerif-Bold",
   },
   helpCenterBadge: {
     paddingHorizontal: Spacing.md,
