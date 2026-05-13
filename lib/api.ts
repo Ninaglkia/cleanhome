@@ -974,6 +974,17 @@ export async function uploadAvatar(userId: string, localUri: string): Promise<st
  * `listing-covers/<userId>/<listingId>/<timestamp>.jpg` and updates
  * cleaner_listings.cover_url. Returns the public URL.
  */
+export class ListingCoverRejectedError extends Error {
+  reason: string;
+  friendlyMessage: string;
+  constructor(reason: string, friendlyMessage: string) {
+    super(friendlyMessage);
+    this.name = "ListingCoverRejectedError";
+    this.reason = reason;
+    this.friendlyMessage = friendlyMessage;
+  }
+}
+
 export async function uploadListingCover(
   userId: string,
   listingId: string,
@@ -994,20 +1005,40 @@ export async function uploadListingCover(
 
   if (uploadError) throw uploadError;
 
-  const { data: urlData } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(fileName);
+  // SafeSearch moderation gate. The edge function itself updates
+  // cleaner_listings.cover_url on success and removes the storage
+  // object on rejection.
+  const { data, error } = await supabase.functions.invoke(
+    "moderate-listing-cover",
+    { body: { listing_id: listingId, storage_path: fileName } }
+  );
 
-  const publicUrl = urlData.publicUrl;
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const payload = await ctx.json();
+        if (payload?.rejected) {
+          throw new ListingCoverRejectedError(
+            String(payload.reason ?? "policy_violation"),
+            String(payload.message ?? "La foto non è stata accettata.")
+          );
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof ListingCoverRejectedError) throw parseErr;
+      }
+    }
+    // Best-effort cleanup if moderation failed for non-policy reasons.
+    await supabase.storage.from("avatars").remove([fileName]).catch(() => {});
+    throw error;
+  }
 
-  const { error: updateError } = await supabase
-    .from("cleaner_listings")
-    .update({ cover_url: publicUrl })
-    .eq("id", listingId);
+  if (!data?.approved || !data?.public_url) {
+    await supabase.storage.from("avatars").remove([fileName]).catch(() => {});
+    throw new Error("La foto non è stata approvata. Riprova.");
+  }
 
-  if (updateError) throw updateError;
-
-  return publicUrl;
+  return String(data.public_url);
 }
 
 /**

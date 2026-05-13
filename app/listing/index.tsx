@@ -49,6 +49,7 @@ import {
   fetchListing,
   updateListing,
   uploadListingCover,
+  ListingCoverRejectedError,
 } from "../../lib/api";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -1823,11 +1824,15 @@ export default function ListingScreen() {
         );
         setCoverUrl(publicUrl);
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Errore sconosciuto";
-        Alert.alert("Errore upload foto", msg);
-        // Revert the optimistic preview on failure.
+        // Revert the optimistic preview on any failure.
         setCoverUrl((prev) => (prev === localUri ? null : prev));
+        if (err instanceof ListingCoverRejectedError) {
+          Alert.alert("Foto non ammessa", err.friendlyMessage);
+        } else {
+          const msg =
+            err instanceof Error ? err.message : "Errore sconosciuto";
+          Alert.alert("Errore upload foto", msg);
+        }
       } finally {
         setIsUploadingCover(false);
       }
@@ -2108,17 +2113,26 @@ export default function ListingScreen() {
             ]}
           />
 
-          {/* ── Cover image ── */}
+          {/* ── Cover image / empty state ── */}
           <View style={styles.coverContainer}>
-            <Image
-              source={{
-                uri:
-                  coverUrl ||
-                  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
-              }}
-              style={styles.coverImage}
-              resizeMode="cover"
-            />
+            {coverUrl ? (
+              <Image
+                source={{ uri: coverUrl }}
+                style={styles.coverImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.coverImage, styles.coverEmpty]}>
+                <View style={styles.coverEmptyIconCircle}>
+                  <Ionicons name="person-outline" size={36} color={C.primary} />
+                </View>
+                <Text style={styles.coverEmptyTitle}>Aggiungi un tuo selfie</Text>
+                <Text style={styles.coverEmptySubtitle}>
+                  I clienti si fidano di chi mostra il proprio volto.
+                  Una foto chiara e sorridente raddoppia le richieste.
+                </Text>
+              </View>
+            )}
             <View style={styles.coverOverlay}>
               <StatusBadge status={isActive ? "active" : "paused"} />
               <Pressable
@@ -2127,12 +2141,22 @@ export default function ListingScreen() {
                 disabled={isUploadingCover}
               >
                 <Ionicons
-                  name={isUploadingCover ? "sync-outline" : "camera-outline"}
+                  name={
+                    isUploadingCover
+                      ? "sync-outline"
+                      : coverUrl
+                        ? "camera-outline"
+                        : "add-circle-outline"
+                  }
                   size={16}
                   color={C.surface}
                 />
                 <Text style={styles.coverEditText}>
-                  {isUploadingCover ? "Caricamento…" : "Cambia foto"}
+                  {isUploadingCover
+                    ? "Verifica…"
+                    : coverUrl
+                      ? "Cambia foto"
+                      : "Carica foto"}
                 </Text>
               </Pressable>
             </View>
@@ -3042,6 +3066,35 @@ const styles = StyleSheet.create({
   coverImage: {
     width: "100%",
     height: "100%",
+  },
+  coverEmpty: {
+    backgroundColor: C.surfaceLow,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    gap: 10,
+  },
+  coverEmptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(2,36,32,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coverEmptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.onSurface,
+    textAlign: "center",
+    letterSpacing: -0.2,
+  },
+  coverEmptySubtitle: {
+    fontSize: 13,
+    color: C.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
   coverOverlay: {
     ...StyleSheet.absoluteFillObject,
