@@ -85,9 +85,7 @@ interface CoveragePlan {
 
 const COVERAGE_PLANS: readonly CoveragePlan[] = [
   { name: "Base", minKm: 0, maxKm: 5, priceLabel: "Gratis", priceMonthly: null },
-  { name: "Standard", minKm: 6, maxKm: 15, priceLabel: "4,99 €/mese", priceMonthly: 4.99 },
-  { name: "Premium", minKm: 16, maxKm: 30, priceLabel: "9,99 €/mese", priceMonthly: 9.99 },
-  { name: "Pro", minKm: 31, maxKm: 50, priceLabel: "14,99 €/mese", priceMonthly: 14.99 },
+  { name: "Premium", minKm: 6, maxKm: 50, priceLabel: "4,99 €/mese", priceMonthly: 4.99 },
 ] as const;
 
 const SLIDER_MIN_KM = 1;
