@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import Animated, {
@@ -8,401 +8,372 @@ import Animated, {
   withTiming,
   withDelay,
   withRepeat,
-  withSequence,
   Easing,
+  runOnJS,
   interpolate,
 } from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../lib/auth";
+import HouseIcon, {
+  TILE_SIZE,
+  DOOR_CENTER_IN_TILE_X,
+  DOOR_CENTER_IN_TILE_Y,
+} from "../components/splash/HouseIcon";
 
-const ONBOARDING_SEEN_KEY = "cleanhome.onboarding_seen";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 SplashScreen.preventAutoHideAsync();
 
-// ─── Floating sparkle particle ────────────────────────────────────────────────
+// ─── Phase timeline (matches design handoff PDF) ──────────────────────────────
+const T_MOUNT = 50;
+const T_IDLE = 1400;
+const T_ZOOM = 2400;              // zoom starts (single fluid motion 1→60)
+const ZOOM_DURATION = 2000;       // per design spec
+const T_DOOR_OPEN = 3300;         // door starts opening 900ms into zoom
+const DOOR_OPEN_DURATION = 600;   // 3D rotateY -78deg
+const T_INSIDE = 4400;            // navigate
 
-interface SparkleProps {
-  x: number;
-  y: number;
-  size: number;
-  delay: number;
-  duration: number;
-}
+const SCALE_MAX = 60;
 
-function Sparkle({ x, y, size, delay, duration }: SparkleProps) {
-  const progress = useSharedValue(0);
+// ─── Door pivot in screen coordinates ─────────────────────────────────────────
+const TILE_CENTER_X = SCREEN_W / 2;
+const TILE_CENTER_Y = SCREEN_H * 0.42;
+const DOOR_SCREEN_X = TILE_CENTER_X + (DOOR_CENTER_IN_TILE_X - TILE_SIZE / 2);
+const DOOR_SCREEN_Y = TILE_CENTER_Y + (DOOR_CENTER_IN_TILE_Y - TILE_SIZE / 2);
+const DOOR_DX = DOOR_SCREEN_X - SCREEN_W / 2;
+const DOOR_DY = DOOR_SCREEN_Y - SCREEN_H / 2;
 
-  useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(1, { duration, easing: Easing.inOut(Easing.quad) }),
-        -1,
-        true
-      )
-    );
-  }, [delay, duration, progress]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.5, 1], [0, 1, 0]),
-    transform: [
-      { translateY: interpolate(progress.value, [0, 1], [0, -20]) },
-      { scale: interpolate(progress.value, [0, 0.5, 1], [0.6, 1, 0.6]) },
-    ],
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.sparkle,
-        { left: x, top: y, width: size, height: size, borderRadius: size / 2 },
-        style,
-      ]}
-    />
-  );
-}
-
-// ─── Splash screen ────────────────────────────────────────────────────────────
 
 export default function SplashScreenView() {
   const { isLoading, user, profile } = useAuth();
   const router = useRouter();
 
-  // Animation values
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.7);
-  const haloPulse = useSharedValue(0);
-  const brandOpacity = useSharedValue(0);
-  const brandTranslateY = useSharedValue(16);
-  const taglineOpacity = useSharedValue(0);
+  // Entry & idle
+  const mount = useSharedValue(0);
+  const idleFloat = useSharedValue(0);
+  const idlePulse = useSharedValue(0);
 
-  // Outro: zoom-into-the-door dive transition
-  const sceneScale = useSharedValue(1);
-  const sceneOpacity = useSharedValue(1);
-  const blackoutOpacity = useSharedValue(0);
+  // Outro — world zoom (moderate)
+  const worldScale = useSharedValue(1);
+  const titleOpacity = useSharedValue(0);
 
-  // Hide native splash as soon as our view mounts
+  // Door animation
+  const doorOpen = useSharedValue(0);
+  const doorGlow = useSharedValue(0);
+
+  // Final dark fade — fades in as we exit through the doorway,
+  // hides the moment of transition to the next screen.
+  const exitFade = useSharedValue(0);
+  // Dim of the world during go-through (we're entering a darker space)
+  const worldDim = useSharedValue(0);
+  // Loading dots (3 mint dots that bounce during idle)
+  const dotsOpacity = useSharedValue(0);
+  const dotPulse = useSharedValue(0);
+
   const onLayoutReady = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
 
-  // Entrance choreography
-  useEffect(() => {
-    // Logo: fade + scale up
-    logoOpacity.value = withTiming(1, {
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-    });
-    logoScale.value = withTiming(1, {
-      duration: 700,
-      easing: Easing.out(Easing.back(1.4)),
-    });
+  const navigateAway = async () => {
+    // Non-logged-in users ALWAYS see the onboarding tour first.
+    // Returning users can tap "Ho già un account — Accedi" from the tour
+    // to jump to the login screen.
+    if (!user) {
+      router.replace("/onboarding/features");
+    } else if (!profile || !profile.cleaner_onboarded) {
+      router.replace("/onboarding/welcome");
+    } else if (profile.active_role === "cleaner") {
+      router.replace("/(tabs)/cleaner-home");
+    } else {
+      router.replace("/(tabs)/home");
+    }
+  };
 
-    // Halo: continuous breathing pulse
-    haloPulse.value = withDelay(
-      400,
+  // ─── Entrance choreography ────────────────────────────────────────────────
+  useEffect(() => {
+    mount.value = withDelay(
+      T_MOUNT,
+      withTiming(1, {
+        duration: 900,
+        easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+      })
+    );
+    titleOpacity.value = withDelay(
+      T_MOUNT + 200,
+      withTiming(1, {
+        duration: 700,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+      })
+    );
+
+    idleFloat.value = withDelay(
+      T_IDLE,
       withRepeat(
-        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      )
+    );
+    idlePulse.value = withDelay(
+      T_IDLE,
+      withRepeat(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
         -1,
         true
       )
     );
 
-    // Brand name: slide-up + fade after logo
-    brandOpacity.value = withDelay(
-      500,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+    // Loading dots fade in at idle, then bounce continuously
+    dotsOpacity.value = withDelay(
+      T_IDLE,
+      withTiming(0.85, { duration: 400, easing: Easing.out(Easing.cubic) })
     );
-    brandTranslateY.value = withDelay(
-      500,
-      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
-    );
-
-    // Tagline: fade in last
-    taglineOpacity.value = withDelay(
-      900,
-      withTiming(0.8, { duration: 600, easing: Easing.out(Easing.cubic) })
+    dotPulse.value = withDelay(
+      T_IDLE,
+      withRepeat(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        false
+      )
     );
   }, []);
 
-  // Navigate when auth resolved.
-  // In dev hold is shorter so the dive transition is visible without long wait.
-  const HOLD_MS = __DEV__ ? 4000 : 2000;
-
-  // Outro animation: zoom into the door, fade scene, blackout, then navigate
-  const ZOOM_DURATION = 800;
-
+  // ─── Outro (per design handoff PDF) ──────────────────────────────────────
+  // Single fluid camera move: scale 1 → 60 over 2000ms with ease-zoom.
+  // Door opens 3D rotateY -78° at 900ms in (~scale 10x). Final blackout.
   useEffect(() => {
     if (isLoading) return;
 
-    // Start zoom-into-door 800ms before navigating
-    const zoomStartDelay = Math.max(0, HOLD_MS - ZOOM_DURATION);
-    const zoomTimer = setTimeout(() => {
-      sceneScale.value = withTiming(14, {
-        duration: ZOOM_DURATION,
-        easing: Easing.in(Easing.cubic),
-      });
-      sceneOpacity.value = withDelay(
-        ZOOM_DURATION * 0.4,
-        withTiming(0, { duration: ZOOM_DURATION * 0.6, easing: Easing.in(Easing.cubic) })
-      );
-      blackoutOpacity.value = withDelay(
-        ZOOM_DURATION * 0.6,
-        withTiming(1, { duration: ZOOM_DURATION * 0.4 })
-      );
-    }, zoomStartDelay);
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    const timer = setTimeout(async () => {
-      if (!user) {
-        let seen = false;
-        try {
-          seen = (await AsyncStorage.getItem(ONBOARDING_SEEN_KEY)) === "true";
-        } catch {
-          seen = false;
-        }
-        router.replace(seen ? "/(auth)/login" : "/onboarding/features");
-      } else if (!profile || !profile.cleaner_onboarded) {
-        router.replace("/onboarding/welcome");
-      } else if (profile.active_role === "cleaner") {
-        router.replace("/(tabs)/cleaner-home");
-      } else {
-        router.replace("/(tabs)/home");
-      }
-    }, HOLD_MS);
+    // Title + dots fade out as zoom begins
+    timers.push(
+      setTimeout(() => {
+        titleOpacity.value = withTiming(0, {
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+        });
+        dotsOpacity.value = withTiming(0, { duration: 250 });
+      }, T_ZOOM - 200)
+    );
 
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(zoomTimer);
+    // ZOOM — single fluid scale 1→60 over 2000ms with ease-zoom (per design)
+    timers.push(
+      setTimeout(() => {
+        worldScale.value = withTiming(SCALE_MAX, {
+          duration: ZOOM_DURATION,
+          easing: Easing.bezier(0.5, 0, 0.85, 0.3),
+        });
+      }, T_ZOOM)
+    );
+
+    // DOOR OPENS — 3D rotateY -78° at 900ms into zoom (scale ~10x at that point)
+    timers.push(
+      setTimeout(() => {
+        doorOpen.value = withTiming(1, {
+          duration: DOOR_OPEN_DURATION,
+          easing: Easing.bezier(0.5, 0, 0.3, 1),
+        });
+        doorGlow.value = withTiming(1, {
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+        });
+      }, T_DOOR_OPEN)
+    );
+
+    // Late blackout — covers navigation handoff
+    timers.push(
+      setTimeout(() => {
+        worldDim.value = withTiming(1, {
+          duration: 500,
+          easing: Easing.in(Easing.cubic),
+        });
+        exitFade.value = withDelay(
+          200,
+          withTiming(1, { duration: 400, easing: Easing.in(Easing.cubic) })
+        );
+      }, T_INSIDE - 600)
+    );
+
+    // Navigate when fade is complete
+    timers.push(
+      setTimeout(() => {
+        runOnJS(navigateAway)();
+      }, T_INSIDE)
+    );
+
+    return () => timers.forEach(clearTimeout);
+  }, [isLoading, user, profile]);
+
+  // ─── World transform: scale + perfect centering on door ───────────────────
+  // Pivot math that ALSO smoothly slides the door to screen center as we zoom.
+  // At s=1: identity (door at natural y, slightly above center).
+  // At s=SCALE_MAX: door is exactly on screen center (0, 0).
+  // Formula: ty = -DOOR_DY * (SCALE_MAX / (SCALE_MAX - 1)) * (s - 1)
+  const CENTERING_FACTOR = SCALE_MAX / (SCALE_MAX - 1);
+  const worldStyle = useAnimatedStyle(() => {
+    const s = worldScale.value;
+    return {
+      opacity: 1 - worldDim.value * 0.85,
+      transform: [
+        { translateX: -DOOR_DX * CENTERING_FACTOR * (s - 1) },
+        { translateY: -DOOR_DY * CENTERING_FACTOR * (s - 1) },
+        { scale: s },
+      ],
     };
-  }, [isLoading, user, profile, HOLD_MS]);
+  });
 
-  // Animated styles
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
+  // ─── Icon entrance + idle float ────────────────────────────────────────────
+  const iconStyle = useAnimatedStyle(() => {
+    const m = mount.value;
+    const float = idleFloat.value;
+    return {
+      opacity: m,
+      transform: [
+        { translateX: -TILE_SIZE / 2 },
+        { translateY: -TILE_SIZE / 2 + (1 - m) * 30 + float * -6 },
+        { scale: 0.85 + 0.15 * m },
+      ],
+    };
+  });
+
+  // ─── Title ─────────────────────────────────────────────────────────────────
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: (1 - titleOpacity.value) * 16 }],
   }));
 
-  const haloOuterStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(haloPulse.value, [0, 1], [0.25, 0.55]),
-    transform: [{ scale: interpolate(haloPulse.value, [0, 1], [1, 1.18]) }],
+  // Final dark fade — covers the screen at end of "going through" so the
+  // navigation handoff is invisible.
+  const exitStyle = useAnimatedStyle(() => ({
+    opacity: exitFade.value,
   }));
 
-  const haloInnerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(haloPulse.value, [0, 1], [0.4, 0.7]),
-    transform: [{ scale: interpolate(haloPulse.value, [0, 1], [1, 1.08]) }],
+  // 3 bouncing loading dots — visible during idle phase
+  const dotsStyle = useAnimatedStyle(() => ({
+    opacity: dotsOpacity.value,
   }));
 
-  const brandStyle = useAnimatedStyle(() => ({
-    opacity: brandOpacity.value,
-    transform: [{ translateY: brandTranslateY.value }],
-  }));
-
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
-  }));
-
-  const sceneStyle = useAnimatedStyle(() => ({
-    opacity: sceneOpacity.value,
-    transform: [{ scale: sceneScale.value }],
-  }));
-
-  const blackoutStyle = useAnimatedStyle(() => ({
-    opacity: blackoutOpacity.value,
-  }));
-
-  // Sparkle positions: scattered around logo, off the central area
-  const sparkles: SparkleProps[] = [
-    { x: SCREEN_W * 0.18, y: SCREEN_H * 0.32, size: 4, delay: 600, duration: 2200 },
-    { x: SCREEN_W * 0.78, y: SCREEN_H * 0.28, size: 3, delay: 900, duration: 2600 },
-    { x: SCREEN_W * 0.12, y: SCREEN_H * 0.52, size: 5, delay: 1100, duration: 2400 },
-    { x: SCREEN_W * 0.84, y: SCREEN_H * 0.55, size: 4, delay: 750, duration: 2800 },
-    { x: SCREEN_W * 0.25, y: SCREEN_H * 0.7, size: 3, delay: 1300, duration: 2300 },
-    { x: SCREEN_W * 0.7, y: SCREEN_H * 0.72, size: 5, delay: 800, duration: 2700 },
-    { x: SCREEN_W * 0.5, y: SCREEN_H * 0.18, size: 3, delay: 1500, duration: 2500 },
-    { x: SCREEN_W * 0.45, y: SCREEN_H * 0.85, size: 4, delay: 1700, duration: 2400 },
-  ];
+  // Each dot bounces with a phase offset (sequential bounce, design uses 0.15s stagger)
+  const dot1Style = useAnimatedStyle(() => {
+    const phase = dotPulse.value % 1;
+    const bounce = phase < 0.4 ? Math.sin((phase / 0.4) * Math.PI) : 0;
+    return {
+      opacity: 0.4 + bounce * 0.6,
+      transform: [{ translateY: -bounce * 6 }],
+    };
+  });
+  const dot2Style = useAnimatedStyle(() => {
+    const phase = (dotPulse.value + 0.15) % 1;
+    const bounce = phase < 0.4 ? Math.sin((phase / 0.4) * Math.PI) : 0;
+    return {
+      opacity: 0.4 + bounce * 0.6,
+      transform: [{ translateY: -bounce * 6 }],
+    };
+  });
+  const dot3Style = useAnimatedStyle(() => {
+    const phase = (dotPulse.value + 0.3) % 1;
+    const bounce = phase < 0.4 ? Math.sin((phase / 0.4) * Math.PI) : 0;
+    return {
+      opacity: 0.4 + bounce * 0.6,
+      transform: [{ translateY: -bounce * 6 }],
+    };
+  });
 
   return (
     <View style={styles.container} onLayout={onLayoutReady}>
-      {/* Everything that should zoom-into-the-door wrapped here */}
-      <Animated.View style={[StyleSheet.absoluteFill, styles.scene, sceneStyle]}>
-        {/* Layered ambient blobs for depth (no gradient lib required) */}
-        <View style={styles.bgBlobTop} />
-        <View style={styles.bgBlobMid} />
-        <View style={styles.bgBlobBottom} />
+      {/* Scaling world */}
+      <Animated.View style={[StyleSheet.absoluteFill, worldStyle]}>
+        {/* House icon */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              left: SCREEN_W / 2,
+              top: SCREEN_H * 0.42,
+            },
+            iconStyle,
+          ]}
+        >
+          <HouseIcon
+            doorOpen={doorOpen}
+            doorGlow={doorGlow}
+            idle={idlePulse}
+          />
+        </Animated.View>
 
-        {/* Floating sparkles in the background */}
-        {sparkles.map((s, i) => (
-          <Sparkle key={i} {...s} />
-        ))}
+        {/* Title */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: SCREEN_H * 0.62,
+              alignItems: "center",
+            },
+            titleStyle,
+          ]}
+        >
+          <Text style={styles.brand}>CleanHome</Text>
+          <Text style={styles.tagline}>LA TUA CASA AL MEGLIO</Text>
+        </Animated.View>
 
-        {/* Center brand block */}
-        <View style={styles.centerContent}>
-        {/* Logo with breathing halo */}
-        <View style={styles.logoSlot}>
-          <Animated.View style={[styles.haloOuter, haloOuterStyle]} />
-          <Animated.View style={[styles.haloInner, haloInnerStyle]} />
-          <Animated.View style={[styles.logoWrap, logoStyle]}>
-            <Image
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              source={require("../assets/icon.png")}
-              style={styles.logoImg}
-            />
-          </Animated.View>
-        </View>
-
-        {/* Brand wordmark */}
-        <Animated.Text style={[styles.brandName, brandStyle]}>
-          CleanHome
-        </Animated.Text>
-
-        {/* Tagline */}
-        <Animated.Text style={[styles.tagline, taglineStyle]}>
-          La tua casa al meglio.{"\n"}Sempre.
-        </Animated.Text>
-      </View>
-
-        {/* Subtle bottom shimmer */}
-        <View style={styles.bottomShimmer} pointerEvents="none" />
+        {/* 3 bouncing loading dots near bottom */}
+        <Animated.View style={[styles.dotsRow, dotsStyle]}>
+          <Animated.View style={[styles.dot, dot1Style]} />
+          <Animated.View style={[styles.dot, dot2Style]} />
+          <Animated.View style={[styles.dot, dot3Style]} />
+        </Animated.View>
       </Animated.View>
 
-      {/* Blackout overlay that fades in as we dive into the door */}
+      {/* Final dark fade — covers screen during navigation handoff */}
       <Animated.View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.blackout, blackoutStyle]}
+        style={[StyleSheet.absoluteFill, styles.exit, exitStyle]}
       />
     </View>
   );
 }
 
-const LOGO_SIZE = 96;
-const HALO_OUTER_SIZE = 220;
-const HALO_INNER_SIZE = 150;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#022420",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#062a23",
     overflow: "hidden",
   },
-  scene: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  blackout: {
-    backgroundColor: "#022420",
-  },
-  bgBlobTop: {
+  dotsRow: {
     position: "absolute",
-    top: -SCREEN_W * 0.4,
-    left: -SCREEN_W * 0.3,
-    width: SCREEN_W * 1.2,
-    height: SCREEN_W * 1.2,
-    borderRadius: SCREEN_W * 0.6,
-    backgroundColor: "rgba(79, 196, 163, 0.10)",
-  },
-  bgBlobMid: {
-    position: "absolute",
-    width: SCREEN_W * 0.9,
-    height: SCREEN_W * 0.9,
-    borderRadius: SCREEN_W * 0.45,
-    backgroundColor: "rgba(26, 82, 72, 0.55)",
-    top: SCREEN_H * 0.1,
-    left: SCREEN_W * 0.05,
-  },
-  bgBlobBottom: {
-    position: "absolute",
-    bottom: -SCREEN_W * 0.3,
-    right: -SCREEN_W * 0.3,
-    width: SCREEN_W * 1.0,
-    height: SCREEN_W * 1.0,
-    borderRadius: SCREEN_W * 0.5,
-    backgroundColor: "rgba(10, 58, 50, 0.6)",
-  },
-  centerContent: {
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-  logoSlot: {
-    width: HALO_OUTER_SIZE,
-    height: HALO_OUTER_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 28,
-  },
-  haloOuter: {
-    position: "absolute",
-    width: HALO_OUTER_SIZE,
-    height: HALO_OUTER_SIZE,
-    borderRadius: HALO_OUTER_SIZE / 2,
-    backgroundColor: "rgba(79, 196, 163, 0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(130, 244, 209, 0.10)",
-  },
-  haloInner: {
-    position: "absolute",
-    width: HALO_INNER_SIZE,
-    height: HALO_INNER_SIZE,
-    borderRadius: HALO_INNER_SIZE / 2,
-    backgroundColor: "rgba(79, 196, 163, 0.18)",
-  },
-  logoWrap: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(130, 244, 209, 0.20)",
-    shadowColor: "#82f4d1",
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  logoImg: {
-    width: LOGO_SIZE - 16,
-    height: LOGO_SIZE - 16,
-    borderRadius: 18,
-  },
-  brandName: {
-    color: "#ffffff",
-    fontSize: 44,
-    fontWeight: "700",
-    letterSpacing: -1,
-    marginBottom: 16,
-    textShadowColor: "rgba(130, 244, 209, 0.25)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 16,
-  },
-  tagline: {
-    color: "#82f4d1",
-    fontSize: 13,
-    fontWeight: "500",
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  sparkle: {
-    position: "absolute",
-    backgroundColor: "#82f4d1",
-    shadowColor: "#82f4d1",
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  bottomShimmer: {
-    position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: "rgba(130, 244, 209, 0.06)",
-    borderTopLeftRadius: SCREEN_W * 0.5,
-    borderTopRightRadius: SCREEN_W * 0.5,
+    bottom: 80,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#3ee0a8",
+  },
+  brand: {
+    color: "#ffffff",
+    fontSize: 38,
+    fontWeight: "700",
+    letterSpacing: -0.7,
+  },
+  tagline: {
+    marginTop: 10,
+    color: "#3ee0a8",
+    fontSize: 11,
+    fontWeight: "500",
+    letterSpacing: 3.5,
+  },
+  exit: {
+    backgroundColor: "#062a23",
   },
 });
+
+// Reserve interpolate for future tweaks (currently unused).
+void interpolate;

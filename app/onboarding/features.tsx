@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { useCallback, useRef, useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, StatusBar } from "react-native";
+import { View, Text, Image, TouchableOpacity, StyleSheet, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -90,10 +90,14 @@ export default function FeaturesScreen() {
     >
       <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
-      {/* ── Brand bar ── */}
+      {/* ── Brand bar (centered) ── */}
       <View style={styles.brandBar}>
-        <View style={styles.brandLeft}>
-          <Ionicons name="leaf" size={20} color={C.primary} />
+        <View style={styles.brandCenter}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require("../../assets/icon.png")}
+            style={styles.brandLogo}
+          />
           <Text style={styles.brandText}>CleanHome</Text>
         </View>
       </View>
@@ -132,29 +136,27 @@ export default function FeaturesScreen() {
 
       {/* ── Buttons ── */}
       <Animated.View style={[styles.buttons, ctaStyle]}>
-        <View style={styles.ctaBtnOuter}>
-          <Pressable
-            onPress={handleNext}
-            style={({ pressed }) => [
-              styles.ctaBtnTap,
-              pressed && { opacity: 0.92 },
-            ]}
-          >
-            <Text style={styles.ctaText}>Avanti</Text>
-            <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-          </Pressable>
-        </View>
-
-        <Pressable
-          onPress={handleAlreadyHaveAccount}
-          style={({ pressed }) => [
-            styles.altBtn,
-            pressed && { opacity: 0.6 },
-          ]}
-          hitSlop={8}
+        <TouchableOpacity
+          onPress={handleNext}
+          activeOpacity={0.82}
+          style={styles.ctaBtn}
         >
-          <Text style={styles.altText}>Ho già un account — Accedi</Text>
-        </Pressable>
+          <Text style={styles.ctaText} numberOfLines={1}>
+            Avanti  →
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleAlreadyHaveAccount}
+          activeOpacity={0.5}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.altBtn}
+        >
+          <Text style={styles.altText}>
+            Ho già un account
+            <Text style={styles.altTextLink}>  ·  Accedi</Text>
+          </Text>
+        </TouchableOpacity>
       </Animated.View>
     </View>
   );
@@ -167,14 +169,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
 
-  // --- Brand bar ---
+  // --- Brand bar (unified across features/security/login) ---
   brandBar: {
-    flexDirection: "row",
+    height: 36,
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginBottom: 8,
   },
-  brandLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandLogo: { width: 26, height: 26, borderRadius: 6 },
   brandText: {
     fontSize: 20,
     fontWeight: "900",
@@ -252,40 +255,45 @@ const styles = StyleSheet.create({
 
   // --- Buttons ---
   buttons: {
-    gap: 8,
+    width: "100%",
+    alignSelf: "stretch",
+    marginTop: 4,
   },
-  ctaBtnOuter: {
+  // TouchableOpacity — carries background, shape, shadow and tap area
+  ctaBtn: {
+    width: "100%",
     backgroundColor: C.primary,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  ctaBtnTap: {
-    height: 56,
-    flexDirection: "row",
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 28,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 10,
+    shadowColor: "#011a17",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 8,
+    marginBottom: 4,
   },
   ctaText: {
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#ffffff",
-    letterSpacing: 0.3,
+    letterSpacing: 0.15,
+    textAlign: "center",
   },
   altBtn: {
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 16,
   },
   altText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
+    color: C.onSurfaceVariant,
+    letterSpacing: -0.1,
+  },
+  altTextLink: {
     color: C.secondary,
-    letterSpacing: 0.2,
+    fontWeight: "800",
   },
 });
