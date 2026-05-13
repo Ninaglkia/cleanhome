@@ -310,10 +310,16 @@ export default function RootLayout() {
     // profiles.phone. Without them every signup defaulted to 'client'
     // and the phone was discarded — that was the registration bug
     // where "Professionista" became "Cliente".
+    // When "Confirm email" is enabled on the Supabase project, the
+    // confirmation link in the email must come back to the app via a
+    // deep link instead of the default web URL — otherwise tapping the
+    // link opens a blank Safari page.
+    const emailRedirectTo = Linking.createURL("auth/callback");
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: {
           full_name: fullName,
           ...(options?.role ? { role: options.role } : {}),
