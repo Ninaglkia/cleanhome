@@ -188,9 +188,25 @@ export default function RegisterScreen() {
       );
       router.back();
     } catch (err: unknown) {
-      const message =
+      const rawMessage =
         err instanceof Error ? err.message : "Registrazione fallita";
-      Alert.alert("Errore", message);
+      // Map known auth errors to a clear Italian copy. Supabase masks
+      // "user already exists" as a 200 with empty identities — the auth
+      // layer rethrows it as EMAIL_ALREADY_REGISTERED so we can show
+      // the right message instead of a fake success state.
+      if (rawMessage === "EMAIL_ALREADY_REGISTERED") {
+        Alert.alert(
+          "Email già registrata",
+          "Esiste già un account con questa email. Accedi dalla schermata di login o usa l'opzione \"Password dimenticata?\"."
+        );
+      } else if (/already.*registered|already.*exists/i.test(rawMessage)) {
+        Alert.alert(
+          "Email già registrata",
+          "Esiste già un account con questa email. Accedi dalla schermata di login."
+        );
+      } else {
+        Alert.alert("Errore", rawMessage);
+      }
     } finally {
       setLoading(false);
     }

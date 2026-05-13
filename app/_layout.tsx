@@ -315,7 +315,7 @@ export default function RootLayout() {
     // deep link instead of the default web URL — otherwise tapping the
     // link opens a blank Safari page.
     const emailRedirectTo = Linking.createURL("auth/callback");
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -328,6 +328,12 @@ export default function RootLayout() {
       },
     });
     if (error) throw error;
+    // Supabase masks "user already exists" as a 200 with an empty
+    // identities array (anti-enumeration). Detect it and surface a
+    // clear error so the UI doesn't show a fake success state.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      throw new Error("EMAIL_ALREADY_REGISTERED");
+    }
   };
 
   const signInWithGoogle = async () => {
