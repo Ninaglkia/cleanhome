@@ -1463,25 +1463,27 @@ function PremiumCTA({
           accessibilityLabel={isLast ? "Crea casa" : "Avanti al prossimo step"}
           accessibilityHint={!canAdvance ? missingHint : undefined}
           android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-          style={styles.ctaInner}
+          style={StyleSheet.absoluteFill}
+        />
+        <Text
+          style={[styles.ctaTxt, !canAdvance && styles.ctaTxtDisabled]}
+          pointerEvents="none"
         >
-          <Text style={[styles.ctaTxt, !canAdvance && styles.ctaTxtDisabled]}>
-            {isLast ? (saving ? "Salvo…" : "Crea casa") : "Avanti"}
-          </Text>
-          {!saving && isLast && canAdvance && (
-            <Animated.View style={sparkStyle}>
-              <Svg width={18} height={18} viewBox="0 0 18 18">
-                <Path
-                  d="M9 1 L10.2 7.2 L16 9 L10.2 10.8 L9 17 L7.8 10.8 L2 9 L7.8 7.2 Z"
-                  fill="#fff"
-                />
-              </Svg>
-            </Animated.View>
-          )}
-          {!saving && !isLast && canAdvance && (
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          )}
-        </Pressable>
+          {isLast ? (saving ? "Salvo…" : "Crea casa") : "Avanti"}
+        </Text>
+        {!saving && isLast && canAdvance && (
+          <Animated.View style={sparkStyle} pointerEvents="none">
+            <Svg width={18} height={18} viewBox="0 0 18 18">
+              <Path
+                d="M9 1 L10.2 7.2 L16 9 L10.2 10.8 L9 17 L7.8 10.8 L2 9 L7.8 7.2 Z"
+                fill="#fff"
+              />
+            </Svg>
+          </Animated.View>
+        )}
+        {!saving && !isLast && canAdvance && (
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -2828,6 +2830,11 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 8,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 24,
   },
   ctaInner: {
     width: "100%",

@@ -1811,6 +1811,11 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 24,
   },
   saveBtnDisabled: {
     backgroundColor: Colors.textTertiary,
@@ -1862,32 +1867,29 @@ function AnimatedSaveButton({
         accessibilityLabel={isEdit ? "Salva modifiche" : "Salva casa"}
         accessibilityRole="button"
         android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-        style={({ pressed }) => ({
-          width: "100%",
-          height: "100%",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          opacity: pressed ? 0.9 : 1,
-        })}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="checkmark-circle" size={22} color="#fff" />
-            <Text style={styles.saveBtnText}>
-              {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              color="rgba(255,255,255,0.8)"
-            />
-          </>
-        )}
-      </Pressable>
+        style={StyleSheet.absoluteFill}
+      />
+      {saving ? (
+        <ActivityIndicator color="#fff" pointerEvents="none" />
+      ) : (
+        <>
+          <Ionicons
+            name="checkmark-circle"
+            size={22}
+            color="#fff"
+            pointerEvents="none"
+          />
+          <Text style={styles.saveBtnText} pointerEvents="none">
+            {isEdit ? "SALVA MODIFICHE" : "SALVA CASA"}
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color="rgba(255,255,255,0.8)"
+            pointerEvents="none"
+          />
+        </>
+      )}
     </Animated.View>
   );
 }
