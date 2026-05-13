@@ -2555,31 +2555,24 @@ export default function ListingScreen() {
           </View>
 
           {/* ── Save button ── */}
-          <View style={styles.saveButton}>
+          <View style={[styles.saveButton, isSaving && { opacity: 0.6 }]}>
             <Pressable
               onPress={handleSave}
               disabled={isSaving}
               android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                height: "100%",
-                gap: 10,
-                paddingHorizontal: 24,
-                opacity: isSaving ? 0.6 : pressed ? 0.92 : 1,
-              })}
-            >
-              <Ionicons
-                name={isSaving ? "sync-outline" : "checkmark-circle-outline"}
-                size={20}
-                color="#ffffff"
-              />
-              <Text style={styles.saveButtonText}>
-                {isSaving ? "Caricamento…" : "Conferma e carica"}
-              </Text>
-            </Pressable>
+              style={StyleSheet.absoluteFill}
+              accessibilityRole="button"
+              accessibilityLabel={isSaving ? "Caricamento in corso" : "Conferma e carica annuncio"}
+            />
+            <Ionicons
+              name={isSaving ? "sync-outline" : "checkmark-circle-outline"}
+              size={20}
+              color="#ffffff"
+              style={{ marginRight: 10 }}
+            />
+            <Text style={styles.saveButtonText}>
+              {isSaving ? "Caricamento…" : "Conferma e carica"}
+            </Text>
           </View>
 
           {/* ── Delete listing ── */}
@@ -3603,13 +3596,19 @@ const styles = StyleSheet.create({
     color: C.onSurfaceVariant,
   },
 
-  // Save button — verde scuro: bg sull'outer View per non sparire su iOS
+  // Save button — verde scuro: outer View porta layout + bg, Pressable copre
+  // l'area come absoluteFill per il touch. Pattern bullet-proof su iOS.
   saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#022420",
     borderRadius: 16,
     height: 58,
     marginTop: 16,
     marginBottom: 12,
+    marginHorizontal: 20,
+    paddingHorizontal: 24,
     overflow: "hidden",
     ...Platform.select({
       ios: {
