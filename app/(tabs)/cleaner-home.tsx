@@ -495,7 +495,7 @@ export default function CleanerHomeScreen() {
   const cleanerCompletion = useMemo(() => {
     return calculateCleanerCompletion({
       full_name: profile?.full_name,
-      avatar_url: undefined,
+      avatar_url: profile?.avatar_url,
       hasActiveListing,
       hasVerifiedDocument: hasVerifiedDoc,
       hasStripeConnect,

@@ -698,7 +698,7 @@ export default function HomeScreen() {
   const profileCompletion = useMemo(() => {
     return calculateClientCompletion({
       full_name: profile?.full_name,
-      avatar_url: undefined, // UserProfile type doesn't expose avatar
+      avatar_url: profile?.avatar_url,
       hasProperty: (properties ?? []).length > 0,
       hasPaymentMethod,
     });
