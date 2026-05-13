@@ -54,7 +54,7 @@ export default function AssistanceFooter({
               size={18}
               color={Colors.textOnDark}
             />
-            <Text style={styles.chatBtnText}>Chat</Text>
+            <Text style={styles.chatBtnText} numberOfLines={1}>Chat con noi</Text>
           </View>
         </Pressable>
 
@@ -75,7 +75,7 @@ export default function AssistanceFooter({
               size={18}
               color={Colors.secondary}
             />
-            <Text style={styles.emailBtnText}>Email</Text>
+            <Text style={styles.emailBtnText} numberOfLines={1}>Scrivi email</Text>
           </View>
         </Pressable>
       </View>
@@ -158,13 +158,13 @@ const styles = StyleSheet.create({
   },
 
   chatBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: Colors.textOnDark,
   },
 
   emailBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: Colors.secondary,
   },
