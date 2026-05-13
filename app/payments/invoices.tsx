@@ -2,12 +2,14 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
+  Image,
   FlatList,
   Pressable,
   StatusBar,
   StyleSheet,
   RefreshControl,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -145,7 +147,17 @@ export default function InvoicesScreen() {
   }, [loadInvoices]);
 
   const handleInvoicePress = useCallback((_id: string) => {
-    // Navigate to invoice detail when implemented
+    Alert.alert(
+      "Prossimamente",
+      "Il dettaglio delle fatture sarà disponibile a breve. Puoi consultare lo storico pagamenti dal Dashboard Stripe.",
+    );
+  }, []);
+
+  const handleExport = useCallback(() => {
+    Alert.alert(
+      "Prossimamente",
+      "L'esportazione PDF delle fatture sarà disponibile a breve.",
+    );
   }, []);
 
   const keyExtractor = useCallback((item: Invoice) => item.id, []);
@@ -236,12 +248,16 @@ export default function InvoicesScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Supporto</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="leaf" size={20} color="#022420" />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require("../../assets/icon.png")}
+              style={{ width: 26, height: 26, borderRadius: 6 }}
+            />
             <Text style={styles.headerBrand}>CleanHome</Text>
           </View>
         </View>
-        <Pressable style={styles.downloadBtn}>
+        <Pressable style={styles.downloadBtn} onPress={handleExport}>
           <Ionicons name="download-outline" size={18} color={Colors.secondary} />
           <Text style={styles.downloadBtnText}>Esporta</Text>
         </Pressable>
