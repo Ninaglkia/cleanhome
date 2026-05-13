@@ -199,57 +199,25 @@ export default function CleanerDetailScreen() {
             )}
           </View>
 
-          {/* Rating — show stars only when there are real reviews;
-              otherwise display a "Nuovo professionista" badge instead
-              of a misleading 0.0 (0 recensioni). */}
-          {cleaner.review_count > 0 ? (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Ionicons name="star" size={16} color={Colors.warning} />
-              <Text
-                style={{
-                  fontSize: 15,
-                  fontWeight: "700",
-                  color: Colors.text,
-                  marginLeft: 5,
-                }}
-              >
-                {cleaner.avg_rating.toFixed(1)}
-              </Text>
-              <Text
-                style={{ fontSize: 13, color: Colors.textSecondary, marginLeft: 5 }}
-              >
-                ({cleaner.review_count}{" "}
-                {cleaner.review_count === 1 ? "recensione" : "recensioni"})
-              </Text>
-            </View>
-          ) : (
-            <View
+          {/* Rating */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <Ionicons name="star" size={16} color={Colors.warning} />
+            <Text
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: 8,
-                alignSelf: "flex-start",
-                backgroundColor: Colors.surface,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: Colors.border,
+                fontSize: 15,
+                fontWeight: "700",
+                color: Colors.text,
+                marginLeft: 5,
               }}
             >
-              <Ionicons name="sparkles" size={14} color={Colors.secondary} />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "700",
-                  color: Colors.secondary,
-                  marginLeft: 5,
-                }}
-              >
-                Nuovo professionista
-              </Text>
-            </View>
-          )}
+              {cleaner.avg_rating.toFixed(1)}
+            </Text>
+            <Text
+              style={{ fontSize: 13, color: Colors.textSecondary, marginLeft: 5 }}
+            >
+              ({cleaner.review_count} recensioni)
+            </Text>
+          </View>
 
           {/* Location */}
           {cleaner.city && (
@@ -301,7 +269,7 @@ export default function CleanerDetailScreen() {
                   letterSpacing: -0.5,
                 }}
               >
-                €{cleaner.hourly_rate.toFixed(2)}
+                €{cleaner.hourly_rate}
               </Text>
               <Text style={{ fontSize: 12, color: Colors.textTertiary, marginTop: 3 }}>
                 all'ora

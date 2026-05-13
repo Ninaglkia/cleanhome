@@ -97,12 +97,9 @@ export default function SupportScreen() {
     router.push("/support/chat");
   }, [router]);
 
-  const handleEmailTeam = useCallback(() => {
-    Linking.openURL("mailto:support@cleanhomeapp.com").catch(() => {
-      // Silently ignore — most devices have a mail client; if not, the
-      // alternative AI chat option is still available next to this button.
-    });
-  }, []);
+  const handleTalkToConcierge = useCallback(() => {
+    router.push("/support/chat");
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -154,11 +151,10 @@ export default function SupportScreen() {
               </View>
             </View>
 
-            <Text style={styles.aiTitle}>Assistenza intelligente</Text>
+            <Text style={styles.aiTitle}>Supporto Ibrido Intelligente</Text>
             <Text style={styles.aiDescription}>
-              L'assistente AI è disponibile 24/7 per rispondere alle tue
-              domande. Per richieste più complesse puoi scrivere al team via
-              email.
+              Combiniamo intelligenza artificiale avanzata con il tocco umano dei nostri
+              concierge dedicati per offrirti il massimo del supporto, 24 ore su 24.
             </Text>
 
             <View style={styles.aiButtons}>
@@ -175,12 +171,12 @@ export default function SupportScreen() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Scrivi al team via email"
+                accessibilityLabel="Parla con il concierge"
                 style={({ pressed }) => [styles.btnOutline, pressed && styles.btnPressed]}
-                onPress={handleEmailTeam}
+                onPress={handleTalkToConcierge}
               >
-                <Ionicons name="mail-outline" size={16} color={Colors.secondary} />
-                <Text style={styles.btnOutlineText}>Scrivi al team</Text>
+                <Ionicons name="headset-outline" size={16} color={Colors.secondary} />
+                <Text style={styles.btnOutlineText}>Parla col Concierge</Text>
               </Pressable>
             </View>
           </View>
@@ -203,19 +199,18 @@ export default function SupportScreen() {
           <View style={styles.stillCard}>
             <Text style={styles.stillTitle}>Hai ancora domande?</Text>
             <Text style={styles.stillSubtitle}>
-              L'assistente AI risponde 24/7. Per richieste che richiedono il
-              team, scrivici via email.
+              L'assistente AI risponde 24/7 e può trasferirti a un operatore umano per casi complessi.
             </Text>
             <View style={styles.stillBtnFull}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Scrivi al team via email"
-                onPress={handleEmailTeam}
+                accessibilityLabel="Apri chat assistente"
+                onPress={handleTalkToConcierge}
                 android_ripple={{ color: "rgba(255,255,255,0.18)" }}
                 style={StyleSheet.absoluteFill}
               />
-              <Ionicons name="mail-outline" size={18} color="#fff" pointerEvents="none" />
-              <Text style={styles.stillBtnFullText} pointerEvents="none">Scrivi al team via email</Text>
+              <Ionicons name="sparkles" size={18} color="#fff" pointerEvents="none" />
+              <Text style={styles.stillBtnFullText} pointerEvents="none">Parla con l'assistente</Text>
               <Ionicons name="chevron-forward" size={18} color="#fff" pointerEvents="none" />
             </View>
           </View>

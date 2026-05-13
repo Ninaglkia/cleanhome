@@ -22,7 +22,6 @@ import {
 import type { AddressSuggestion } from "../../lib/api";
 import { ALL_SERVICES } from "../../lib/types";
 import { Colors } from "../../lib/theme";
-import { FEE_RATE } from "../../lib/pricing";
 
 const TOTAL_STEPS = 3;
 
@@ -598,7 +597,7 @@ export default function CleanerOnboardingScreen() {
                 }}
               >
                 <Text style={{ fontSize: 13, color: Colors.secondary, fontWeight: "600" }}>
-                  Il cliente pagherà €{(parseFloat(hourlyRate || "0") * (1 + FEE_RATE)).toFixed(2)}/h
+                  Il cliente pagherà €{(parseFloat(hourlyRate || "0") * 1.09).toFixed(2)}/h
                 </Text>
               </View>
             </View>

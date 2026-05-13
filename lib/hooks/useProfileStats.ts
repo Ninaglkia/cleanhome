@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabase";
-import { FEE_RATE } from "../pricing";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,8 +51,7 @@ export function useProfileStats(
   const fetchCleanerStats = useCallback(async (uid: string) => {
     setIsLoading(true);
     try {
-      // Earnings this month: total_price already includes the client fee (base * 1.09).
-      // To get the cleaner's net (base * 0.91), divide by 1.09 first then apply (1 - FEE_RATE).
+      // Earnings this month: SUM(total_price) * 0.91 WHERE cleaner_id=uid AND status='completed' AND completed_at >= start_of_month
       const { data: earningsData } = await supabase
         .from("bookings")
         .select("total_price")
@@ -63,8 +61,7 @@ export function useProfileStats(
 
       const rawEarnings =
         earningsData?.reduce((acc, row) => acc + (row.total_price ?? 0), 0) ?? 0;
-      const base = rawEarnings / (1 + FEE_RATE);
-      setEarnings(base * (1 - FEE_RATE));
+      setEarnings(rawEarnings * 0.91);
 
       // Total completed jobs: COUNT(bookings) WHERE cleaner_id=uid AND status='completed'
       const { count: jobCount } = await supabase
@@ -98,7 +95,7 @@ export function useProfileStats(
   const fetchClientStats = useCallback(async (uid: string) => {
     setIsLoading(true);
     try {
-      // Spent total: SUM(total_price) — total_price already includes the 9% client fee.
+      // Spent total: SUM(total_price) * 1.09 WHERE client_id=uid AND status='completed'
       const { data: spentData } = await supabase
         .from("bookings")
         .select("total_price")
@@ -107,7 +104,7 @@ export function useProfileStats(
 
       const rawSpent =
         spentData?.reduce((acc, row) => acc + (row.total_price ?? 0), 0) ?? 0;
-      setSpent(rawSpent);
+      setSpent(rawSpent * 1.09);
 
       // Completed bookings count
       const { count: bCount } = await supabase

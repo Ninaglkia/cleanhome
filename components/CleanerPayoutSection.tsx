@@ -166,9 +166,7 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
   if (isLoading) {
     return (
       <View style={[styles.card, { backgroundColor: "#f0f4f3", borderColor: "#c1c8c5" }]}>
-        <View style={styles.cardInner}>
-          <ActivityIndicator size="small" color="#006b55" style={{ marginVertical: 8 }} />
-        </View>
+        <ActivityIndicator size="small" color="#006b55" style={{ marginVertical: 8 }} />
       </View>
     );
   }
@@ -184,38 +182,36 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
           {
             backgroundColor: TOKEN.unconfiguredBg,
             borderColor: TOKEN.unconfiguredBorder,
+            opacity: pressed ? 0.85 : invoking ? 0.6 : 1,
           },
-          (pressed || invoking) && { opacity: pressed ? 0.85 : 0.6 },
         ]}
         accessibilityRole="button"
         accessibilityLabel="Configura i tuoi pagamenti"
       >
-        <View style={styles.cardInner}>
-          <StatusIcon
-            name="wallet-outline"
-            color={TOKEN.unconfiguredIcon}
-            bgColor={TOKEN.unconfiguredIconBg}
-            loading={invoking}
-          />
-          <View style={styles.textBlock}>
-            <Text style={[styles.title, { color: TOKEN.unconfiguredTitle }]}>
-              Configura i tuoi pagamenti
+        <StatusIcon
+          name="wallet-outline"
+          color={TOKEN.unconfiguredIcon}
+          bgColor={TOKEN.unconfiguredIconBg}
+          loading={invoking}
+        />
+        <View style={styles.textBlock}>
+          <Text style={[styles.title, { color: TOKEN.unconfiguredTitle }]}>
+            Configura i tuoi pagamenti
+          </Text>
+          <Text style={[styles.body, { color: TOKEN.unconfiguredBody }]}>
+            Aggiungi un IBAN o carta prepagata per ricevere i soldi delle pulizie.
+            È sicuro, gestito da Stripe.
+          </Text>
+          <View
+            style={[
+              styles.ctaChip,
+              { backgroundColor: TOKEN.unconfiguredCtaBg },
+            ]}
+          >
+            <Text style={[styles.ctaText, { color: TOKEN.unconfiguredCta }]}>
+              Configura ora
             </Text>
-            <Text style={[styles.body, { color: TOKEN.unconfiguredBody }]}>
-              Aggiungi un IBAN o carta prepagata per ricevere i soldi delle pulizie.
-              È sicuro, gestito da Stripe.
-            </Text>
-            <View
-              style={[
-                styles.ctaChip,
-                { backgroundColor: TOKEN.unconfiguredCtaBg },
-              ]}
-            >
-              <Text style={[styles.ctaText, { color: TOKEN.unconfiguredCta }]}>
-                Configura ora
-              </Text>
-              <Ionicons name="arrow-forward" size={14} color={TOKEN.unconfiguredCta} />
-            </View>
+            <Ionicons name="arrow-forward" size={14} color={TOKEN.unconfiguredCta} />
           </View>
         </View>
       </Pressable>
@@ -233,35 +229,33 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
           {
             backgroundColor: TOKEN.pendingBg,
             borderColor: TOKEN.pendingBorder,
+            opacity: pressed ? 0.85 : invoking ? 0.6 : 1,
           },
-          (pressed || invoking) && { opacity: pressed ? 0.85 : 0.6 },
         ]}
         accessibilityRole="button"
         accessibilityLabel="Continua la configurazione pagamenti"
       >
-        <View style={styles.cardInner}>
-          <StatusIcon
-            name="time-outline"
-            color={TOKEN.pendingIcon}
-            bgColor={TOKEN.pendingIconBg}
-            loading={invoking}
-          />
-          <View style={styles.textBlock}>
-            <Text style={[styles.title, { color: TOKEN.pendingTitle }]}>
-              Verifica in corso
+        <StatusIcon
+          name="time-outline"
+          color={TOKEN.pendingIcon}
+          bgColor={TOKEN.pendingIconBg}
+          loading={invoking}
+        />
+        <View style={styles.textBlock}>
+          <Text style={[styles.title, { color: TOKEN.pendingTitle }]}>
+            Verifica in corso
+          </Text>
+          <Text style={[styles.body, { color: TOKEN.pendingBody }]}>
+            Stripe sta verificando i tuoi dati. Riceverai una notifica quando
+            sarà completato.
+          </Text>
+          <View
+            style={[styles.ctaChip, { backgroundColor: TOKEN.pendingCtaBg }]}
+          >
+            <Text style={[styles.ctaText, { color: TOKEN.pendingCta }]}>
+              Continua la configurazione
             </Text>
-            <Text style={[styles.body, { color: TOKEN.pendingBody }]}>
-              Stripe sta verificando i tuoi dati. Riceverai una notifica quando
-              sarà completato.
-            </Text>
-            <View
-              style={[styles.ctaChip, { backgroundColor: TOKEN.pendingCtaBg }]}
-            >
-              <Text style={[styles.ctaText, { color: TOKEN.pendingCta }]}>
-                Continua la configurazione
-              </Text>
-              <Ionicons name="arrow-forward" size={14} color={TOKEN.pendingCta} />
-            </View>
+            <Ionicons name="arrow-forward" size={14} color={TOKEN.pendingCta} />
           </View>
         </View>
       </Pressable>
@@ -279,34 +273,32 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
         },
       ]}
     >
-      <View style={styles.cardInner}>
-        <StatusIcon
-          name="checkmark-circle"
-          color={TOKEN.activeIcon}
-          bgColor={TOKEN.activeIconBg}
-        />
-        <View style={styles.textBlock}>
-          <Text style={[styles.title, { color: TOKEN.activeTitle }]}>
-            Pagamenti attivi
+      <StatusIcon
+        name="checkmark-circle"
+        color={TOKEN.activeIcon}
+        bgColor={TOKEN.activeIconBg}
+      />
+      <View style={styles.textBlock}>
+        <Text style={[styles.title, { color: TOKEN.activeTitle }]}>
+          Pagamenti attivi
+        </Text>
+        <Text style={[styles.body, { color: TOKEN.activeBody }]}>
+          I tuoi guadagni vengono accreditati automaticamente sul conto
+          collegato a Stripe.
+        </Text>
+        <Pressable
+          onPress={openUpdateLink}
+          disabled={invoking}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          accessibilityRole="link"
+          accessibilityLabel="Gestisci pagamenti e dati bancari"
+        >
+          <Text style={[styles.linkText, { color: TOKEN.activeLink }]}>
+            {invoking
+              ? "Apertura in corso…"
+              : "Gestisci pagamenti e dati bancari →"}
           </Text>
-          <Text style={[styles.body, { color: TOKEN.activeBody }]}>
-            I tuoi guadagni vengono accreditati automaticamente sul conto
-            collegato a Stripe.
-          </Text>
-          <Pressable
-            onPress={openUpdateLink}
-            disabled={invoking}
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-            accessibilityRole="link"
-            accessibilityLabel="Gestisci pagamenti e dati bancari"
-          >
-            <Text style={[styles.linkText, { color: TOKEN.activeLink }]}>
-              {invoking
-                ? "Apertura in corso…"
-                : "Gestisci pagamenti e dati bancari →"}
-            </Text>
-          </Pressable>
-        </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -315,25 +307,18 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Outer wrapper for Pressable — no flexDirection here. iOS collapses
-  // Pressable's row layout under certain conditions when flexDirection
-  // is set directly on the outer touchable; we move the row layout to
-  // an inner View instead.
   card: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     borderRadius: 16,
+    padding: 16,
+    gap: 14,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-  },
-  // Inner row that carries flexDirection + padding for the actual layout.
-  cardInner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 16,
-    gap: 14,
   },
   iconCircle: {
     width: 48,

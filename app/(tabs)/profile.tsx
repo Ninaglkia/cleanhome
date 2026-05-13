@@ -301,48 +301,44 @@ function MenuRow({
       accessibilityRole="button"
       accessibilityLabel={sublabel ? `${label}. ${sublabel}` : label}
       accessibilityHint={danger ? "Azione irreversibile" : undefined}
-      // iOS Pressable+row collapse fix — keep no flexDirection on the
-      // outer pressable; move all layout into the inner View below.
       style={({ pressed }) => [
-        styles.menuRowOuter,
+        styles.menuRow,
         cardStyle && styles.menuRowCard,
         pressed && (cardStyle ? styles.menuRowCardPressed : styles.menuRowPressed),
       ]}
     >
-      <View style={[styles.menuRowInner, cardStyle && styles.menuRowInnerCard]}>
-        <View
+      <View
+        style={[
+          styles.menuRowIconBox,
+          { backgroundColor: danger ? C.errorContainer : (iconBgColor || C.surfaceLow) },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={danger ? C.error : (iconColor || C.primary)}
+        />
+      </View>
+
+      <View style={styles.menuRowBody}>
+        <Text
           style={[
-            styles.menuRowIconBox,
-            { backgroundColor: danger ? C.errorContainer : (iconBgColor || C.surfaceLow) },
+            styles.menuRowLabel,
+            { color: danger ? C.error : C.primary },
           ]}
         >
-          <Ionicons
-            name={icon}
-            size={20}
-            color={danger ? C.error : (iconColor || C.primary)}
-          />
-        </View>
-
-        <View style={styles.menuRowBody}>
-          <Text
-            style={[
-              styles.menuRowLabel,
-              { color: danger ? C.error : C.primary },
-            ]}
-          >
-            {label}
-          </Text>
-          {sublabel ? (
-            <Text style={styles.menuRowSublabel}>{sublabel}</Text>
-          ) : null}
-        </View>
-
-        {loading ? (
-          <ActivityIndicator size="small" color={C.outline} />
-        ) : (
-          <Ionicons name="chevron-forward" size={18} color={C.outlineVariant} />
-        )}
+          {label}
+        </Text>
+        {sublabel ? (
+          <Text style={styles.menuRowSublabel}>{sublabel}</Text>
+        ) : null}
       </View>
+
+      {loading ? (
+        <ActivityIndicator size="small" color={C.outline} />
+      ) : (
+        <Ionicons name="chevron-forward" size={18} color={C.outlineVariant} />
+      )}
     </Pressable>
   );
 }
@@ -363,8 +359,6 @@ interface CleanerViewProps {
   onDocuments: () => void;
   onLegal: () => void;
   onPrivacy: () => void;
-  onTerms: () => void;
-  onRefund: () => void;
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
@@ -391,8 +385,6 @@ function CleanerView({
   onDocuments,
   onLegal,
   onPrivacy,
-  onTerms,
-  onRefund,
   onSwitchRole,
   onSignOut,
   onDeleteAccount,
@@ -543,25 +535,9 @@ function CleanerView({
         <View style={clientStyles.menuSection}>
           <MenuRow
             icon="shield-checkmark-outline"
-            label="Privacy"
-            sublabel="Come trattiamo i tuoi dati"
+            label="Privacy e Legale"
+            sublabel="Termini, condizioni e gestione dati"
             onPress={onPrivacy}
-            iconBgColor={C.surfaceLow}
-            cardStyle
-          />
-          <MenuRow
-            icon="document-text-outline"
-            label="Termini di servizio"
-            sublabel="Condizioni d'uso della piattaforma"
-            onPress={onTerms}
-            iconBgColor={C.surfaceLow}
-            cardStyle
-          />
-          <MenuRow
-            icon="cash-outline"
-            label="Rimborsi"
-            sublabel="Politica di rimborso e cancellazioni"
-            onPress={onRefund}
             iconBgColor={C.surfaceLow}
             cardStyle
           />
@@ -610,8 +586,6 @@ interface ClientViewProps {
   onBankData: () => void;
   onDocuments: () => void;
   onPrivacy: () => void;
-  onTerms: () => void;
-  onRefund: () => void;
   onBookings: () => void;
   onProperties: () => void;
   onSwitchRole: () => void;
@@ -639,8 +613,6 @@ function ClientView({
   onDocuments,
   onProperties,
   onPrivacy,
-  onTerms,
-  onRefund,
   onBookings,
   onSwitchRole,
   onSignOut,
@@ -754,27 +726,9 @@ function ClientView({
         <View style={clientStyles.menuSection}>
           <MenuRow
             icon="shield-checkmark-outline"
-            label="Privacy"
-            sublabel="Come trattiamo i tuoi dati"
+            label="Privacy e Legale"
+            sublabel="Termini, condizioni e gestione dati"
             onPress={onPrivacy}
-            iconBgColor={C.cleanerIconBg}
-            iconColor={C.cleanerPrimary}
-            cardStyle
-          />
-          <MenuRow
-            icon="document-text-outline"
-            label="Termini di servizio"
-            sublabel="Condizioni d'uso della piattaforma"
-            onPress={onTerms}
-            iconBgColor={C.cleanerIconBg}
-            iconColor={C.cleanerPrimary}
-            cardStyle
-          />
-          <MenuRow
-            icon="cash-outline"
-            label="Rimborsi"
-            sublabel="Politica di rimborso e cancellazioni"
-            onPress={onRefund}
             iconBgColor={C.cleanerIconBg}
             iconColor={C.cleanerPrimary}
             cardStyle
@@ -915,7 +869,7 @@ export default function ProfileScreen() {
             rect: avatarRect,
             title: "Carica la tua foto",
             description:
-              "Un profilo con foto riceve molte più richieste. Tocca l'avatar per aggiungerne una.",
+              "Un profilo con foto riceve il 3x più richieste. Tocca l'avatar per aggiungerne una.",
           });
         }
         if (editRect) {
@@ -1100,14 +1054,6 @@ export default function ProfileScreen() {
     router.push("/legal/privacy");
   }, [router]);
 
-  const handleTerms = useCallback(() => {
-    router.push("/legal/terms");
-  }, [router]);
-
-  const handleRefund = useCallback(() => {
-    router.push("/legal/refund");
-  }, [router]);
-
   // Used by ClientView "Metodo di Pagamento" row
   const handleBankData = useCallback(() => {
     router.push("/payments");
@@ -1177,8 +1123,6 @@ export default function ProfileScreen() {
               onDocuments={handleDocuments}
               onLegal={handleLegal}
               onPrivacy={handlePrivacy}
-              onTerms={handleTerms}
-              onRefund={handleRefund}
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
@@ -1203,8 +1147,6 @@ export default function ProfileScreen() {
               onBankData={handleBankData}
               onDocuments={handleDocuments}
               onPrivacy={handlePrivacy}
-              onTerms={handleTerms}
-              onRefund={handleRefund}
               onBookings={() => router.push("/(tabs)/bookings")}
               onProperties={() => router.push("/properties")}
               onSwitchRole={handleSwitchRole}
@@ -1448,33 +1390,22 @@ const styles = StyleSheet.create({
     backgroundColor: `${C.outlineVariant}26`,
     marginLeft: 72,
   },
-  // Outer Pressable container — no flexDirection. iOS Pressable+row
-  // collapse fix; the inner View carries the actual row layout.
-  menuRowOuter: {
-    // (background + padding live on the cardStyle variant; default row
-    // gets its padding/background from menuRowInner only.)
-  },
-  menuRowInner: {
+  menuRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 14,
   },
-  menuRowInnerCard: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
   menuRowPressed: {
     backgroundColor: C.surfaceLow,
-    borderRadius: 12,
   },
-  // Card-style variant: ogni row è una card bianca indipendente.
-  // No paddings here — the inner View handles them; we just provide the
-  // visual chrome (background, radius, shadow).
+  // Card-style variant: ogni row è una card bianca indipendente
   menuRowCard: {
     backgroundColor: C.surface,
     borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     shadowColor: C.onSurface,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

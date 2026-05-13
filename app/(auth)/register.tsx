@@ -166,16 +166,6 @@ export default function RegisterScreen() {
       );
       return;
     }
-    // Optional phone field — but if provided, must contain at least 6
-    // digits to be a plausible number. Prevents garbage like "123".
-    const phoneCheck = phone.trim();
-    if (phoneCheck.length > 0 && phoneCheck.replace(/\D/g, "").length < 6) {
-      Alert.alert(
-        "Numero non valido",
-        "Numero di telefono non valido (minimo 6 cifre)"
-      );
-      return;
-    }
     setLoading(true);
     try {
       // Map UI role → DB role and build the E.164-ish phone string so

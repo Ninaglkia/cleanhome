@@ -588,100 +588,9 @@ interface CompletionItem {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
-function CompletionBanner({
-  items,
-  isActive,
-  subscriptionActive,
-}: {
-  items: CompletionItem[];
-  isActive: boolean;
-  subscriptionActive: boolean;
-}) {
+function CompletionBanner({ items }: { items: CompletionItem[] }) {
   const missing = items.filter((i) => !i.done);
   const progress = items.length - missing.length;
-
-  // If the subscription is not active, no green "published" state is
-  // truthful — show a red CTA to reactivate it. This takes priority over
-  // every other state.
-  if (!subscriptionActive) {
-    return (
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#FEF2F2",
-          borderRadius: 16,
-          padding: 14,
-          marginBottom: 12,
-          gap: 12,
-          borderWidth: 1,
-          borderColor: "#FCA5A5",
-        }}
-      >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: "#FEE2E2",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="alert-circle" size={22} color="#DC2626" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#991B1B" }}>
-            Abbonamento non attivo
-          </Text>
-          <Text style={{ fontSize: 12, color: "#B91C1C", lineHeight: 16 }}>
-            Riattiva l'abbonamento per pubblicare questo annuncio.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Subscription is active but the listing itself has been paused by the
-  // cleaner — show an amber "in pausa" notice.
-  if (!isActive) {
-    return (
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#FFFBEB",
-          borderRadius: 16,
-          padding: 14,
-          marginBottom: 12,
-          gap: 12,
-          borderWidth: 1,
-          borderColor: "#FCD34D",
-        }}
-      >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: "#FEF3C7",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="pause-circle" size={22} color="#B45309" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#78350F" }}>
-            Annuncio in pausa
-          </Text>
-          <Text style={{ fontSize: 12, color: "#92400E", lineHeight: 16 }}>
-            Attiva l'annuncio per renderlo visibile ai clienti.
-          </Text>
-        </View>
-      </View>
-    );
-  }
 
   if (missing.length === 0) {
     return (
@@ -860,10 +769,6 @@ export default function ListingScreen() {
 
   // Listing active/inactive — synced with cleaner_profiles.is_available.
   const [isActive, setIsActive] = useState(true);
-
-  // Subscription status — listings only show as "published & visible"
-  // when this is true. First listings are always considered active.
-  const [subscriptionActive, setSubscriptionActive] = useState(true);
 
   // MapView refs
   const mapRef = useRef<MapView>(null);
@@ -2075,12 +1980,6 @@ export default function ListingScreen() {
           );
         }
         setIsActive(existing.is_active !== false);
-        // First listing is always considered "subscription active" (free);
-        // additional listings require subscription_status === 'active'.
-        setSubscriptionActive(
-          existing.is_first_listing === true ||
-            existing.subscription_status === "active"
-        );
 
         if (
           existing.coverage_mode === "circle" &&
@@ -2168,8 +2067,6 @@ export default function ListingScreen() {
         >
           {/* ── Completion checklist ── */}
           <CompletionBanner
-            isActive={isActive}
-            subscriptionActive={subscriptionActive}
             items={[
               {
                 key: "cover",

@@ -56,18 +56,21 @@ export default function MyListingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Stripe Connect onboarding state. Null = not yet loaded → don't render
-  // any banner (avoids a green/red flash on cold start).
-  const [stripeVerified, setStripeVerified] = useState<boolean | null>(null);
+  // Stripe Connect onboarding state
+  const [stripeVerified, setStripeVerified] = useState(true); // assume true until loaded
   const [verifying, setVerifying] = useState(false);
 
   // Re-check Stripe Connect onboarding status. Called on mount and again
   // every time the screen is focused (e.g. when the user comes back from
-  // Stripe's hosted KYC flow in an external browser). Reads the canonical
-  // state from the DB — the webhook is the source of truth.
+  // Stripe's hosted KYC flow in an external browser).
+  // First syncs status from Stripe API (fallback for missed webhooks),
+  // then reads the canonical state from the DB.
   const refreshStripeStatus = useCallback(async () => {
     if (!user?.id) return;
     try {
+      // Best-effort sync from Stripe to DB. Ignore errors (e.g. no account yet).
+      await supabase.functions.invoke("stripe-connect-sync-status", { body: {} }).catch(() => {});
+
       const { data } = await supabase
         .from("cleaner_profiles")
         .select("stripe_onboarding_complete, stripe_charges_enabled")
@@ -361,9 +364,8 @@ export default function MyListingsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Stripe Connect verification banner — pending. Only render
-            when stripeVerified is a boolean (skip while still null/loading). */}
-        {stripeVerified === false && !loading && (
+        {/* Stripe Connect verification banner — pending */}
+        {!stripeVerified && !loading && (
           <Pressable
             onPress={handleStartVerification}
             disabled={verifying}
@@ -419,7 +421,7 @@ export default function MyListingsScreen() {
         )}
 
         {/* Stripe Connect verification banner — verified */}
-        {stripeVerified === true && !loading && (
+        {stripeVerified && !loading && (
           <View
             style={{
               flexDirection: "row",
@@ -610,7 +612,7 @@ function ListingCard({
       : listing.city || "Zona personalizzata"
     : "Nessuna zona impostata";
   const rateLabel = listing.hourly_rate
-    ? `€${Number(listing.hourly_rate).toFixed(2)}/ora`
+    ? `€${Number(listing.hourly_rate).toFixed(0)}/ora`
     : "Tariffa non impostata";
   const isIncomplete = !hasZone || !listing.hourly_rate;
 
