@@ -281,31 +281,39 @@ export default function PaymentsScreen() {
           <Text style={styles.assistanceSub}>
             Il nostro team di assistenza è disponibile 7 giorni su 7.
           </Text>
-          <View style={styles.assistanceBtns}>
-            <Pressable
-              onPress={handleChat}
-              accessibilityRole="button"
-              accessibilityLabel="Chat con noi"
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => [pressed && { opacity: 0.85 }, { flex: 1 }]}
-            >
-              <View style={styles.assistanceBtnPrimary}>
-                <Ionicons name="chatbubble-ellipses-outline" size={17} color={Colors.textOnDark} />
-                <Text style={styles.assistanceBtnPrimaryText}>Chat con noi</Text>
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={handleEmailBilling}
-              accessibilityRole="button"
-              accessibilityLabel="Email al team"
-              style={({ pressed }) => [pressed && { opacity: 0.85 }, { flex: 1 }]}
-            >
-              <View style={styles.assistanceBtnSecondary}>
-                <Ionicons name="mail-outline" size={17} color={Colors.secondary} />
-                <Text style={styles.assistanceBtnSecondaryText}>Email</Text>
-              </View>
-            </Pressable>
-          </View>
+          {/* Primary CTA full-width, then a discreet text link below.
+              Two equal-weight pills side-by-side were never sitting
+              right — the labels are different lengths and one is dark
+              + one is light, so the eye reads them as competing. This
+              stacked layout removes the comparison entirely. */}
+          <Pressable
+            onPress={handleChat}
+            accessibilityRole="button"
+            accessibilityLabel="Apri la chat con noi"
+            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+            style={({ pressed }) => [
+              styles.assistancePrimaryBtn,
+              pressed && { opacity: 0.88 },
+            ]}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textOnDark} />
+            <Text style={styles.assistancePrimaryBtnText}>Chat con noi</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleEmailBilling}
+            accessibilityRole="link"
+            accessibilityLabel="Scrivi al team via email"
+            style={({ pressed }) => [
+              styles.assistanceSecondaryLink,
+              pressed && { opacity: 0.6 },
+            ]}
+            hitSlop={8}
+          >
+            <Ionicons name="mail-outline" size={14} color={Colors.secondary} />
+            <Text style={styles.assistanceSecondaryLinkText}>
+              Oppure scrivi al team via email
+            </Text>
+          </Pressable>
         </View>
 
         <View style={{ height: Platform.OS === "ios" ? 32 : 24 }} />
@@ -575,42 +583,34 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.sm,
   },
-  assistanceBtns: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    width: "100%",
-  },
-  assistanceBtnPrimary: {
-    flex: 1,
+  assistancePrimaryBtn: {
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    height: 48,
+    height: 52,
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
     ...Shadows.sm,
   },
-  assistanceBtnPrimaryText: {
-    fontSize: 14,
+  assistancePrimaryBtnText: {
+    fontSize: 15,
     fontWeight: "700",
     color: Colors.textOnDark,
+    letterSpacing: 0.1,
   },
-  assistanceBtnSecondary: {
-    flex: 1,
-    alignSelf: "stretch",
+  assistanceSecondaryLink: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    height: 48,
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.lg,
+    gap: 6,
+    paddingVertical: 8,
+    marginTop: 4,
   },
-  assistanceBtnSecondaryText: {
-    fontSize: 14,
-    fontWeight: "700",
+  assistanceSecondaryLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
     color: Colors.secondary,
   },
 });
