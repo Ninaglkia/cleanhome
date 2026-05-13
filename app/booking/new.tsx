@@ -32,12 +32,24 @@ import type { ClientProperty, ListingSearchResult } from "../../lib/types";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TIME_WINDOW_OPTIONS = [
-  { key: "morning", label: "Mattina", subtitle: "08:00 – 12:00", icon: "sunny-outline" as const },
-  { key: "afternoon", label: "Pomeriggio", subtitle: "12:00 – 17:00", icon: "partly-sunny-outline" as const },
-  { key: "evening", label: "Sera", subtitle: "17:00 – 21:00", icon: "moon-outline" as const },
+  { key: "morning", label: "Mattina", subtitle: "08:00 – 12:00", icon: "sunny-outline" as const, endHour: 12 },
+  { key: "afternoon", label: "Pomeriggio", subtitle: "12:00 – 17:00", icon: "partly-sunny-outline" as const, endHour: 17 },
+  { key: "evening", label: "Sera", subtitle: "17:00 – 21:00", icon: "moon-outline" as const, endHour: 21 },
 ] as const;
 
 type TimeWindow = (typeof TIME_WINDOW_OPTIONS)[number]["key"];
+
+// Minimum lead time (hours) between booking submission and the END of the
+// chosen window — so cleaners have time to accept and arrive. If "now" is
+// closer than this to the window's end, the slot is disabled.
+const MIN_LEAD_HOURS = 1;
+
+// Returns YYYY-MM-DD for today in local time. Used to compare against the
+// selected date string to decide whether to apply same-day filtering.
+function todayDateStr(): string {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+}
 
 const ROOM_OPTIONS = [1, 2, 3, 4, 5, 6];
 import { calculatePrice, FEE_RATE } from "../../lib/pricing";
@@ -55,13 +67,30 @@ const SIZE_PRESETS = [
   { key: "villa", label: "Casa grande",   sqm: 160, rooms: 5, icon: "home-outline" as const },
 ] as const;
 
-const SERVICE_OPTIONS: ReadonlyArray<{ key: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: "Pulizia ordinaria", label: "Pulizia ordinaria", icon: "sparkles-outline" },
-  { key: "Pulizia profonda", label: "Pulizia profonda", icon: "water-outline" },
-  { key: "Stiratura", label: "Stiratura", icon: "shirt-outline" },
-  { key: "Pulizia vetri", label: "Pulizia vetri", icon: "square-outline" },
-  { key: "Pulizia uffici", label: "Pulizia uffici", icon: "business-outline" },
-] as const;
+// Service type is no longer a UI choice — the booking always represents a
+// standard cleaning. Backend still wants service_type so we keep this as a
+// constant and send it in the submit body.
+const SERVICE_NAME = "Pulizia ordinaria";
+
+// Optional add-ons the client can stack on top of the base cleaning.
+// Multi-select; each adds a flat fee to the base price (still subject to the
+// 9% client + 9% cleaner fee split, applied in the booking screen).
+const EXTRA_PRICE = 15;
+const EXTRAS_OPTIONS: ReadonlyArray<{ key: string; label: string; icon: keyof typeof Ionicons.glyphMap; price: number }> = [
+  { key: "finestre", label: "Finestre", icon: "square-outline", price: EXTRA_PRICE },
+  { key: "persiane", label: "Persiane", icon: "browsers-outline", price: EXTRA_PRICE },
+];
+
+// Map a square-meter value to a human-readable category. Used in the
+// read-only summary when a saved property is selected so the client sees
+// a friendly "Bilocale" rather than the raw mq number.
+function categoryLabelFromSqm(sqm: number): string {
+  if (sqm <= 45) return "Monolocale";
+  if (sqm <= 75) return "Bilocale";
+  if (sqm <= 105) return "Trilocale";
+  if (sqm <= 140) return "Quadrilocale";
+  return "Casa grande";
+}
 
 const MONTH_NAMES_IT = [
   "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -315,9 +344,9 @@ export default function NewBookingScreen() {
   // Booking state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedWindow, setSelectedWindow] = useState<TimeWindow | null>(null);
-  const [selectedService, setSelectedService] = useState<string>(
-    SERVICE_OPTIONS[0].key
-  );
+  // Optional add-ons (Finestre, Persiane). Multi-select. Stored as an
+  // array of EXTRAS_OPTIONS keys.
+  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [numRooms, setNumRooms] = useState(2);
   const [sqm, setSqm] = useState(50);
   const [address, setAddress] = useState("");
@@ -361,8 +390,12 @@ export default function NewBookingScreen() {
         if (cancelled) return;
         setProperties(data);
 
-        const fromStorage = storedId
-          ? data.find((p) => p.id === storedId)
+        // home.tsx writes a comma-separated list of property IDs (it
+        // supports multi-select on the map). The booking flow only needs
+        // one property, so pick the first ID and look it up.
+        const firstStoredId = storedId ? storedId.split(",")[0] : null;
+        const fromStorage = firstStoredId
+          ? data.find((p) => p.id === firstStoredId)
           : null;
         const preferred =
           fromStorage ??
@@ -444,11 +477,48 @@ export default function NewBookingScreen() {
   // Formula: max(€50, sqm × €1.30). Server re-validates.
   // Hours shown are only an estimate for the cleaner (~25 mq/h).
   const breakdown = useMemo(() => calculatePrice(sqm), [sqm]);
-  const basePrice = breakdown.basePrice;
-  const clientFee = breakdown.clientFee;
-  const cleanerFee = breakdown.cleanerFee;
-  const totalPrice = breakdown.totalClient;
+
+  // Extras (Finestre, Persiane) stack on top of the base price. We apply the
+  // same 9% client + 9% cleaner fee split to the total base+extras so the
+  // pricing model stays consistent.
+  const extrasTotal = useMemo(
+    () => selectedExtras.length * EXTRA_PRICE,
+    [selectedExtras]
+  );
+  const basePrice = breakdown.basePrice + extrasTotal;
+  const clientFee = Math.round(basePrice * 0.09 * 100) / 100;
+  const cleanerFee = Math.round(basePrice * 0.09 * 100) / 100;
+  const totalPrice = basePrice + clientFee;
+  const cleanerReceives = basePrice - cleanerFee;
   const estimatedHours = Math.max(1.5, Math.round((sqm / 25) * 2) / 2);
+
+  // Bug 1: filter out past time windows when the booking is for today.
+  // We use the window's endHour minus a lead buffer — booking "Mattina"
+  // (ends 12:00) at 11:30 is still useless, so we cut off at endHour - 1h.
+  const isWindowDisabled = useCallback(
+    (windowKey: TimeWindow): boolean => {
+      if (!selectedDate) return false;
+      if (selectedDate !== todayDateStr()) return false;
+      const opt = TIME_WINDOW_OPTIONS.find((w) => w.key === windowKey);
+      if (!opt) return false;
+      const now = new Date();
+      return now.getHours() >= opt.endHour - MIN_LEAD_HOURS;
+    },
+    [selectedDate]
+  );
+
+  // Auto-clear selection if the chosen window became disabled (e.g. user
+  // switched to today after picking tomorrow, or the clock ticked past).
+  useEffect(() => {
+    if (selectedWindow && isWindowDisabled(selectedWindow)) {
+      setSelectedWindow(null);
+    }
+  }, [selectedDate, selectedWindow, isWindowDisabled]);
+
+  const allWindowsDisabledToday = useMemo(() => {
+    if (!selectedDate || selectedDate !== todayDateStr()) return false;
+    return TIME_WINDOW_OPTIONS.every((w) => isWindowDisabled(w.key));
+  }, [selectedDate, isWindowDisabled]);
 
   const displayName = cleanerName || "Professionista";
 
@@ -558,7 +628,7 @@ export default function NewBookingScreen() {
       // Build body — backward compat: single cleanerId param preserved
       // when arriving from a cleaner profile page
       const body: Record<string, unknown> = {
-        service_type: selectedService,
+        service_type: SERVICE_NAME,
         date: selectedDate,
         time_slot: timeSlotString,
         num_rooms: numRooms,
@@ -567,6 +637,7 @@ export default function NewBookingScreen() {
         address,
         notes: notes || undefined,
         property_id: selectedPropertyId ?? undefined,
+        extras: selectedExtras,
       };
 
       if (cleanerId) {
@@ -641,7 +712,7 @@ export default function NewBookingScreen() {
 
       if (cleanerId) {
         // Legacy single-cleaner: send push and go to bookings
-        const { title: notifTitle, body: notifBody } = NotificationMessages.newBooking(selectedService);
+        const { title: notifTitle, body: notifBody } = NotificationMessages.newBooking(SERVICE_NAME);
         await sendPushNotification(cleanerId, notifTitle, notifBody, { screen: "cleaner-home" }).catch(() => {});
         Alert.alert(
           "Prenotazione confermata!",
@@ -662,7 +733,7 @@ export default function NewBookingScreen() {
     }
   }, [
     user, cleanerId, selectedDate, selectedWindow, timeSlotString,
-    numRooms, estimatedHours, basePrice, selectedService,
+    numRooms, estimatedHours, basePrice, selectedExtras,
     address, notes, selectedPropertyId, properties,
     preferredCleanerIds, displayName, router,
     initPaymentSheet, presentPaymentSheet,
@@ -690,15 +761,29 @@ export default function NewBookingScreen() {
       {/* Time window */}
       <View>
         <Text style={s.sectionLabel}>Fascia oraria preferita</Text>
+        {allWindowsDisabledToday && (
+          <View style={[s.selectionSummary, { marginBottom: Spacing.sm }]}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.secondary} />
+            <Text style={s.selectionSummaryText}>
+              Oggi non ci sono più orari. Scegli un&apos;altra data.
+            </Text>
+          </View>
+        )}
         <View style={{ gap: Spacing.sm }}>
           {TIME_WINDOW_OPTIONS.map((opt) => {
             const selected = selectedWindow === opt.key;
+            const disabled = isWindowDisabled(opt.key);
             return (
               <TouchableOpacity
                 key={opt.key}
-                onPress={() => setSelectedWindow(opt.key)}
-                activeOpacity={0.8}
-                style={[s.windowPill, selected && s.windowPillSelected]}
+                onPress={disabled ? undefined : () => setSelectedWindow(opt.key)}
+                disabled={disabled}
+                activeOpacity={disabled ? 1 : 0.8}
+                style={[
+                  s.windowPill,
+                  selected && s.windowPillSelected,
+                  disabled && { opacity: 0.4 },
+                ]}
               >
                 <View style={[s.windowIcon, selected && s.windowIconSelected]}>
                   <Ionicons
@@ -712,10 +797,10 @@ export default function NewBookingScreen() {
                     {opt.label}
                   </Text>
                   <Text style={[s.windowSub, selected && { color: "rgba(255,255,255,0.75)" }]}>
-                    {opt.subtitle}
+                    {disabled ? `${opt.subtitle} (non disponibile oggi)` : opt.subtitle}
                   </Text>
                 </View>
-                {selected && (
+                {selected && !disabled && (
                   <Ionicons name="checkmark-circle" size={22} color={Colors.textOnDark} />
                 )}
               </TouchableOpacity>
@@ -888,18 +973,24 @@ export default function NewBookingScreen() {
       )}
 
       <View>
-        <Text style={s.sectionLabel}>Tipo di servizio</Text>
+        <Text style={s.sectionLabel}>Servizi extra (opzionali)</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
         >
-          {SERVICE_OPTIONS.map((svc) => {
-            const selected = selectedService === svc.key;
+          {EXTRAS_OPTIONS.map((extra) => {
+            const selected = selectedExtras.includes(extra.key);
             return (
               <TouchableOpacity
-                key={svc.key}
-                onPress={() => setSelectedService(svc.key)}
+                key={extra.key}
+                onPress={() =>
+                  setSelectedExtras((prev) =>
+                    prev.includes(extra.key)
+                      ? prev.filter((k) => k !== extra.key)
+                      : [...prev, extra.key]
+                  )
+                }
                 activeOpacity={0.8}
                 style={{
                   flexDirection: "row",
@@ -916,7 +1007,7 @@ export default function NewBookingScreen() {
                 }}
               >
                 <Ionicons
-                  name={svc.icon}
+                  name={extra.icon}
                   size={16}
                   color={selected ? Colors.textOnDark : Colors.secondary}
                 />
@@ -927,8 +1018,15 @@ export default function NewBookingScreen() {
                     color: selected ? Colors.textOnDark : Colors.text,
                   }}
                 >
-                  {svc.label}
+                  {extra.label} +€{extra.price}
                 </Text>
+                {selected && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={14}
+                    color={Colors.textOnDark}
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -954,7 +1052,7 @@ export default function NewBookingScreen() {
           <Ionicons name="checkmark-circle" size={22} color={Colors.secondary} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.text }}>
-              {sqm} mq · {numRooms} stanze · ~{estimatedHours.toFixed(1)}h
+              {categoryLabelFromSqm(sqm)} · {numRooms} stanze · ~{estimatedHours.toFixed(1)}h
             </Text>
             <Text
               style={{
@@ -1028,28 +1126,12 @@ export default function NewBookingScreen() {
               })}
             </ScrollView>
 
-            {/* Custom mq input — lets the user tweak to the exact value */}
-            <View style={{ marginTop: Spacing.md }}>
-              <Text style={[s.sectionLabel, { marginBottom: 6 }]}>Metri quadri esatti</Text>
-              <View style={s.inputWrap}>
-                <Ionicons name="resize-outline" size={18} color={Colors.textTertiary} />
-                <TextInput
-                  style={s.input}
-                  placeholder="es. 75"
-                  placeholderTextColor={Colors.textTertiary}
-                  keyboardType="number-pad"
-                  value={String(sqm)}
-                  onChangeText={(t) => {
-                    const n = parseInt(t.replace(/[^0-9]/g, ""), 10);
-                    setSqm(Number.isNaN(n) ? 0 : Math.min(500, n));
-                  }}
-                />
-                <Text style={{ fontSize: 13, color: Colors.textSecondary, fontWeight: "600" }}>mq</Text>
-              </View>
-              <Text style={[s.roomHint, { marginTop: 8 }]}>
-                Durata stimata: {estimatedHours.toFixed(1)}h · Cleaner riceve €{breakdown.cleanerReceives.toFixed(2)}
-              </Text>
-            </View>
+            {/* Helper line summarising the selected size — replaces the
+                old manual mq input. The category picker above is now the
+                only way to choose the apartment size. */}
+            <Text style={[s.roomHint, { marginTop: 8 }]}>
+              Durata stimata: {estimatedHours.toFixed(1)}h · Cleaner riceve €{cleanerReceives.toFixed(2)}
+            </Text>
           </View>
 
           <View>
@@ -1104,7 +1186,7 @@ export default function NewBookingScreen() {
           </View>
           <View>
             <Text style={s.summaryCleanerName}>{displayName}</Text>
-            <Text style={s.summaryCleanerSub}>{selectedService}</Text>
+            <Text style={s.summaryCleanerSub}>{SERVICE_NAME}</Text>
           </View>
         </View>
 
@@ -1113,8 +1195,18 @@ export default function NewBookingScreen() {
         {[
           { icon: "calendar-outline" as const, label: "Data", value: formatDateIT(selectedDate) },
           { icon: "time-outline" as const, label: "Fascia", value: `${windowLabel} (${timeSlotString})` },
-          { icon: "home-outline" as const, label: "Casa", value: `${sqm} mq · ${numRooms} stanze · ${estimatedHours.toFixed(1)}h stimate` },
+          { icon: "home-outline" as const, label: "Casa", value: `${categoryLabelFromSqm(sqm)} · ${numRooms} stanze · ${estimatedHours.toFixed(1)}h stimate` },
           { icon: "location-outline" as const, label: "Indirizzo", value: address },
+          ...(selectedExtras.length > 0
+            ? [{
+                icon: "add-circle-outline" as const,
+                label: "Extra",
+                value: selectedExtras
+                  .map((k) => EXTRAS_OPTIONS.find((e) => e.key === k)?.label)
+                  .filter(Boolean)
+                  .join(", "),
+              }]
+            : []),
         ].map((row) => (
           <View key={row.label} style={s.summaryRow}>
             <View style={s.summaryRowIcon}>
