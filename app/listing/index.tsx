@@ -2807,8 +2807,13 @@ export default function ListingScreen() {
               size={20}
               color="#ffffff"
               style={{ marginRight: 10 }}
+              // Let taps pass through to the Pressable beneath — otherwise
+              // tapping the icon or the text on iOS hits this view first
+              // (declared after Pressable, so on top in z-order) and the
+              // press is swallowed.
+              pointerEvents="none"
             />
-            <Text style={styles.saveButtonText}>
+            <Text style={styles.saveButtonText} pointerEvents="none">
               {isSaving ? "Caricamento…" : !isDirty ? "Nessuna modifica" : "Conferma e carica"}
             </Text>
           </View>
