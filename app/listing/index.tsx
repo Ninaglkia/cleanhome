@@ -494,6 +494,230 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
   );
 }
 
+// ─── PriceSlider ─────────────────────────────────────────────────────────────
+// Hourly rate slider €20 → €35 (1 € step). Mirrors RadiusSlider visually.
+
+const PRICE_MIN = 20;
+const PRICE_MAX = 35;
+
+interface PriceSliderProps {
+  /** Current value in euros (number). */
+  priceEur: number;
+  onPriceChange: (eur: number) => void;
+}
+
+function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const startX = useSharedValue(0);
+  const thumbX = useSharedValue(0);
+
+  const fraction = trackWidth > 0
+    ? (priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)
+    : 0;
+  const thumbPosition = fraction * trackWidth;
+
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const w = e.nativeEvent.layout.width;
+      setTrackWidth(w);
+      thumbX.value = ((priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * w;
+    },
+    [priceEur, thumbX]
+  );
+
+  const clamp = (v: number, min: number, max: number) =>
+    Math.min(Math.max(v, min), max);
+
+  const updatePrice = useCallback(
+    (x: number) => {
+      if (trackWidth === 0) return;
+      const clamped = clamp(x, 0, trackWidth);
+      const eur = Math.round(
+        PRICE_MIN + (clamped / trackWidth) * (PRICE_MAX - PRICE_MIN)
+      );
+      onPriceChange(clamp(eur, PRICE_MIN, PRICE_MAX));
+    },
+    [trackWidth, onPriceChange]
+  );
+
+  const panGesture = Gesture.Pan()
+    .onBegin(() => {
+      startX.value = thumbX.value;
+    })
+    .onUpdate((e) => {
+      const raw = startX.value + e.translationX;
+      const newX = Math.min(Math.max(raw, 0), trackWidth);
+      thumbX.value = newX;
+      runOnJS(updatePrice)(newX);
+    });
+
+  const thumbAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: thumbX.value }],
+  }));
+
+  const fillWidth = trackWidth > 0 ? thumbPosition : 0;
+
+  return (
+    <View style={styles.sliderContainer}>
+      <View style={styles.sliderLabelRow}>
+        <Text style={styles.sliderLabelLeft}>€{PRICE_MIN}</Text>
+        <Text style={styles.sliderKmValue}>€{priceEur}/ora</Text>
+        <Text style={styles.sliderLabelRight}>€{PRICE_MAX}</Text>
+      </View>
+      <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
+        <View style={styles.sliderTrack} />
+        <View style={[styles.sliderFill, { width: fillWidth }]} />
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[styles.sliderThumbWrapper, thumbAnimStyle]}>
+            <View style={styles.sliderThumb} />
+          </Animated.View>
+        </GestureDetector>
+      </View>
+    </View>
+  );
+}
+
+// ─── Completion banner ────────────────────────────────────────────────────────
+
+interface CompletionItem {
+  key: string;
+  done: boolean;
+  label: string;
+  hint: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+function CompletionBanner({ items }: { items: CompletionItem[] }) {
+  const missing = items.filter((i) => !i.done);
+  const progress = items.length - missing.length;
+
+  if (missing.length === 0) {
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#ECFDF5",
+          borderRadius: 16,
+          padding: 14,
+          marginBottom: 12,
+          gap: 12,
+          borderWidth: 1,
+          borderColor: "#10B981",
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "#D1FAE5",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={22} color="#059669" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#065F46" }}>
+            Annuncio completo
+          </Text>
+          <Text style={{ fontSize: 12, color: "#047857", lineHeight: 16 }}>
+            Pubblicato e visibile ai clienti nella tua zona.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        backgroundColor: "#FEF2F2",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#FCA5A5",
+      }}
+    >
+      <View
+        style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "#FEE2E2",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="alert-circle" size={22} color="#DC2626" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{ fontSize: 15, fontWeight: "700", color: "#991B1B", marginBottom: 2 }}
+          >
+            Annuncio incompleto ({progress}/{items.length})
+          </Text>
+          <Text style={{ fontSize: 12, color: "#B91C1C", lineHeight: 16 }}>
+            Completa questi {missing.length}{" "}
+            {missing.length === 1 ? "campo" : "campi"} per pubblicare:
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ gap: 10 }}>
+        {missing.map((item) => (
+          <View
+            key={item.key}
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 12,
+              padding: 12,
+              gap: 10,
+              borderWidth: 1,
+              borderColor: "#FECACA",
+            }}
+          >
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: "#FEE2E2",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name={item.icon} size={18} color="#DC2626" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: "#7F1D1D",
+                  marginBottom: 2,
+                }}
+              >
+                {item.label}
+              </Text>
+              <Text style={{ fontSize: 12, color: "#991B1B", lineHeight: 16 }}>
+                {item.hint}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ListingScreen() {
@@ -1542,15 +1766,19 @@ export default function ListingScreen() {
           }
           try {
             const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [16, 9],
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: false,
               quality: 0.8,
+              cameraType: ImagePicker.CameraType.back,
+              presentationStyle:
+                ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
             });
             await persistPickedCover(result);
-          } catch {
+          } catch (err) {
+            console.warn("[camera] launchCameraAsync error", err);
             Alert.alert(
               "Fotocamera non disponibile",
-              "Prova dalla libreria."
+              err instanceof Error ? err.message : "Prova dalla libreria."
             );
           }
         },
@@ -1683,7 +1911,13 @@ export default function ListingScreen() {
       });
       Alert.alert(
         "Annuncio salvato",
-        "La tua zona di copertura è stata salvata. Ora i clienti in quest'area ti vedranno nei risultati."
+        "La tua zona di copertura è stata salvata. Ora i clienti in quest'area ti vedranno nei risultati.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/listings"),
+          },
+        ]
       );
     } catch (err) {
       const msg =
@@ -1703,6 +1937,7 @@ export default function ListingScreen() {
     hourlyRate,
     description,
     services,
+    router,
   ]);
 
   // Redirect to the listings hub if the route lacks an ?id=... query.
@@ -1822,6 +2057,57 @@ export default function ListingScreen() {
           showsVerticalScrollIndicator={false}
           scrollEnabled={!isDrawingActive && !isMapTouching}
         >
+          {/* ── Completion checklist ── */}
+          <CompletionBanner
+            items={[
+              {
+                key: "cover",
+                done: !!coverUrl,
+                label: "Foto profilo",
+                hint: "Carica una foto chiara — i clienti si fidano di chi mostra la faccia",
+                icon: "camera-outline",
+              },
+              {
+                key: "rate",
+                done: !!hourlyRate && parseFloat(hourlyRate) > 0,
+                label: "Tariffa oraria",
+                hint: "Imposta la tariffa oraria nella sezione qui sotto",
+                icon: "pricetag-outline",
+              },
+              {
+                key: "services",
+                done: services.some((s) => s.selected),
+                label: "Servizi offerti",
+                hint: "Seleziona almeno un servizio (es. Pulizia ordinaria)",
+                icon: "checkmark-circle-outline",
+              },
+              {
+                key: "description",
+                done: description.trim().length >= 30,
+                label: "Descrizione (min 30 caratteri)",
+                hint: "Racconta cosa ti rende speciale: esperienza, professionalità, dettagli",
+                icon: "document-text-outline",
+              },
+              {
+                key: "days",
+                done: days.some((d) => d.available),
+                label: "Disponibilità settimanale",
+                hint: "Seleziona almeno un giorno in cui sei disponibile",
+                icon: "calendar-outline",
+              },
+              {
+                key: "zone",
+                done:
+                  coverageZones.length > 0 ||
+                  (zoneMode === "draw" && drawnPolygon.length >= 3) ||
+                  isZoneConfirmed,
+                label: "Zona di copertura",
+                hint: "Imposta la zona dove offri il servizio sulla mappa",
+                icon: "location-outline",
+              },
+            ]}
+          />
+
           {/* ── Cover image ── */}
           <View style={styles.coverContainer}>
             <Image
@@ -1855,21 +2141,16 @@ export default function ListingScreen() {
           {/* ── Prezzo base ── */}
           <View style={styles.card}>
             <SectionLabel>Tariffa oraria</SectionLabel>
-            <View style={styles.priceRow}>
-              <View style={styles.priceInputWrap}>
-                <Text style={styles.priceCurrency}>€</Text>
-                <TextInput
-                  value={hourlyRate}
-                  onChangeText={setHourlyRate}
-                  keyboardType="decimal-pad"
-                  style={styles.priceInput}
-                  placeholderTextColor={`${C.outline}80`}
-                  maxLength={4}
-                />
-                <Text style={styles.priceUnit}>/ora</Text>
-              </View>
-              <Text style={styles.priceHint}>Media zona: €22–€30</Text>
-            </View>
+            <PriceSlider
+              priceEur={Math.min(
+                PRICE_MAX,
+                Math.max(PRICE_MIN, parseInt(hourlyRate, 10) || 25)
+              )}
+              onPriceChange={(v) => setHourlyRate(String(v))}
+            />
+            <Text style={[styles.priceHint, { marginTop: 4, alignSelf: "center" }]}>
+              Media zona: €22–€30
+            </Text>
 
             {/* Active / inactive switch */}
             <View style={styles.activeRow}>
@@ -2290,7 +2571,7 @@ export default function ListingScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.saveButtonText}>
-              {isSaving ? "Salvataggio…" : "Salva modifiche"}
+              {isSaving ? "Caricamento…" : "Conferma e carica"}
             </Text>
           </Pressable>
 
@@ -2737,6 +3018,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
+    paddingBottom: 40,
   },
 
   // Cover
@@ -3312,24 +3594,27 @@ const styles = StyleSheet.create({
     color: C.onSurfaceVariant,
   },
 
-  // Save button
+  // Save button — verde scuro con shadow visibile (shadowColor neutro)
   saveButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: C.primary,
+    backgroundColor: "#022420",
     borderRadius: 16,
     height: 58,
-    marginTop: 4,
-    marginBottom: 2,
+    marginTop: 16,
+    marginBottom: 12,
+    gap: 10,
+    paddingHorizontal: 24,
     ...Platform.select({
       ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.22,
-        shadowRadius: 16,
+        // shadow nera neutra → visibile contro qualunque sfondo
+        shadowColor: "#000000",
+        shadowOpacity: 0.18,
+        shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 8 },
     }),
   },
   saveButtonPressed: {
@@ -3337,14 +3622,14 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
-    color: C.surface,
+    color: "#ffffff",
     letterSpacing: 0.2,
   },
 
   bottomSpacer: {
-    height: 40,
+    height: 60,
   },
 
   // Zone mode toggle
