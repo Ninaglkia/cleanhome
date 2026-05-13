@@ -22,7 +22,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
-import ProfileCompletionBar from "../../components/ProfileCompletionBar";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -44,20 +43,9 @@ import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, Shadows, SpringConfig } from "../../lib/theme";
 import { measureInWindow } from "../../lib/measureInWindow";
-import {
-  calculateClientCompletion,
-  firstMissingStepLabel,
-  MissingStep,
-} from "../../lib/profileCompletion";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 import { NotificationBell } from "../../components/NotificationBell";
 
-// AsyncStorage key that persists which Stripe customer setup step is done.
-// We check for the presence of a Stripe customer id on the profile — if the
-// profile has it we consider "payment method" done. Because the auth profile
-// doesn't carry a stripe_customer_id field in the current type we look for a
-// dedicated flag stored locally after the user adds a card.
-const PAYMENT_METHOD_KEY = "cleanhome.client_has_payment_method";
 // AsyncStorage key for caching the last map region the user was on.
 // Used to restore the map to the correct position instantly on cold start,
 // avoiding the 1-3s flash on Rome before GPS resolves.
@@ -527,7 +515,6 @@ export default function HomeScreen() {
 
   // Refs for measureInWindow — gives screen-absolute coordinates for the Modal overlay
   const searchBarRef = useRef<View>(null);
-  const profileCompletionBarRef = useRef<View>(null);
   // Ghost Views that sit exactly over the tab bar buttons.
   const bookingsTabRef = useRef<View>(null);
   const profileTabRef = useRef<View>(null);
@@ -545,29 +532,19 @@ export default function HomeScreen() {
     }, [])
   );
 
-  // Build 2 focused coach mark steps for CLIENT:
-  //   1. Map search bar → "Trova pulitori nella tua zona"
-  //   2. Profile completion bar → "Completa profilo per prenotare in 1 tocco"
+  // Coach mark for CLIENT — single step (map search bar) now that the
+  // profile-completion banner has been removed.
   useEffect(() => {
     if (!showCoachMarks) return;
     const timer = setTimeout(async () => {
-      const [searchRect, completionRect] = await Promise.all([
-        measureInWindow(searchBarRef),
-        measureInWindow(profileCompletionBarRef),
-      ]);
+      const searchRect = await measureInWindow(searchBarRef);
       const steps: CoachMarkStep[] = [];
       if (searchRect) {
         steps.push({
           rect: searchRect,
           title: "Trova pulitori nella tua zona",
-          description: "Inserisci la tua citta o lascia attiva la posizione GPS per vedere i professionisti vicini.",
-        });
-      }
-      if (completionRect) {
-        steps.push({
-          rect: completionRect,
-          title: "Completa il profilo",
-          description: "Aggiungi indirizzo casa e metodo di pagamento per prenotare con un solo tocco.",
+          description:
+            "Inserisci la tua citta o lascia attiva la posizione GPS per vedere i professionisti vicini.",
         });
       }
       if (steps.length >= 1) setCoachSteps(steps);
@@ -685,38 +662,6 @@ export default function HomeScreen() {
     },
     [selectedPropertyIds, primaryPropertyId]
   );
-
-  // ── Profile completion banner ──────────────────────────────────────────────
-  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(PAYMENT_METHOD_KEY)
-      .then((v) => setHasPaymentMethod(v === "1"))
-      .catch(() => {});
-  }, []);
-
-  const profileCompletion = useMemo(() => {
-    return calculateClientCompletion({
-      full_name: profile?.full_name,
-      avatar_url: profile?.avatar_url,
-      hasProperty: (properties ?? []).length > 0,
-      hasPaymentMethod,
-    });
-  }, [profile, properties, hasPaymentMethod]);
-
-  const completionSubtitle = useMemo(
-    () => firstMissingStepLabel(profileCompletion.missingSteps),
-    [profileCompletion.missingSteps]
-  );
-
-  const handleCompletionBarPress = useCallback(() => {
-    const firstMissing: MissingStep | undefined = profileCompletion.missingSteps[0];
-    if (firstMissing === "property") {
-      router.push("/properties/new" as never);
-    } else {
-      router.push("/(tabs)/profile" as never);
-    }
-  }, [profileCompletion.missingSteps, router]);
 
   // Animated value for search bar expansion
   const searchExpanded = useSharedValue(0);
@@ -1217,41 +1162,16 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
-      {/* ── Profile completion banner ── */}
-      {/* Sits just below the search bar, only when profile is incomplete.
-          Referenced by the coach mark step to highlight it. */}
-      {profileCompletion.percent < 100 && (
-        <View
-          ref={profileCompletionBarRef}
-          style={{
-            position: "absolute",
-            top: insets.top + 70,
-            left: 16,
-            right: 16,
-            zIndex: 18,
-          }}
-        >
-          <ProfileCompletionBar
-            percent={profileCompletion.percent}
-            subtitle={completionSubtitle}
-            onPress={handleCompletionBarPress}
-          />
-        </View>
-      )}
-
       {/* ── Amazon-style property picker pill ── */}
-      {/* Sits right under the search bar (or under the completion banner when visible).
-          Tapping opens a sheet with the full property list. */}
+      {/* Sits right under the search bar. Tapping opens a sheet with the
+          full property list. */}
       {properties.length > 0 && (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setPropertyPickerOpen(true)}
           style={{
             position: "absolute",
-            // When banner is visible (~68px tall + 8px gap), push picker down
-            top: profileCompletion.percent < 100
-              ? insets.top + 70 + 68 + 8
-              : insets.top + 72,
+            top: insets.top + 72,
             left: 16,
             right: 16,
             zIndex: 19,
