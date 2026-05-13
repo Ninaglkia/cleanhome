@@ -85,11 +85,11 @@ interface CoveragePlan {
 
 const COVERAGE_PLANS: readonly CoveragePlan[] = [
   { name: "Base", minKm: 0, maxKm: 5, priceLabel: "Gratis", priceMonthly: null },
-  { name: "Premium", minKm: 6, maxKm: 50, priceLabel: "4,99 €/mese", priceMonthly: 4.99 },
+  { name: "Premium", minKm: 6, maxKm: 15, priceLabel: "4,99 €/mese", priceMonthly: 4.99 },
 ] as const;
 
 const SLIDER_MIN_KM = 1;
-const SLIDER_MAX_KM = 50;
+const SLIDER_MAX_KM = 15;
 
 function getPlanForRadius(km: number): CoveragePlan {
   return (
