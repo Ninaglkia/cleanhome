@@ -281,39 +281,41 @@ export default function PaymentsScreen() {
           <Text style={styles.assistanceSub}>
             Il nostro team di assistenza è disponibile 7 giorni su 7.
           </Text>
-          {/* Primary CTA full-width, then a discreet text link below.
-              Two equal-weight pills side-by-side were never sitting
-              right — the labels are different lengths and one is dark
-              + one is light, so the eye reads them as competing. This
-              stacked layout removes the comparison entirely. */}
-          <Pressable
-            onPress={handleChat}
-            accessibilityRole="button"
-            accessibilityLabel="Apri la chat con noi"
-            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-            style={({ pressed }) => [
-              styles.assistancePrimaryBtn,
-              pressed && { opacity: 0.88 },
-            ]}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textOnDark} />
-            <Text style={styles.assistancePrimaryBtnText}>Chat con noi</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleEmailBilling}
-            accessibilityRole="link"
-            accessibilityLabel="Scrivi al team via email"
-            style={({ pressed }) => [
-              styles.assistanceSecondaryLink,
-              pressed && { opacity: 0.6 },
-            ]}
-            hitSlop={8}
-          >
-            <Ionicons name="mail-outline" size={14} color={Colors.secondary} />
-            <Text style={styles.assistanceSecondaryLinkText}>
-              Oppure scrivi al team via email
-            </Text>
-          </Pressable>
+          {/* CTA block — wrapper with alignSelf:stretch so the primary
+              button fills the card width.  The parent card uses
+              alignItems:"center", which collapses any direct child that
+              relies on alignSelf:"stretch" to 0 width.  Wrapping in a
+              View with alignSelf:"stretch" is the canonical RN fix. */}
+          <View style={styles.ctaBlock}>
+            <Pressable
+              onPress={handleChat}
+              accessibilityRole="button"
+              accessibilityLabel="Apri la chat con noi"
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => [
+                styles.assistancePrimaryBtn,
+                pressed && { opacity: 0.88 },
+              ]}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textOnDark} />
+              <Text style={styles.assistancePrimaryBtnText}>Chat con noi</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleEmailBilling}
+              accessibilityRole="link"
+              accessibilityLabel="Scrivi al team via email"
+              style={({ pressed }) => [
+                styles.assistanceSecondaryLink,
+                pressed && { opacity: 0.6 },
+              ]}
+              hitSlop={8}
+            >
+              <Ionicons name="mail-outline" size={14} color={Colors.secondary} />
+              <Text style={styles.assistanceSecondaryLinkText}>
+                Scrivi via email
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ height: Platform.OS === "ios" ? 32 : 24 }} />
@@ -583,8 +585,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.sm,
   },
-  assistancePrimaryBtn: {
+  // Wrapper that stretches to card width — fixes the alignItems:"center"
+  // vs alignSelf:"stretch" collapse bug on the primary button.
+  ctaBlock: {
     alignSelf: "stretch",
+    gap: Spacing.sm,
+  },
+  assistancePrimaryBtn: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -606,11 +614,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 8,
-    marginTop: 4,
   },
   assistanceSecondaryLinkText: {
     fontSize: 13,
     fontWeight: "600",
     color: Colors.secondary,
+    textDecorationLine: "underline",
+    textDecorationColor: Colors.secondary,
   },
 });
