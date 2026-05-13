@@ -13,17 +13,34 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Radius, Shadows, Spacing } from "../../lib/theme";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import { Colors, Radius, Shadows, Spacing, SpringConfig } from "../../lib/theme";
 import AssistanceFooter from "../../components/AssistanceFooter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type AccentTone = "neutral" | "info" | "warning" | "success";
 
 interface TopicItem {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   description: string;
+  tone: AccentTone;
 }
+
+// ─── Tone palette — same as payments for visual consistency ──────────────────
+
+const TONE_STYLES: Record<AccentTone, { bg: string; fg: string }> = {
+  neutral: { bg: Colors.accentLight, fg: Colors.secondary },
+  info: { bg: "#eaf1ff", fg: Colors.info },
+  warning: { bg: "#fdf1e3", fg: "#a85d12" },
+  success: { bg: Colors.successLight, fg: Colors.success },
+};
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -33,28 +50,52 @@ const TOPICS: TopicItem[] = [
     icon: "calendar-outline",
     label: "Prenotazioni & Programmazione",
     description: "Gestisci le tue prenotazioni",
+    tone: "neutral",
   },
   {
     id: "payments",
     icon: "card-outline",
     label: "Pagamenti & Rimborsi",
     description: "Fatture, rimborsi e metodi di pagamento",
+    tone: "info",
   },
   {
     id: "trust",
     icon: "shield-checkmark-outline",
     label: "Fiducia & Sicurezza",
     description: "Verifica identità, segnalazioni",
+    tone: "success",
   },
   {
     id: "account",
     icon: "person-circle-outline",
     label: "Impostazioni Account",
     description: "Profilo, preferenze, notifiche",
+    tone: "neutral",
   },
 ];
 
-// ─── Topic Row ────────────────────────────────────────────────────────────────
+// ─── Section Header (mirror payments) ────────────────────────────────────────
+
+function SectionHeader({
+  kicker,
+  title,
+}: {
+  kicker?: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionAccent} />
+      <View style={{ flex: 1 }}>
+        {kicker ? <Text style={styles.sectionKicker}>{kicker}</Text> : null}
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Topic Row with spring press ─────────────────────────────────────────────
 
 interface TopicRowProps {
   item: TopicItem;
@@ -62,22 +103,44 @@ interface TopicRowProps {
 }
 
 function TopicRow({ item, onPress }: TopicRowProps) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const palette = TONE_STYLES[item.tone];
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${item.label}. ${item.description}`}
-      style={({ pressed }) => [styles.topicRow, pressed && styles.topicRowPressed]}
-      onPress={() => onPress(item.id)}
-    >
-      <View style={styles.topicIconWrap}>
-        <Ionicons name={item.icon} size={22} color={Colors.secondary} />
-      </View>
-      <View style={styles.topicContent}>
-        <Text style={styles.topicLabel}>{item.label}</Text>
-        <Text style={styles.topicDescription}>{item.description}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-    </Pressable>
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${item.label}. ${item.description}`}
+        onPress={() => onPress(item.id)}
+        onPressIn={() => {
+          scale.value = withSpring(0.98, SpringConfig.press);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, SpringConfig.press);
+        }}
+        android_ripple={{ color: "rgba(0,107,85,0.08)", borderless: false }}
+      >
+        {/* Inner View — iOS Pressable + flex layout safety */}
+        <View style={styles.topicRow}>
+          <View style={[styles.topicIconWrap, { backgroundColor: palette.bg }]}>
+            <Ionicons name={item.icon} size={20} color={palette.fg} />
+          </View>
+          <View style={styles.topicContent}>
+            <Text style={styles.topicLabel}>{item.label}</Text>
+            <Text style={styles.topicDescription}>{item.description}</Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={Colors.textTertiary}
+          />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -116,17 +179,26 @@ export default function SupportScreen() {
         {/* ── Dark green hero header ── */}
         <View style={styles.hero}>
           <Pressable
-            style={styles.backBtn}
             onPress={() => router.back()}
             accessibilityLabel="Indietro"
             accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={({ pressed }) => [
+              styles.backBtn,
+              pressed && styles.backBtnPressed,
+            ]}
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.textOnDark} />
+            <Ionicons
+              name="chevron-back"
+              size={22}
+              color={Colors.textOnDark}
+            />
           </Pressable>
 
           <Text style={styles.heroLabel}>Centro supporto</Text>
-          <Text style={styles.heroTitle}>Come possiamo{"\n"}aiutarti oggi?</Text>
+          <Text style={styles.heroTitle}>
+            Come possiamo{"\n"}aiutarti oggi?
+          </Text>
 
           {/* Search bar inside hero */}
           <View style={styles.searchBar}>
@@ -141,8 +213,15 @@ export default function SupportScreen() {
               autoCorrect={false}
             />
             {searchText.length > 0 && (
-              <Pressable onPress={() => setSearchText("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={17} color={Colors.textTertiary} />
+              <Pressable
+                onPress={() => setSearchText("")}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={17}
+                  color={Colors.textTertiary}
+                />
               </Pressable>
             )}
           </View>
@@ -160,8 +239,9 @@ export default function SupportScreen() {
 
             <Text style={styles.aiTitle}>Supporto Ibrido Intelligente</Text>
             <Text style={styles.aiDescription}>
-              Combiniamo intelligenza artificiale avanzata con il tocco umano dei nostri
-              concierge dedicati per offrirti il massimo del supporto, 24 ore su 24.
+              Combiniamo intelligenza artificiale avanzata con il tocco umano
+              dei nostri concierge dedicati per offrirti il massimo del
+              supporto, 24 ore su 24.
             </Text>
 
             <View style={styles.aiButtons}>
@@ -173,13 +253,23 @@ export default function SupportScreen() {
                   android_ripple={{ color: "rgba(255,255,255,0.18)" }}
                   style={StyleSheet.absoluteFill}
                 />
-                <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
-                <Text style={styles.btnPrimaryText} pointerEvents="none">Inizia Chat AI</Text>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={16}
+                  color={Colors.textOnDark}
+                  pointerEvents="none"
+                />
+                <Text style={styles.btnPrimaryText} pointerEvents="none">
+                  Inizia Chat AI
+                </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Parla con il concierge"
-                style={({ pressed }) => [styles.btnOutline, pressed && styles.btnPressed]}
+                style={({ pressed }) => [
+                  styles.btnOutline,
+                  pressed && styles.btnPressed,
+                ]}
                 onPress={handleTalkToConcierge}
               >
                 <Ionicons name="headset-outline" size={16} color={Colors.secondary} />
@@ -190,13 +280,17 @@ export default function SupportScreen() {
 
           {/* ── Topics section ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>SFOGLIA PER ARGOMENTO</Text>
-            <Text style={styles.sectionTitle}>Domande frequenti</Text>
+            <SectionHeader
+              kicker="Sfoglia per argomento"
+              title="Domande frequenti"
+            />
             <View style={styles.topicsCard}>
               {TOPICS.map((topic, index) => (
                 <View key={topic.id}>
                   <TopicRow item={topic} onPress={handleTopicPress} />
-                  {index < TOPICS.length - 1 && <View style={styles.divider} />}
+                  {index < TOPICS.length - 1 && (
+                    <View style={styles.divider} />
+                  )}
                 </View>
               ))}
             </View>
@@ -212,14 +306,22 @@ export default function SupportScreen() {
 
           {/* ── Footer links ── */}
           <View style={styles.footer}>
-            <Pressable accessibilityRole="link" onPress={() => router.push("/legal/terms")}>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push("/legal/terms")}
+            >
               <Text style={styles.footerLink}>Termini di Servizio</Text>
             </Pressable>
             <View style={styles.footerDot} />
-            <Pressable accessibilityRole="link" onPress={() => router.push("/legal/privacy")}>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push("/legal/privacy")}
+            >
               <Text style={styles.footerLink}>Privacy</Text>
             </Pressable>
           </View>
+
+          <View style={{ height: Platform.OS === "ios" ? 16 : 8 }} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -234,7 +336,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
 
-  // Hero
+  // ── Hero ────────────────────────────────────────────────────────────────
   hero: {
     backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
@@ -242,17 +344,23 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.md,
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
     backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
   },
+  backBtnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
   heroLabel: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: 1.8,
     color: Colors.textOnDarkSecondary,
     marginBottom: Spacing.sm,
@@ -260,10 +368,10 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "800",
     color: Colors.textOnDark,
     lineHeight: 36,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     marginBottom: Spacing.xl,
   },
   searchBar: {
@@ -283,13 +391,13 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
-  // Body
+  // ── Body ────────────────────────────────────────────────────────────────
   body: {
     padding: Spacing.xl,
-    gap: Spacing.xl,
+    gap: Spacing.xxl, // 32 — wider rhythm between major blocks
   },
 
-  // AI card
+  // ── AI card ─────────────────────────────────────────────────────────────
   aiCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
@@ -360,7 +468,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.full,
     paddingVertical: 13,
     borderWidth: 1.5,
     borderColor: Colors.secondary,
@@ -374,30 +482,45 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
 
-  // Section
+  // ── Section ─────────────────────────────────────────────────────────────
   section: {
     gap: Spacing.md,
   },
-  sectionLabel: {
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  sectionAccent: {
+    width: 3,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: Colors.accent,
+  },
+  sectionKicker: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.4,
     color: Colors.textTertiary,
     textTransform: "uppercase",
+    marginBottom: 2,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    color: Colors.text,
-    letterSpacing: -0.2,
+    color: Colors.primary,
+    letterSpacing: -0.3,
   },
+
+  // ── Topics card ─────────────────────────────────────────────────────────
   topicsCard: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg, // 16 — matches payments card radius
     overflow: "hidden",
-    ...Shadows.sm,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    ...Shadows.sm,
   },
   topicRow: {
     flexDirection: "row",
@@ -405,15 +528,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.base,
     gap: Spacing.md,
-  },
-  topicRowPressed: {
-    backgroundColor: Colors.backgroundAlt,
+    minHeight: 64,
   },
   topicIconWrap: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: Radius.md,
-    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -426,18 +546,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.text,
+    letterSpacing: -0.1,
   },
   topicDescription: {
     fontSize: 12,
     color: Colors.textSecondary,
+    letterSpacing: -0.05,
   },
   divider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
-    marginLeft: 72,
+    marginLeft: 60,
   },
 
-  // Footer
+  // ── Footer ──────────────────────────────────────────────────────────────
   footer: {
     flexDirection: "row",
     alignItems: "center",

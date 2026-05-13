@@ -13,70 +13,117 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import { Colors, Spacing, Radius, Shadows, SpringConfig } from "../../lib/theme";
 import AssistanceFooter from "../../components/AssistanceFooter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface PaymentMethodRowProps {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}
+type AccentTone = "neutral" | "info" | "warning" | "success";
 
-interface InfoRowProps {
+interface RowItemProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
+  subtitle?: string;
+  tone?: AccentTone;
   onPress?: () => void;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Tone palette ─────────────────────────────────────────────────────────────
+// Subtle differentiation: most rows are mint, but contextual ones (disputes,
+// duplicates) get a warm warning tone so they don't feel monotonous.
 
-function PaymentMethodRow({ icon, title, subtitle, onPress }: PaymentMethodRowProps) {
+const TONE_STYLES: Record<
+  AccentTone,
+  { bg: string; fg: string }
+> = {
+  neutral: { bg: Colors.accentLight, fg: Colors.secondary },
+  info: { bg: "#eaf1ff", fg: Colors.info },
+  warning: { bg: "#fdf1e3", fg: "#a85d12" },
+  success: { bg: Colors.successLight, fg: Colors.success },
+};
+
+// ─── Reusable Row ─────────────────────────────────────────────────────────────
+
+function RowItem({
+  icon,
+  title,
+  subtitle,
+  tone = "neutral",
+  onPress,
+}: RowItemProps) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const palette = TONE_STYLES[tone];
+  const interactive = !!onPress;
+
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}, ${subtitle}`}
-      style={({ pressed }) => [pressed && { opacity: 0.75 }]}
-    >
-      {/* Inner View enforces the horizontal layout — Pressable on iOS can
-          silently drop flexDirection when the press style is a function. */}
-      <View style={styles.methodRow}>
-        <View style={styles.methodIconWrap}>
-          <Ionicons name={icon} size={22} color={Colors.secondary} />
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          if (interactive) scale.value = withSpring(0.98, SpringConfig.press);
+        }}
+        onPressOut={() => {
+          if (interactive) scale.value = withSpring(1, SpringConfig.press);
+        }}
+        accessibilityRole={interactive ? "button" : undefined}
+        accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+        android_ripple={
+          interactive
+            ? { color: "rgba(0,107,85,0.08)", borderless: false }
+            : undefined
+        }
+      >
+        {/* Inner View — enforces flexDirection on iOS even with function-based
+            Pressable style. */}
+        <View style={styles.row}>
+          <View style={[styles.rowIconWrap, { backgroundColor: palette.bg }]}>
+            <Ionicons name={icon} size={20} color={palette.fg} />
+          </View>
+          <View style={styles.rowContent}>
+            <Text style={styles.rowTitle}>{title}</Text>
+            {subtitle ? (
+              <Text style={styles.rowSubtitle}>{subtitle}</Text>
+            ) : null}
+          </View>
+          {interactive ? (
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={Colors.textTertiary}
+            />
+          ) : null}
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.methodTitle}>{title}</Text>
-          <Text style={styles.methodSub}>{subtitle}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
-function InfoRow({ icon, title, onPress }: InfoRowProps) {
+// ─── Section Header (accent + label + optional kicker) ────────────────────────
+
+function SectionHeader({
+  kicker,
+  title,
+}: {
+  kicker?: string;
+  title: string;
+}) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={title}
-      style={({ pressed }) => [pressed && onPress && { opacity: 0.75 }]}
-    >
-      {/* Inner View ensures the horizontal layout survives on iOS even
-          when the Pressable style is a function-based style array. */}
-      <View style={styles.infoRow}>
-        <View style={styles.infoIconWrap}>
-          <Ionicons name={icon} size={18} color={Colors.textSecondary} />
-        </View>
-        <Text style={styles.infoRowText}>{title}</Text>
-        {onPress ? (
-          <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-        ) : null}
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionAccent} />
+      <View style={{ flex: 1 }}>
+        {kicker ? <Text style={styles.sectionKicker}>{kicker}</Text> : null}
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -93,12 +140,9 @@ export default function PaymentsScreen() {
     );
   }, []);
 
-  const handleInfoRow = useCallback(
-    (title: string, message: string) => {
-      Alert.alert(title, message);
-    },
-    []
-  );
+  const handleInfoRow = useCallback((title: string, message: string) => {
+    Alert.alert(title, message);
+  }, []);
 
   const handleSupportContact = useCallback(() => {
     router.push("/support");
@@ -118,22 +162,24 @@ export default function PaymentsScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* ── Header ── */}
+      {/* ── Refined header — no debug-like brand thumbnail ── */}
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
           accessibilityLabel="Indietro"
           accessibilityRole="button"
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [
+            styles.backBtn,
+            pressed && styles.backBtnPressed,
+          ]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.breadcrumb}>Supporto · Help Center</Text>
-          <Text style={styles.headerBrand}>CleanHome</Text>
-        </View>
-        {/* Right-side spacer — visual balance to the back button */}
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          Pagamenti
+        </Text>
+        {/* Right spacer for visual balance */}
         <View style={styles.headerSpacer} />
       </View>
 
@@ -142,64 +188,25 @@ export default function PaymentsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Title block ── */}
+        {/* ── Hero title block ── */}
         <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>Help center</Text>
           <Text style={styles.pageTitle}>Pagamenti e rimborsi</Text>
           <Text style={styles.pageSubtitle}>
-            Gestisci i tuoi metodi di pagamento, visualizza le politiche di rimborso e ottieni assistenza per i tuoi estratti conto.
+            Gestisci i tuoi metodi di pagamento, consulta le politiche di
+            rimborso e ottieni assistenza per i tuoi estratti conto.
           </Text>
-        </View>
-
-        {/* ── Payment Methods ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Metodi di pagamento</Text>
-          <View style={styles.card}>
-            <PaymentMethodRow
-              icon="card-outline"
-              title="Carte di credito e debito"
-              subtitle="Visa, Mastercard, Amex"
-              onPress={() =>
-                handleInfoRow(
-                  "Carte accettate",
-                  "Accettiamo tutte le principali carte di credito e debito: Visa, Mastercard, American Express. Il pagamento è processato in modo sicuro da Stripe."
-                )
-              }
-            />
-            <View style={styles.cardDivider} />
-            <PaymentMethodRow
-              icon="wallet-outline"
-              title="Portafogli digitali"
-              subtitle={Platform.OS === "ios" ? "Apple Pay, Google Pay" : "Google Pay"}
-              onPress={() =>
-                handleInfoRow(
-                  "Portafogli digitali",
-                  Platform.OS === "ios"
-                    ? "Puoi pagare con Apple Pay o Google Pay direttamente dal Payment Sheet al momento della prenotazione."
-                    : "Puoi pagare con Google Pay direttamente dal Payment Sheet al momento della prenotazione."
-                )
-              }
-            />
-            <View style={styles.cardDivider} />
-            <View style={styles.updateLink}>
-              <Pressable
-                onPress={handleExplainPayment}
-                accessibilityRole="button"
-                accessibilityLabel="Come funziona il pagamento"
-                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={StyleSheet.absoluteFill}
-              />
-              <Ionicons name="information-circle-outline" size={16} color={Colors.textOnDark} pointerEvents="none" />
-              <Text style={styles.updateLinkText} pointerEvents="none">Come funziona il pagamento</Text>
-              <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} pointerEvents="none" />
-            </View>
-          </View>
         </View>
 
         {/* ── Security card ── */}
         <View style={styles.securityCard}>
           <View style={styles.securityLeft}>
             <View style={styles.shieldWrap}>
-              <Ionicons name="shield-checkmark" size={22} color={Colors.textOnDark} />
+              <Ionicons
+                name="shield-checkmark"
+                size={22}
+                color={Colors.textOnDark}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.securityTitle}>Sicurezza prima di tutto</Text>
@@ -212,13 +219,74 @@ export default function PaymentsScreen() {
           </View>
         </View>
 
+        {/* ── Payment Methods ── */}
+        <View style={styles.section}>
+          <SectionHeader title="Metodi di pagamento" />
+          <View style={styles.card}>
+            <RowItem
+              icon="card-outline"
+              title="Carte di credito e debito"
+              subtitle="Visa, Mastercard, Amex"
+              onPress={() =>
+                handleInfoRow(
+                  "Carte accettate",
+                  "Accettiamo tutte le principali carte di credito e debito: Visa, Mastercard, American Express. Il pagamento è processato in modo sicuro da Stripe."
+                )
+              }
+            />
+            <View style={styles.cardDivider} />
+            <RowItem
+              icon="wallet-outline"
+              title="Portafogli digitali"
+              subtitle={
+                Platform.OS === "ios" ? "Apple Pay, Google Pay" : "Google Pay"
+              }
+              onPress={() =>
+                handleInfoRow(
+                  "Portafogli digitali",
+                  Platform.OS === "ios"
+                    ? "Puoi pagare con Apple Pay o Google Pay direttamente dal Payment Sheet al momento della prenotazione."
+                    : "Puoi pagare con Google Pay direttamente dal Payment Sheet al momento della prenotazione."
+                )
+              }
+            />
+            <View style={styles.cardDivider} />
+            <View style={styles.explainLink}>
+              <Pressable
+                onPress={handleExplainPayment}
+                accessibilityRole="button"
+                accessibilityLabel="Come funziona il pagamento"
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={StyleSheet.absoluteFill}
+              />
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={Colors.textOnDark}
+                pointerEvents="none"
+              />
+              <Text style={styles.explainLinkText} pointerEvents="none">
+                Come funziona il pagamento
+              </Text>
+              <Ionicons
+                name="arrow-forward"
+                size={14}
+                color={Colors.textOnDark}
+                pointerEvents="none"
+              />
+            </View>
+          </View>
+        </View>
+
         {/* ── Refund Policy ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Politica di rimborso</Text>
+          <SectionHeader title="Politica di rimborso" />
           <View style={styles.card}>
-            <InfoRow
-              icon="checkmark-circle-outline"
-              title="Modalità escrow (hold-until-confirm)"
+            <RowItem
+              icon="lock-closed-outline"
+              tone="success"
+              title="Modalità escrow"
+              subtitle="Hold-until-confirm — i fondi restano custoditi"
               onPress={() =>
                 handleInfoRow(
                   "Come funziona l'escrow",
@@ -227,9 +295,11 @@ export default function PaymentsScreen() {
               }
             />
             <View style={styles.cardDivider} />
-            <InfoRow
+            <RowItem
               icon="calendar-outline"
+              tone="neutral"
               title="Politica di cancellazione"
+              subtitle="Regole di rimborso in base ai tempi"
               onPress={() =>
                 handleInfoRow(
                   "Cancellazioni",
@@ -238,9 +308,11 @@ export default function PaymentsScreen() {
               }
             />
             <View style={styles.cardDivider} />
-            <InfoRow
+            <RowItem
               icon="alert-circle-outline"
+              tone="warning"
               title="Contestazione del servizio"
+              subtitle="Hai 48 ore per aprire un caso"
               onPress={() =>
                 handleInfoRow(
                   "Hai 48 ore per contestare",
@@ -253,17 +325,21 @@ export default function PaymentsScreen() {
 
         {/* ── Invoice Issues ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Problemi con le fatture</Text>
+          <SectionHeader title="Problemi con le fatture" />
           <View style={styles.card}>
-            <InfoRow
+            <RowItem
               icon="alert-circle-outline"
+              tone="warning"
               title="Segnala un addebito duplicato"
+              subtitle="Apri un ticket col supporto"
               onPress={handleSupportContact}
             />
             <View style={styles.cardDivider} />
-            <InfoRow
+            <RowItem
               icon="document-text-outline"
+              tone="info"
               title="Richiedi fattura / ricevuta IVA"
+              subtitle="Scarica i tuoi documenti fiscali"
               onPress={() => router.push("/payments/invoices")}
             />
           </View>
@@ -275,7 +351,7 @@ export default function PaymentsScreen() {
           onEmailPress={handleEmailBilling}
         />
 
-        <View style={{ height: Platform.OS === "ios" ? 32 : 24 }} />
+        <View style={{ height: Platform.OS === "ios" ? 40 : 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -289,143 +365,160 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
 
-  // Header
+  // ── Header — clean detail-page chrome, no brand thumbnail ────────────────
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     gap: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.backgroundAlt,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
+    ...Shadows.sm,
+  },
+  backBtnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.text,
+    textAlign: "center",
+    letterSpacing: -0.2,
   },
   headerSpacer: {
     width: 40,
     height: 40,
   },
-  breadcrumb: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.textTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    marginBottom: 2,
-  },
-  headerBrand: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Colors.primary,
-    letterSpacing: -0.3,
-    fontFamily: "NotoSerif-Bold",
-  },
-  helpCenterBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-  },
-  helpCenterText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.textOnDark,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
 
+  // ── Scroll content ───────────────────────────────────────────────────────
   scrollContent: {
     paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.xl,
-    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+    gap: Spacing.xxl, // 32 — wider rhythm between sections for premium feel
   },
 
-  // Title block
+  // ── Title block ─────────────────────────────────────────────────────────
   titleBlock: {
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.6,
+    color: Colors.secondary,
+    textTransform: "uppercase",
   },
   pageTitle: {
     fontSize: 30,
-    fontWeight: "700",
+    fontWeight: "800",
     color: Colors.primary,
-    letterSpacing: -0.6,
-    fontFamily: "NotoSerif-Bold",
+    letterSpacing: -0.8,
+    lineHeight: 36,
   },
   pageSubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
     lineHeight: 22,
-    fontFamily: "PlusJakartaSans-Regular",
+    letterSpacing: -0.1,
   },
 
-  // Sections
+  // ── Section ─────────────────────────────────────────────────────────────
   section: {
-    gap: Spacing.sm,
+    gap: Spacing.md, // 12 — tight rhythm between header and card
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  sectionAccent: {
+    width: 3,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: Colors.accent,
+  },
+  sectionKicker: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+    color: Colors.textTertiary,
+    textTransform: "uppercase",
+    marginBottom: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: Colors.primary,
-    letterSpacing: -0.2,
-    fontFamily: "NotoSerif-Bold",
+    letterSpacing: -0.3,
   },
-  // Card
+
+  // ── Card shell ──────────────────────────────────────────────────────────
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.lg, // 16
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
     ...Shadows.sm,
   },
   cardDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
-    marginLeft: 56,
-    opacity: 0.6,
+    marginLeft: 60, // aligns with text column (icon 40 + gap 12 + padding 16 - 8)
   },
 
-  // Method row
-  methodRow: {
+  // ── Row ─────────────────────────────────────────────────────────────────
+  row: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.base,
+    minHeight: 64,
   },
-  methodIconWrap: {
+  rowIconWrap: {
     width: 40,
     height: 40,
     borderRadius: Radius.md,
-    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  methodTitle: {
+  rowContent: {
+    flex: 1,
+    gap: 2,
+  },
+  rowTitle: {
     fontSize: 15,
     fontWeight: "600",
     color: Colors.text,
-    marginBottom: 2,
-    fontFamily: "PlusJakartaSans-SemiBold",
+    letterSpacing: -0.1,
   },
-  methodSub: {
+  rowSubtitle: {
     fontSize: 12,
-    color: Colors.textTertiary,
-    fontFamily: "PlusJakartaSans-Regular",
+    color: Colors.textSecondary,
+    letterSpacing: -0.05,
+    lineHeight: 16,
   },
 
-  // Update link
-  updateLink: {
+  // ── Explain CTA inside card ─────────────────────────────────────────────
+  explainLink: {
     marginHorizontal: Spacing.base,
     marginVertical: Spacing.md,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
@@ -434,13 +527,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: Spacing.base,
   },
-  updateLinkText: {
+  explainLinkText: {
     fontSize: 14,
     fontWeight: "700",
     color: Colors.textOnDark,
+    letterSpacing: 0.1,
   },
 
-  // Security card
+  // ── Security card ───────────────────────────────────────────────────────
   securityCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -469,6 +563,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.textOnDark,
     marginBottom: 2,
+    letterSpacing: -0.2,
   },
   securitySub: {
     fontSize: 12,
@@ -489,29 +584,5 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.accent,
     letterSpacing: 1,
-  },
-
-  // Info row — keeps same outer dimensions as methodRow for visual parity
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.base,
-  },
-  infoIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  infoRowText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    color: Colors.text,
-    fontFamily: "PlusJakartaSans-Medium",
   },
 });
