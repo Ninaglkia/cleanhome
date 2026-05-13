@@ -178,7 +178,7 @@ function FaqAccordionItem({
 
 function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.faqOverlay}>
         <Pressable style={styles.faqBackdrop} onPress={onClose} />
         <View style={styles.faqSheet}>

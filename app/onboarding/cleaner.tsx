@@ -597,7 +597,7 @@ export default function CleanerOnboardingScreen() {
                 }}
               >
                 <Text style={{ fontSize: 13, color: Colors.secondary, fontWeight: "600" }}>
-                  Il cliente paghera €{(parseFloat(hourlyRate || "0") * 1.09).toFixed(2)}/h
+                  Il cliente pagherà €{(parseFloat(hourlyRate || "0") * 1.09).toFixed(2)}/h
                 </Text>
               </View>
             </View>

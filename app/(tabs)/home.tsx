@@ -1265,6 +1265,7 @@ export default function HomeScreen() {
         visible={propertyPickerOpen}
         animationType="slide"
         transparent
+        statusBarTranslucent
         onRequestClose={() => setPropertyPickerOpen(false)}
       >
         <Pressable

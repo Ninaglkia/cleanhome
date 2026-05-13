@@ -316,22 +316,7 @@ export default function NotificationsScreen() {
           />
           <Text style={styles.topBarBrand}>CleanHome</Text>
         </View>
-        <View style={styles.topBarRight}>
-          <Pressable
-            style={styles.bellBtn}
-            accessibilityLabel="Notifiche"
-            accessibilityRole="button"
-          >
-            <Ionicons name="notifications-outline" size={22} color={C.primary} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {unreadCount > 9 ? "9+" : String(unreadCount)}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
+        <View style={styles.topBarRight} />
       </View>
 
       {/* ── Editorial header ── */}

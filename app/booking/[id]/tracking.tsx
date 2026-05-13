@@ -157,23 +157,24 @@ export default function LiveBookingTracking() {
     opacity: 2 - pulse.value,
   }));
 
-  const fallbackHouse = { latitude: 45.4642, longitude: 9.19 };
   const clientHouse =
     booking?.latitude && booking?.longitude
       ? { latitude: booking.latitude, longitude: booking.longitude }
-      : fallbackHouse;
+      : null;
 
-  const distanceKm = cleanerPos
+  const distanceKm = cleanerPos && clientHouse
     ? haversineKm(cleanerPos, clientHouse)
     : null;
   const etaMinutes = distanceKm !== null ? estimateEtaMinutes(distanceKm) : null;
 
-  const initialRegion: Region = {
-    latitude: clientHouse.latitude,
-    longitude: clientHouse.longitude,
-    latitudeDelta: 0.03,
-    longitudeDelta: 0.03,
-  };
+  const initialRegion: Region | null = clientHouse
+    ? {
+        latitude: clientHouse.latitude,
+        longitude: clientHouse.longitude,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      }
+    : null;
 
   const cleanerInitial = (booking?.cleaner_name ?? "?")
     .split(" ")
@@ -196,6 +197,22 @@ export default function LiveBookingTracking() {
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.resetBtn} onPress={() => router.back()}>
           <Text style={styles.resetBtnText}>Torna indietro</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!clientHouse || !initialRegion) {
+    return (
+      <View style={[styles.root, styles.center]}>
+        <Text style={styles.errorText}>
+          Indirizzo non disponibile per questa prenotazione.
+        </Text>
+        <TouchableOpacity
+          style={styles.resetBtn}
+          onPress={() => router.replace("/(tabs)/bookings")}
+        >
+          <Text style={styles.resetBtnText}>Torna alla prenotazione</Text>
         </TouchableOpacity>
       </View>
     );

@@ -131,7 +131,7 @@ export default function EditProfileScreen() {
             <TextInput
               value={fullName}
               onChangeText={setFullName}
-              placeholder="Mario Rossi"
+              placeholder="Il tuo nome completo"
               placeholderTextColor={Colors.textTertiary}
               autoCapitalize="words"
               maxLength={60}

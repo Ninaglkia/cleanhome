@@ -54,10 +54,12 @@ export default function WelcomeRocketScreen() {
   const [showModal, setShowModal] = useState(false);
 
   // Determine first name for greeting
-  const firstName =
+  const rawFirstName =
     profile?.full_name?.split(" ")[0] ??
     user?.user_metadata?.full_name?.split(" ")[0] ??
-    "benvenuto";
+    "";
+  const hasName = rawFirstName.trim().length > 0;
+  const firstName = hasName ? rawFirstName : "";
 
   // Animated values
   const screenOpacity = useSharedValue(1);
@@ -184,7 +186,7 @@ export default function WelcomeRocketScreen() {
         {/* Text block — sits below the animation */}
         <View style={styles.textBlock}>
           <Animated.Text style={[styles.title, titleStyle]}>
-            Benvenuto, {firstName}!
+            {hasName ? `Benvenuto, ${firstName}!` : "Benvenuto!"}
           </Animated.Text>
           <Animated.Text style={[styles.subtitle, subtitleStyle]}>
             Pronti al decollo

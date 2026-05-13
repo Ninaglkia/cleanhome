@@ -75,7 +75,9 @@ export default function BookingDetailScreen() {
       setClientProfile(client);
       setPhotos(allPhotos as BookingPhoto[]);
     } catch (err: any) {
-      console.error("[BookingDetail]", err?.message ?? err);
+      if (__DEV__) {
+        console.error("[BookingDetail]", err?.message ?? err);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

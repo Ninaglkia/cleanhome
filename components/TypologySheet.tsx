@@ -320,7 +320,7 @@ export default function TypologySheet({ visible, onClose, value, onChange }: Pro
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.sheet}>
         {/* Grabber */}

@@ -109,7 +109,7 @@ export default function OnboardingScreen() {
   // checklist — the wizard screen itself calls markCleanerOnboarded once
   // the profile data is persisted, so we intentionally skip it here.
   const finishOnboarding = useCallback(async () => {
-    const isCleaner = selectedRole === "cleaner";
+    const isCleaner = selectedRole === "cleaner" || selectedRole === "both";
     try {
       const roleArg = isCleaner ? "cleaner" : "client";
       await setActiveRole(roleArg);

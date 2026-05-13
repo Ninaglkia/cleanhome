@@ -143,8 +143,14 @@ export default function WelcomeModal({
 
           {/* Title */}
           <Text style={styles.title}>
-            Benvenuto in CleanHome,{"\n"}
-            <Text style={styles.titleAccent}>{firstName}!</Text>
+            {firstName?.trim() ? (
+              <>
+                Benvenuto in CleanHome,{"\n"}
+                <Text style={styles.titleAccent}>{firstName}!</Text>
+              </>
+            ) : (
+              <Text style={styles.titleAccent}>Benvenuto in CleanHome!</Text>
+            )}
           </Text>
 
           {/* Subtitle */}

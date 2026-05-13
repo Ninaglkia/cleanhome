@@ -447,7 +447,18 @@ export default function ChatScreen() {
             </View>
             <Text style={styles.emptyTitle}>Nessun messaggio</Text>
             <Text style={styles.emptySubtitle}>
-              Inizia la conversazione con il nostro team di supporto dedicato.
+              {(() => {
+                const viewerIsCleaner = !!(user && booking && user.id === booking.cleaner_id);
+                const name = counterpartyName?.trim();
+                if (viewerIsCleaner) {
+                  return name
+                    ? `Inizia a scrivere a ${name} per coordinare l'arrivo.`
+                    : "Inizia a scrivere al cliente per coordinare l'arrivo.";
+                }
+                return name
+                  ? `Inizia a scrivere a ${name} per coordinare l'arrivo del cleaner.`
+                  : "Inizia a scrivere per coordinare l'arrivo del servizio.";
+              })()}
             </Text>
           </View>
         ) : (

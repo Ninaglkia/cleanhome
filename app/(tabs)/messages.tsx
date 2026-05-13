@@ -181,8 +181,8 @@ export default function MessagesScreen() {
           </View>
           <Text style={styles.emptyTitle}>Nessun messaggio</Text>
           <Text style={styles.emptySubtitle}>
-            Le conversazioni con i professionisti appariranno qui dopo una
-            prenotazione confermata
+            Le chat si aprono quando un professionista accetta la tua richiesta
+            o quando hai una prenotazione attiva.
           </Text>
         </View>
       ) : (
