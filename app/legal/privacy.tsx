@@ -115,38 +115,42 @@ export default function PrivacyScreen() {
           trattamento.
         </Text>
 
-        <Pressable
-          onPress={handleOpen}
-          style={({ pressed }) => [
-            {
-              backgroundColor: Colors.primary,
+        <View
+          style={{
+            width: "100%",
+            backgroundColor: "#022420",
+            borderRadius: 16,
+            shadowColor: "#022420",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18,
+            shadowRadius: 12,
+            elevation: 4,
+            overflow: "hidden",
+          }}
+        >
+          <Pressable
+            onPress={handleOpen}
+            android_ripple={{ color: "rgba(255,255,255,0.15)" }}
+            style={({ pressed }) => ({
               paddingVertical: 16,
               paddingHorizontal: 32,
-              borderRadius: 16,
-              width: "100%",
               alignItems: "center",
-              borderWidth: 0,
-              shadowColor: Colors.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.18,
-              shadowRadius: 12,
-              elevation: 4,
-            },
-            pressed && { opacity: 0.85, transform: [{ scale: 0.98 as number }] },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Apri Informativa Privacy sul sito ufficiale"
-        >
-          <Text
-            style={{
-              color: "#fff",
-              fontWeight: "700",
-              fontSize: 16,
-            }}
+              opacity: pressed ? 0.85 : 1,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel="Apri Informativa Privacy sul sito ufficiale"
           >
-            Apri Informativa Privacy
-          </Text>
-        </Pressable>
+            <Text
+              style={{
+                color: "#ffffff",
+                fontWeight: "700",
+                fontSize: 16,
+              }}
+            >
+              Apri Informativa Privacy
+            </Text>
+          </Pressable>
+        </View>
 
         <Text
           style={{
