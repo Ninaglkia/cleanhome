@@ -156,17 +156,23 @@ export default function WelcomeModal({
           <View style={styles.divider} />
 
           {/* Primary CTA */}
-          <Pressable
-            onPress={handleStartTour}
-            style={({ pressed }) => [
-              styles.btnPrimary,
-              pressed && styles.btnPrimaryPressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Inizia il tour guidato"
-          >
-            <Text style={styles.btnPrimaryText}>Si, mostrami</Text>
-          </Pressable>
+          <View style={styles.btnPrimary}>
+            <Pressable
+              onPress={handleStartTour}
+              accessibilityRole="button"
+              accessibilityLabel="Inizia il tour guidato"
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                width: "100%",
+                alignItems: "center",
+                paddingVertical: 15,
+                paddingHorizontal: 32,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={styles.btnPrimaryText}>Si, mostrami</Text>
+            </Pressable>
+          </View>
 
           {/* Secondary CTA */}
           <Pressable
@@ -263,16 +269,14 @@ const styles = StyleSheet.create({
   btnPrimary: {
     backgroundColor: DARK_GREEN,
     borderRadius: 9999,
-    paddingVertical: 15,
-    paddingHorizontal: 32,
     width: "100%",
-    alignItems: "center",
     marginBottom: 12,
     shadowColor: DARK_GREEN,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 8,
+    overflow: "hidden",
   },
   btnPrimaryPressed: {
     opacity: 0.85,

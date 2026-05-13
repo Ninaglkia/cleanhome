@@ -1453,7 +1453,7 @@ function PremiumCTA({
       )}
       {/* Glow layer behind button (only when CTA is enabled) */}
       <Animated.View style={[styles.ctaGlow, glowStyle]} />
-      <Animated.View style={pressStyle}>
+      <Animated.View style={[pressStyle, styles.cta, !canAdvance && styles.ctaDisabled]}>
         <Pressable
           onPress={handlePress}
           onPressIn={handlePressIn}
@@ -1462,7 +1462,8 @@ function PremiumCTA({
           accessibilityState={{ disabled: !canAdvance || saving }}
           accessibilityLabel={isLast ? "Crea casa" : "Avanti al prossimo step"}
           accessibilityHint={!canAdvance ? missingHint : undefined}
-          style={[styles.cta, !canAdvance && styles.ctaDisabled]}
+          android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+          style={styles.ctaInner}
         >
           <Text style={[styles.ctaTxt, !canAdvance && styles.ctaTxtDisabled]}>
             {isLast ? (saving ? "Salvo…" : "Crea casa") : "Avanti"}
@@ -2818,10 +2819,6 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     height: 56,
     borderRadius: 28,
     backgroundColor: Colors.secondary,
@@ -2830,7 +2827,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 14,
     elevation: 8,
+    overflow: "hidden",
   },
+  ctaInner: {
+    width: "100%",
+    height: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  ctaDisabledInner: {},
   ctaTxt: {
     fontSize: 15,
     fontWeight: "900",

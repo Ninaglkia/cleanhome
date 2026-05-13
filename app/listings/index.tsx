@@ -828,26 +828,31 @@ function ErrorState({
       >
         {message}
       </Text>
-      <Pressable
-        onPress={onRetry}
-        style={({ pressed }) => [
-          {
+      <View
+        style={{
+          borderRadius: 999,
+          backgroundColor: C.secondary,
+          overflow: "hidden",
+        }}
+      >
+        <Pressable
+          onPress={onRetry}
+          android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+          style={({ pressed }) => ({
             flexDirection: "row",
             alignItems: "center",
             gap: 8,
             paddingHorizontal: 22,
             paddingVertical: 12,
-            borderRadius: 999,
-            backgroundColor: C.secondary,
-          },
-          pressed && { opacity: 0.9 },
-        ]}
-      >
-        <Ionicons name="refresh" size={18} color="#ffffff" />
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>
-          Riprova
-        </Text>
-      </Pressable>
+            opacity: pressed ? 0.9 : 1,
+          })}
+        >
+          <Ionicons name="refresh" size={18} color="#ffffff" />
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ffffff" }}>
+            Riprova
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -869,43 +874,51 @@ function EmptyState({
         Crea il tuo primo annuncio gratuitamente e inizia a ricevere clienti
         nella tua zona di copertura.
       </Text>
-      <Pressable
-        onPress={onCreate}
-        disabled={creating}
+      <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
           backgroundColor: "#006b55",
-          paddingHorizontal: 28,
-          paddingVertical: 16,
           borderRadius: 999,
-          gap: 10,
           opacity: creating ? 0.5 : 1,
           shadowColor: "#006b55",
           shadowOpacity: 0.22,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
           elevation: 6,
+          overflow: "hidden",
         }}
       >
-        {creating ? (
-          <ActivityIndicator size="small" color="#ffffff" />
-        ) : (
-          <>
-            <Ionicons name="add" size={20} color="#ffffff" />
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "700",
-                color: "#ffffff",
-              }}
-            >
-              Crea un nuovo annuncio
-            </Text>
-          </>
-        )}
-      </Pressable>
+        <Pressable
+          onPress={onCreate}
+          disabled={creating}
+          android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 28,
+            paddingVertical: 16,
+            gap: 10,
+            opacity: pressed ? 0.92 : 1,
+          })}
+        >
+          {creating ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Ionicons name="add" size={20} color="#ffffff" />
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "700",
+                  color: "#ffffff",
+                }}
+              >
+                Crea un nuovo annuncio
+              </Text>
+            </>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }

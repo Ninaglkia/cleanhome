@@ -391,16 +391,23 @@ export default function CleanerProfileViewScreen() {
             <Text style={styles.floatingRateLabel}>A partire da</Text>
             <Text style={styles.floatingRate}>{displayRate}€/ora</Text>
           </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.bookNowBtn,
-              pressed && { opacity: 0.85 },
-            ]}
-            onPress={handleBook}
-          >
-            <Text style={styles.bookNowBtnText}>Prenota ora</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
-          </Pressable>
+          <View style={styles.bookNowBtn}>
+            <Pressable
+              onPress={handleBook}
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingVertical: 16,
+                paddingHorizontal: 28,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={styles.bookNowBtnText}>Prenota ora</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -758,18 +765,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   bookNowBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     backgroundColor: Colors.secondary,
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 28,
     shadowColor: Colors.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 6,
+    overflow: "hidden",
   },
   bookNowBtnText: {
     fontSize: 16,

@@ -152,17 +152,23 @@ function RequestCard({ booking, onAccept, onDecline }: RequestCardProps) {
         >
           <Text style={styles.btnDeclineText}>Rifiuta</Text>
         </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.btnAccept,
-            pressed && { opacity: 0.85 },
-          ]}
-          onPress={handleAccept}
-          accessibilityLabel={`Accetta prenotazione del ${dateLabel}`}
-          accessibilityRole="button"
-        >
-          <Text style={styles.btnAcceptText}>Accetta</Text>
-        </Pressable>
+        <View style={styles.btnAccept}>
+          <Pressable
+            onPress={handleAccept}
+            accessibilityLabel={`Accetta prenotazione del ${dateLabel}`}
+            accessibilityRole="button"
+            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+            style={({ pressed }) => ({
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 13,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={styles.btnAcceptText}>Accetta</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -299,14 +305,23 @@ function OfferCard({ offer, onAccept, onDecline }: OfferCardProps) {
         >
           <Text style={styles.btnDeclineText}>Rifiuta</Text>
         </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.btnAccept, pressed && { opacity: 0.85 }]}
-          onPress={handleAccept}
-          accessibilityLabel="Accetta offerta"
-          accessibilityRole="button"
-        >
-          <Text style={styles.btnAcceptText}>Accetta</Text>
-        </Pressable>
+        <View style={styles.btnAccept}>
+          <Pressable
+            onPress={handleAccept}
+            accessibilityLabel="Accetta offerta"
+            accessibilityRole="button"
+            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+            style={({ pressed }) => ({
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 13,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={styles.btnAcceptText}>Accetta</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -1217,9 +1232,6 @@ const styles = StyleSheet.create({
   },
   btnAccept: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 13,
     borderRadius: 9999,
     backgroundColor: PRIMARY_CONTAINER,
     shadowColor: PRIMARY,
@@ -1227,6 +1239,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+    overflow: "hidden",
   },
   btnAcceptText: {
     fontSize: 14,

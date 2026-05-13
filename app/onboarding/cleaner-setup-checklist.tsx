@@ -273,27 +273,34 @@ export default function CleanerSetupChecklistScreen() {
         </View>
 
         {/* ── Footer CTA ── */}
-        <Pressable
-          onPress={handleFinish}
-          accessibilityRole="button"
-          accessibilityLabel={allDone ? "Vai alla dashboard" : "Continua alla dashboard, completa dopo"}
-          style={({ pressed }) => [
-            styles.finishBtn,
-            allDone && styles.finishBtnPrimary,
-            pressed && { opacity: 0.9 },
-          ]}
-        >
-          {allDone ? (
-            <>
-              <Ionicons name="rocket" size={20} color="#fff" />
-              <Text style={styles.finishBtnTextPrimary}>Vai alla dashboard</Text>
-            </>
-          ) : (
-            <Text style={styles.finishBtnText}>
-              Continua alla dashboard — completa dopo
-            </Text>
-          )}
-        </Pressable>
+        <View style={[styles.finishBtn, allDone && styles.finishBtnPrimary]}>
+          <Pressable
+            onPress={handleFinish}
+            accessibilityRole="button"
+            accessibilityLabel={allDone ? "Vai alla dashboard" : "Continua alla dashboard, completa dopo"}
+            android_ripple={{ color: allDone ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.06)" }}
+            style={({ pressed }) => ({
+              width: "100%",
+              height: "100%",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              opacity: pressed ? 0.9 : 1,
+            })}
+          >
+            {allDone ? (
+              <>
+                <Ionicons name="rocket" size={20} color="#fff" />
+                <Text style={styles.finishBtnTextPrimary}>Vai alla dashboard</Text>
+              </>
+            ) : (
+              <Text style={styles.finishBtnText}>
+                Continua alla dashboard — completa dopo
+              </Text>
+            )}
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -670,13 +677,10 @@ const styles = StyleSheet.create({
   finishBtn: {
     height: 54,
     borderRadius: Radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
     borderWidth: 1.5,
     borderColor: Colors.border,
     backgroundColor: "transparent",
+    overflow: "hidden",
   },
   finishBtnPrimary: {
     backgroundColor: Colors.secondary,

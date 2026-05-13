@@ -320,38 +320,72 @@ export default function BookingDetailScreen() {
       {(canCleanerMarkDone || canClientReview) && (
         <View style={styles.actionBar}>
           {canCleanerMarkDone && (
-            <Pressable
-              style={styles.primaryBtn}
-              onPress={() => setShowMarkDone(true)}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.primaryBtnText}>Lavoro completato</Text>
-            </Pressable>
+            <View style={styles.primaryBtn}>
+              <Pressable
+                onPress={() => setShowMarkDone(true)}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  width: "100%",
+                  height: "100%",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: Spacing.md,
+                  gap: 8,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                <Text style={styles.primaryBtnText}>Lavoro completato</Text>
+              </Pressable>
+            </View>
           )}
           {canClientReview && (
             <View style={styles.dualBtn}>
-              <Pressable
-                style={[styles.actionBtn, styles.disputeBtn]}
-                onPress={() => setShowDispute(true)}
-                disabled={confirming}
-              >
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-                <Text style={styles.disputeBtnText}>Segnala problema</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionBtn, styles.confirmBtn]}
-                onPress={handleConfirm}
-                disabled={confirming}
-              >
-                {confirming ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark" size={18} color="#fff" />
-                    <Text style={styles.confirmBtnText}>Conferma</Text>
-                  </>
-                )}
-              </Pressable>
+              <View style={[styles.actionBtn, styles.disputeBtn]}>
+                <Pressable
+                  onPress={() => setShowDispute(true)}
+                  disabled={confirming}
+                  android_ripple={{ color: "rgba(0,0,0,0.06)" }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: Spacing.md,
+                    gap: 6,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+                  <Text style={styles.disputeBtnText}>Segnala problema</Text>
+                </Pressable>
+              </View>
+              <View style={[styles.actionBtn, styles.confirmBtn]}>
+                <Pressable
+                  onPress={handleConfirm}
+                  disabled={confirming}
+                  android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: Spacing.md,
+                    gap: 6,
+                    opacity: confirming ? 0.6 : pressed ? 0.9 : 1,
+                  })}
+                >
+                  {confirming ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color="#fff" />
+                      <Text style={styles.confirmBtnText}>Conferma</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -554,23 +588,15 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: Colors.primary,
-    paddingVertical: Spacing.md,
     borderRadius: Radius.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    overflow: "hidden",
   },
   primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   dualBtn: { flexDirection: "row", gap: 8 },
   actionBtn: {
     flex: 1,
-    paddingVertical: Spacing.md,
     borderRadius: Radius.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    overflow: "hidden",
   },
   disputeBtn: { backgroundColor: Colors.errorLight, borderWidth: 1, borderColor: Colors.error },
   disputeBtnText: { color: Colors.error, fontWeight: "600", fontSize: 14 },

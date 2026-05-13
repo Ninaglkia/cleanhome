@@ -153,16 +153,22 @@ export default function PropertiesListScreen() {
 
       {/* ── Floating Action Button — only when list has items ── */}
       {items.length > 0 && !loading && (
-        <Pressable
-          onPress={handleAdd}
-          style={({ pressed }) => [
-            styles.fab,
-            pressed && { transform: [{ scale: 0.96 }] },
-          ]}
-          accessibilityLabel="Aggiungi una nuova casa"
-        >
-          <Ionicons name="add" size={26} color="#fff" />
-        </Pressable>
+        <View style={styles.fab}>
+          <Pressable
+            onPress={handleAdd}
+            accessibilityLabel="Aggiungi una nuova casa"
+            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+            style={({ pressed }) => ({
+              width: "100%",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              transform: [{ scale: pressed ? 0.96 : 1 }],
+            })}
+          >
+            <Ionicons name="add" size={26} color="#fff" />
+          </Pressable>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -469,8 +475,7 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     backgroundColor: "#d97706",
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     ...Shadows.lg,
   },
 });

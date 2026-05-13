@@ -504,28 +504,33 @@ export default function ChatScreen() {
               />
             </View>
 
-            <Pressable
-              onPress={handleSend}
-              disabled={!text.trim() || sending}
-              accessibilityLabel="Invia messaggio"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !text.trim() || sending }}
-              style={({ pressed }) => [
-                styles.sendBtn,
-                !text.trim() && styles.sendBtnDisabled,
-                pressed && text.trim() && { opacity: 0.85 },
-              ]}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color={Colors.textOnDark} />
-              ) : (
-                <Ionicons
-                  name="arrow-up"
-                  size={20}
-                  color={text.trim() ? Colors.textOnDark : Colors.textTertiary}
-                />
-              )}
-            </Pressable>
+            <View style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]}>
+              <Pressable
+                onPress={handleSend}
+                disabled={!text.trim() || sending}
+                accessibilityLabel="Invia messaggio"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !text.trim() || sending }}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed && text.trim() ? 0.85 : 1,
+                })}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color={Colors.textOnDark} />
+                ) : (
+                  <Ionicons
+                    name="arrow-up"
+                    size={20}
+                    color={text.trim() ? Colors.textOnDark : Colors.textTertiary}
+                  />
+                )}
+              </Pressable>
+            </View>
           </View>
 
           {/* Trust footer */}
@@ -742,9 +747,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: Colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
     flexShrink: 0,
+    overflow: "hidden",
     ...Shadows.sm,
   },
   sendBtnDisabled: {

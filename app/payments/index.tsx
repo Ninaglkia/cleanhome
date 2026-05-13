@@ -177,14 +177,26 @@ export default function PaymentsScreen() {
               }
             />
             <View style={styles.cardDivider} />
-            <Pressable
-              onPress={handleUpdatePayment}
-              style={({ pressed }) => [styles.updateLink, pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="create-outline" size={16} color={Colors.textOnDark} />
-              <Text style={styles.updateLinkText}>Aggiorna metodo di pagamento</Text>
-              <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} />
-            </Pressable>
+            <View style={styles.updateLink}>
+              <Pressable
+                onPress={handleUpdatePayment}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  width: "100%",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: Spacing.sm,
+                  paddingVertical: 14,
+                  paddingHorizontal: Spacing.base,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Ionicons name="create-outline" size={16} color={Colors.textOnDark} />
+                <Text style={styles.updateLinkText}>Aggiorna metodo di pagamento</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.textOnDark} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -277,13 +289,24 @@ export default function PaymentsScreen() {
             Il nostro team di assistenza è disponibile 7 giorni su 7.
           </Text>
           <View style={styles.assistanceBtns}>
-            <Pressable
-              onPress={handleChat}
-              style={({ pressed }) => [styles.assistanceBtnPrimary, pressed && { opacity: 0.85 }]}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={17} color={Colors.textOnDark} />
-              <Text style={styles.assistanceBtnPrimaryText}>Chat con noi</Text>
-            </Pressable>
+            <View style={styles.assistanceBtnPrimary}>
+              <Pressable
+                onPress={handleChat}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: Spacing.sm,
+                  height: "100%",
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={17} color={Colors.textOnDark} />
+                <Text style={styles.assistanceBtnPrimaryText}>Chat con noi</Text>
+              </Pressable>
+            </View>
             <Pressable
               onPress={handleEmailBilling}
               style={({ pressed }) => [styles.assistanceBtnSecondary, pressed && { opacity: 0.75 }]}
@@ -454,15 +477,11 @@ const styles = StyleSheet.create({
 
   // Update link
   updateLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
     marginHorizontal: Spacing.base,
     marginVertical: Spacing.md,
-    paddingVertical: 14,
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
+    overflow: "hidden",
   },
   updateLinkText: {
     fontSize: 14,
@@ -588,13 +607,10 @@ const styles = StyleSheet.create({
   },
   assistanceBtnPrimary: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
     height: 50,
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
+    overflow: "hidden",
     ...Shadows.sm,
   },
   assistanceBtnPrimaryText: {

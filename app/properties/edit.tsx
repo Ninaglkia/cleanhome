@@ -1802,10 +1802,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   saveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
     height: 60,
     borderRadius: Radius.full,
     backgroundColor: Colors.secondary,
@@ -1814,6 +1810,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 12,
     elevation: 6,
+    overflow: "hidden",
   },
   saveBtnDisabled: {
     backgroundColor: Colors.textTertiary,
@@ -1856,7 +1853,7 @@ function AnimatedSaveButton({
     scale.value = withSpring(1, { damping: 15, stiffness: 200 });
   };
   return (
-    <Animated.View style={animStyle}>
+    <Animated.View style={[animStyle, styles.saveBtn, saving && styles.saveBtnDisabled]}>
       <Pressable
         onPress={onPress}
         onPressIn={onPressIn}
@@ -1864,7 +1861,16 @@ function AnimatedSaveButton({
         disabled={saving}
         accessibilityLabel={isEdit ? "Salva modifiche" : "Salva casa"}
         accessibilityRole="button"
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+        android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+        style={({ pressed }) => ({
+          width: "100%",
+          height: "100%",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          opacity: pressed ? 0.9 : 1,
+        })}
       >
         {saving ? (
           <ActivityIndicator color="#fff" />

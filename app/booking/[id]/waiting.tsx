@@ -296,14 +296,21 @@ export default function WaitingScreen() {
             Nessun professionista ha accettato entro le 24 ore. Prova a selezionare
             un orario diverso o ad ampliare la zona di ricerca.
           </Text>
-          <Pressable
-            style={({ pressed }) => [s.retryBtn, pressed && { opacity: 0.8 }]}
-            onPress={() => router.replace("/booking/new" as never)}
-            accessibilityRole="button"
-            accessibilityLabel="Riprova prenotazione"
-          >
-            <Text style={s.retryBtnText}>Riprova</Text>
-          </Pressable>
+          <View style={s.retryBtn}>
+            <Pressable
+              onPress={() => router.replace("/booking/new" as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Riprova prenotazione"
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                paddingVertical: 16,
+                paddingHorizontal: 36,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={s.retryBtnText}>Riprova</Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -472,8 +479,7 @@ const s = StyleSheet.create({
     marginTop: Spacing.md,
     backgroundColor: Colors.secondary,
     borderRadius: Radius.lg,
-    paddingHorizontal: 36,
-    paddingVertical: 16,
+    overflow: "hidden",
     ...Shadows.md,
   },
   retryBtnText: {

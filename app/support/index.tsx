@@ -158,15 +158,27 @@ export default function SupportScreen() {
             </Text>
 
             <View style={styles.aiButtons}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Inizia chat con assistente AI"
-                style={({ pressed }) => [styles.btnPrimary, pressed && styles.btnPressed]}
-                onPress={handleStartAIChat}
-              >
-                <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOnDark} />
-                <Text style={styles.btnPrimaryText}>Inizia Chat AI</Text>
-              </Pressable>
+              <View style={styles.btnPrimary}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Inizia chat con assistente AI"
+                  onPress={handleStartAIChat}
+                  android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                  style={({ pressed }) => ({
+                    width: "100%",
+                    height: "100%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOnDark} />
+                  <Text style={styles.btnPrimaryText}>Inizia Chat AI</Text>
+                </Pressable>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Parla con il concierge"
@@ -199,16 +211,29 @@ export default function SupportScreen() {
             <Text style={styles.stillSubtitle}>
               L'assistente AI risponde 24/7 e può trasferirti a un operatore umano per casi complessi.
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Apri chat assistente"
-              style={({ pressed }) => [styles.stillBtnFull, pressed && styles.btnPressed]}
-              onPress={handleTalkToConcierge}
-            >
-              <Ionicons name="sparkles" size={18} color="#fff" />
-              <Text style={styles.stillBtnFullText}>Parla con l'assistente</Text>
-              <Ionicons name="chevron-forward" size={18} color="#fff" />
-            </Pressable>
+            <View style={styles.stillBtnFull}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Apri chat assistente"
+                onPress={handleTalkToConcierge}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  width: "100%",
+                  height: "100%",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Ionicons name="sparkles" size={18} color="#fff" />
+                <Text style={styles.stillBtnFullText}>Parla con l'assistente</Text>
+                <Ionicons name="chevron-forward" size={18} color="#fff" />
+              </Pressable>
+            </View>
           </View>
 
           {/* ── Footer links ── */}
@@ -341,13 +366,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   btnPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
-    paddingVertical: 14,
+    overflow: "hidden",
   },
   btnPrimaryText: {
     fontSize: 14,
@@ -479,14 +500,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   stillBtnFull: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.lg,
+    overflow: "hidden",
   },
   stillBtnFullText: {
     flex: 1,

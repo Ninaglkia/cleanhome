@@ -2555,25 +2555,32 @@ export default function ListingScreen() {
           </View>
 
           {/* ── Save button ── */}
-          <Pressable
-            onPress={handleSave}
-            disabled={isSaving}
-            style={({ pressed }) => [
-              styles.saveButton,
-              pressed && styles.saveButtonPressed,
-              isSaving && { opacity: 0.6 },
-            ]}
-          >
-            <Ionicons
-              name={isSaving ? "sync-outline" : "checkmark-circle-outline"}
-              size={20}
-              color={C.surface}
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.saveButtonText}>
-              {isSaving ? "Caricamento…" : "Conferma e carica"}
-            </Text>
-          </Pressable>
+          <View style={styles.saveButton}>
+            <Pressable
+              onPress={handleSave}
+              disabled={isSaving}
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "100%",
+                gap: 10,
+                paddingHorizontal: 24,
+                opacity: isSaving ? 0.6 : pressed ? 0.92 : 1,
+              })}
+            >
+              <Ionicons
+                name={isSaving ? "sync-outline" : "checkmark-circle-outline"}
+                size={20}
+                color="#ffffff"
+              />
+              <Text style={styles.saveButtonText}>
+                {isSaving ? "Caricamento…" : "Conferma e carica"}
+              </Text>
+            </Pressable>
+          </View>
 
           {/* ── Delete listing ── */}
           <Pressable
@@ -3596,23 +3603,18 @@ const styles = StyleSheet.create({
     color: C.onSurfaceVariant,
   },
 
-  // Save button — verde scuro con shadow visibile (shadowColor neutro)
+  // Save button — verde scuro: bg sull'outer View per non sparire su iOS
   saveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#022420",
     borderRadius: 16,
     height: 58,
     marginTop: 16,
     marginBottom: 12,
-    gap: 10,
-    paddingHorizontal: 24,
+    overflow: "hidden",
     ...Platform.select({
       ios: {
-        // shadow nera neutra → visibile contro qualunque sfondo
-        shadowColor: "#000000",
-        shadowOpacity: 0.18,
+        shadowColor: "#022420",
+        shadowOpacity: 0.22,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       },

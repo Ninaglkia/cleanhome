@@ -119,17 +119,24 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
         </View>
       ) : canMarkDone && onMarkWorkDone ? (
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.viewDetailsBtn,
-              { flex: 1 },
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={() => onMarkWorkDone(booking.id)}
-          >
-            <Text style={styles.viewDetailsBtnText}>Segna completato</Text>
-            <Ionicons name="checkmark" size={14} color="#fff" />
-          </Pressable>
+          <View style={[styles.viewDetailsBtn, { flex: 1 }]}>
+            <Pressable
+              onPress={() => onMarkWorkDone(booking.id)}
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 12,
+                gap: 6,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={styles.viewDetailsBtnText}>Segna completato</Text>
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            </Pressable>
+          </View>
           <Pressable
             style={({ pressed }) => [
               {
@@ -147,16 +154,24 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
           </Pressable>
         </View>
       ) : (
-        <Pressable
-          style={({ pressed }) => [
-            styles.viewDetailsBtn,
-            pressed && { opacity: 0.8 },
-          ]}
-          onPress={() => onViewDetails(booking.id)}
-        >
-          <Text style={styles.viewDetailsBtnText}>Vedi Dettagli</Text>
-          <Ionicons name="arrow-forward" size={14} color="#fff" />
-        </Pressable>
+        <View style={styles.viewDetailsBtn}>
+          <Pressable
+            onPress={() => onViewDetails(booking.id)}
+            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+            style={({ pressed }) => ({
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 12,
+              gap: 6,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={styles.viewDetailsBtnText}>Vedi Dettagli</Text>
+            <Ionicons name="arrow-forward" size={14} color="#fff" />
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -446,16 +461,24 @@ export default function CleanerJobsScreen() {
           <Text style={styles.ctaSub}>
             Esplora le richieste disponibili nella tua area
           </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.ctaButton,
-              pressed && { opacity: 0.85 },
-            ]}
-            onPress={handleBrowseMarket}
-          >
-            <Text style={styles.ctaButtonText}>Sfoglia il Mercato</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
-          </Pressable>
+          <View style={styles.ctaButton}>
+            <Pressable
+              onPress={handleBrowseMarket}
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                gap: 8,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={styles.ctaButtonText}>Sfoglia il Mercato</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -664,13 +687,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   viewDetailsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     backgroundColor: Colors.secondary,
     borderRadius: 12,
-    paddingVertical: 12,
+    overflow: "hidden",
   },
   viewDetailsBtnText: {
     fontSize: 14,
@@ -776,13 +795,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   ctaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     backgroundColor: PRIMARY,
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
+    overflow: "hidden",
   },
   ctaButtonText: {
     fontSize: 15,

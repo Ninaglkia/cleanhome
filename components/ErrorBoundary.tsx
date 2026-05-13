@@ -51,16 +51,23 @@ export default class ErrorBoundary extends Component<Props, State> {
               {this.state.error.message}
             </Text>
           )}
-          <Pressable
-            onPress={this.handleRetry}
-            style={({ pressed }) => [
-              styles.retryBtn,
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Ionicons name="refresh" size={20} color="#fff" />
-            <Text style={styles.retryText}>Riprova</Text>
-          </Pressable>
+          <View style={styles.retryBtn}>
+            <Pressable
+              onPress={this.handleRetry}
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Ionicons name="refresh" size={20} color="#fff" />
+              <Text style={styles.retryText}>Riprova</Text>
+            </Pressable>
+          </View>
         </View>
       );
     }
@@ -107,13 +114,9 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
   },
   retryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     backgroundColor: "#006b55",
-    paddingHorizontal: 28,
-    paddingVertical: 14,
     borderRadius: 999,
+    overflow: "hidden",
   },
   retryText: {
     fontSize: 16,
