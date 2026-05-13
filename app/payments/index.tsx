@@ -96,11 +96,11 @@ export default function PaymentsScreen() {
   }, [router]);
 
   const handleChat = useCallback(() => {
-    // Open support chat
-  }, []);
+    router.push("/support/chat");
+  }, [router]);
 
   const handleEmailBilling = useCallback(async () => {
-    await Linking.openURL("mailto:billing@cleanhome.it").catch(() => {});
+    await Linking.openURL("mailto:billing@cleanhomeapp.com").catch(() => {});
   }, []);
 
   return (
