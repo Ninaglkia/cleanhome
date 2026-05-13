@@ -807,19 +807,22 @@ export default function PropertyEditScreen() {
               </View>
             </FieldBlock>
 
-            {/* Map picker CTA — secondary action under the address field.
-                Outlined / ghost button rather than a heavy dark pill so it
-                doesn't compete visually with the primary "Salva" CTA. */}
+            {/* Map picker CTA — dark-green filled, compact size so it's
+                clearly a secondary action without competing with the
+                primary "Salva" button at the bottom. */}
             <View
               style={{
                 marginTop: 10,
                 height: 44,
                 borderRadius: 12,
-                backgroundColor: "transparent",
-                borderWidth: 1.5,
-                borderColor: Colors.secondary,
+                backgroundColor: Colors.primary,
                 overflow: "hidden",
                 alignSelf: "flex-start",
+                shadowColor: Colors.primary,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.14,
+                shadowRadius: 8,
+                elevation: 3,
               }}
             >
               <Pressable
@@ -830,17 +833,17 @@ export default function PropertyEditScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
-                    paddingHorizontal: 14,
+                    paddingHorizontal: 16,
                   },
-                  pressed && { opacity: 0.7 },
+                  pressed && { opacity: 0.85 },
                 ]}
               >
-                <Ionicons name="map-outline" size={16} color={Colors.secondary} />
+                <Ionicons name="map-outline" size={16} color="#ffffff" />
                 <Text
                   style={{
                     fontSize: 14,
-                    fontWeight: "600",
-                    color: Colors.secondary,
+                    fontWeight: "700",
+                    color: "#ffffff",
                     marginLeft: 8,
                   }}
                 >
