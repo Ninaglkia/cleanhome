@@ -441,10 +441,14 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const thumbX = useSharedValue(0);
 
-  // Sync thumb position when radiusKm changes from outside
-  const fraction = trackWidth > 0
+  // Sync thumb position when radiusKm changes from outside.
+  // Clamp to [0, 1] so that legacy values saved when the slider had a
+  // larger range (e.g. 38 km when MAX was 50) don't cause the fill to
+  // extend past the track edge.
+  const rawFraction = trackWidth > 0
     ? (radiusKm - SLIDER_MIN_KM) / (SLIDER_MAX_KM - SLIDER_MIN_KM)
     : 0;
+  const fraction = Math.min(Math.max(rawFraction, 0), 1);
   const thumbPosition = fraction * trackWidth;
 
   const handleLayout = useCallback(
@@ -462,10 +466,12 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
   // the layout fired, even though the numeric label and fill updated.
   useEffect(() => {
     if (trackWidth > 0) {
-      thumbX.value = withTiming(
-        ((radiusKm - SLIDER_MIN_KM) / (SLIDER_MAX_KM - SLIDER_MIN_KM)) * trackWidth,
-        { duration: 150 }
-      );
+      const raw =
+        ((radiusKm - SLIDER_MIN_KM) / (SLIDER_MAX_KM - SLIDER_MIN_KM)) *
+        trackWidth;
+      thumbX.value = withTiming(Math.min(Math.max(raw, 0), trackWidth), {
+        duration: 150,
+      });
     }
   }, [radiusKm, trackWidth, thumbX]);
 
@@ -549,9 +555,12 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const thumbX = useSharedValue(0);
 
-  const fraction = trackWidth > 0
+  // Clamp fraction to [0, 1] so out-of-range saved values don't push
+  // the fill past the track edge.
+  const rawFraction = trackWidth > 0
     ? (priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)
     : 0;
+  const fraction = Math.min(Math.max(rawFraction, 0), 1);
   const thumbPosition = fraction * trackWidth;
 
   const handleLayout = useCallback(
@@ -567,10 +576,11 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
   // same reason as RadiusSlider above.
   useEffect(() => {
     if (trackWidth > 0) {
-      thumbX.value = withTiming(
-        ((priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * trackWidth,
-        { duration: 150 }
-      );
+      const raw =
+        ((priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * trackWidth;
+      thumbX.value = withTiming(Math.min(Math.max(raw, 0), trackWidth), {
+        duration: 150,
+      });
     }
   }, [priceEur, trackWidth, thumbX]);
 
