@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -60,25 +60,47 @@ export default function MyListingsScreen() {
   const [stripeVerified, setStripeVerified] = useState(true); // assume true until loaded
   const [verifying, setVerifying] = useState(false);
 
-  // Re-check Stripe Connect onboarding status. Called on mount and again
-  // every time the screen is focused (e.g. when the user comes back from
-  // Stripe's hosted KYC flow in an external browser).
-  // First syncs status from Stripe API (fallback for missed webhooks),
-  // then reads the canonical state from the DB.
+  // Rate-limit Stripe API sync to avoid blocking every focus event.
+  // The Edge Function round-trips to Stripe (1-3s) which made the
+  // listings screen feel slow on every navigation back.
+  const lastStripeSyncRef = useRef(0);
+
+  // Re-check Stripe Connect onboarding status. Reads the DB first so
+  // the UI updates instantly, then opportunistically re-syncs from
+  // Stripe in the background only when (a) the cached state is not
+  // verified (we might be missing a webhook) AND (b) at least 60s
+  // have passed since the last sync.
   const refreshStripeStatus = useCallback(async () => {
     if (!user?.id) return;
     try {
-      // Best-effort sync from Stripe to DB. Ignore errors (e.g. no account yet).
-      await supabase.functions.invoke("stripe-connect-sync-status", { body: {} }).catch(() => {});
-
+      // 1. Instant DB read — canonical state, no network to Stripe.
       const { data } = await supabase
         .from("cleaner_profiles")
         .select("stripe_onboarding_complete, stripe_charges_enabled")
         .eq("id", user.id)
         .maybeSingle();
-      setStripeVerified(
-        !!data?.stripe_onboarding_complete && !!data?.stripe_charges_enabled
-      );
+      const verified =
+        !!data?.stripe_onboarding_complete && !!data?.stripe_charges_enabled;
+      setStripeVerified(verified);
+
+      // 2. Background re-sync only if needed — never blocks UI.
+      if (!verified && Date.now() - lastStripeSyncRef.current > 60_000) {
+        lastStripeSyncRef.current = Date.now();
+        supabase.functions
+          .invoke("stripe-connect-sync-status", { body: {} })
+          .then(async () => {
+            const { data: fresh } = await supabase
+              .from("cleaner_profiles")
+              .select("stripe_onboarding_complete, stripe_charges_enabled")
+              .eq("id", user.id)
+              .maybeSingle();
+            setStripeVerified(
+              !!fresh?.stripe_onboarding_complete &&
+                !!fresh?.stripe_charges_enabled
+            );
+          })
+          .catch(() => {});
+      }
     } catch {
       setStripeVerified(false);
     }

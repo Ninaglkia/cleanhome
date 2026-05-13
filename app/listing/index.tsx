@@ -1917,16 +1917,9 @@ export default function ListingScreen() {
         coverage_radius_km: isCircle ? draftRadiusKm : null,
         coverage_polygon: !isCircle ? polygonPoints : null,
       });
-      Alert.alert(
-        "Annuncio salvato",
-        "La tua zona di copertura è stata salvata. Ora i clienti in quest'area ti vedranno nei risultati.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/listings"),
-          },
-        ]
-      );
+      // Skip the blocking success alert — navigate straight back to the
+      // listings hub so the user sees the updated card immediately.
+      router.replace("/listings");
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Errore sconosciuto";
