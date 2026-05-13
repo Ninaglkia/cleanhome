@@ -277,7 +277,7 @@ function OfferCard({ offer, onAccept, onDecline }: OfferCardProps) {
         <View style={[offerStyles.detailItem, offerStyles.earningsBadge]}>
           <Ionicons name="cash-outline" size={14} color={PRIMARY} />
           <Text style={[offerStyles.detailText, { color: PRIMARY, fontWeight: "700" }]}>
-            €{netEarnings.toFixed(0)}
+            €{netEarnings.toFixed(2)}
           </Text>
         </View>
       </View>
@@ -440,9 +440,9 @@ export default function CleanerHomeScreen() {
       if (requestsRect) {
         steps.push({
           rect: requestsRect,
-          title: "Verifica la tua identita",
+          title: "Verifica la tua identità",
           description:
-            "Carica i tuoi documenti per ottenere il badge verificato e ricevere piu richieste dai clienti.",
+            "Carica i tuoi documenti per ottenere il badge verificato e ricevere più richieste dai clienti.",
         });
       }
       if (steps.length >= 1) setCoachSteps(steps);

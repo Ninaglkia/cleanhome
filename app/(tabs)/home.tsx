@@ -141,7 +141,7 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
               letterSpacing: 0.2,
             }}
           >
-            €{price}/hr
+            €{price}/ora
           </Text>
           {selected && (
             <View
@@ -544,7 +544,7 @@ export default function HomeScreen() {
           rect: searchRect,
           title: "Trova pulitori nella tua zona",
           description:
-            "Inserisci la tua citta o lascia attiva la posizione GPS per vedere i professionisti vicini.",
+            "Inserisci la tua città o lascia attiva la posizione GPS per vedere i professionisti vicini.",
         });
       }
       if (steps.length >= 1) setCoachSteps(steps);
@@ -1006,20 +1006,26 @@ export default function HomeScreen() {
         showsCompass={false}
         rotateEnabled={false}
       >
-        {cleaners.map((cleaner, index) => (
-          <Marker
-            key={cleaner.id}
-            coordinate={getCleanerPosition(index)}
-            onPress={() => handleMarkerPress(index)}
-            tracksViewChanges={false}
-          >
-            <PriceMarker
-              price={cleaner.hourly_rate ?? 15}
-              selected={selectedIndex === index}
+        {cleaners
+          .map((cleaner, index) => ({ cleaner, index }))
+          // Skip cleaners without a real hourly rate — don't invent a
+          // fake fallback price on the map.
+          .filter(({ cleaner }) => cleaner.hourly_rate != null && cleaner.hourly_rate > 0)
+          .map(({ cleaner, index }) => (
+            <Marker
+              key={cleaner.id}
+              coordinate={getCleanerPosition(index)}
+              anchor={{ x: 0.5, y: 0.5 }}
               onPress={() => handleMarkerPress(index)}
-            />
-          </Marker>
-        ))}
+              tracksViewChanges={false}
+            >
+              <PriceMarker
+                price={cleaner.hourly_rate as number}
+                selected={selectedIndex === index}
+                onPress={() => handleMarkerPress(index)}
+              />
+            </Marker>
+          ))}
 
         {/* ── Client-owned property markers ── */}
         {/* Rendered AFTER the cleaner pins so they draw on top and are
@@ -1033,6 +1039,7 @@ export default function HomeScreen() {
               latitude: p.latitude as number,
               longitude: p.longitude as number,
             }}
+            anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={false}
             onPress={() => {
               Alert.alert(
@@ -1130,7 +1137,7 @@ export default function HomeScreen() {
                 minWidth: 120,
               }}
               placeholder="Cerca città"
-              placeholderTextColor="#022420"
+              placeholderTextColor="rgba(2,36,32,0.4)"
               value={searchText}
               onChangeText={setSearchText}
               onSubmitEditing={() => handleSearch(searchText)}

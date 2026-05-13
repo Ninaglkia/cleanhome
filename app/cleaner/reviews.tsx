@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Colors } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
@@ -120,6 +120,10 @@ function formatReviewDate(iso: string): string {
 export default function CleanerReviewsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  // Optional ?cleanerId=... in the URL — when present, show reviews about
+  // THAT cleaner instead of the viewer's own. Falls back to the
+  // authenticated user when no param is provided (cleaner viewing own).
+  const { cleanerId } = useLocalSearchParams<{ cleanerId?: string }>();
   const [activeTab, setActiveTab] = useState<ReviewTab>("experience");
 
   const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
@@ -127,12 +131,13 @@ export default function CleanerReviewsScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    const targetId = cleanerId ?? user?.id;
+    if (!targetId) return;
     (async () => {
       try {
         const [profile, rawReviews] = await Promise.all([
-          fetchCleaner(user.id).catch(() => null),
-          fetchReviewsForCleaner(user.id).catch(() => []),
+          fetchCleaner(targetId).catch(() => null),
+          fetchReviewsForCleaner(targetId).catch(() => []),
         ]);
         setCleaner(profile);
         setDisplayedReviews(
@@ -150,7 +155,7 @@ export default function CleanerReviewsScreen() {
         setLoading(false);
       }
     })();
-  }, [user]);
+  }, [user, cleanerId]);
 
   const avgRating = cleaner?.avg_rating ?? 0;
   const reviewCount = cleaner?.review_count ?? displayedReviews.length;

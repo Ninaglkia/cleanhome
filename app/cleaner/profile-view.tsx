@@ -163,8 +163,16 @@ export default function CleanerProfileViewScreen() {
   }, [router, id]);
 
   const handleReviews = useCallback(() => {
-    router.push("/cleaner/reviews");
-  }, [router]);
+    // Always pass the cleaner ID through the URL so /cleaner/reviews
+    // shows reviews about THIS cleaner, not the viewer's own.
+    if (cleaner?.id) {
+      router.push(`/cleaner/reviews?cleanerId=${cleaner.id}`);
+    } else if (id) {
+      router.push(`/cleaner/reviews?cleanerId=${id}`);
+    } else {
+      router.push("/cleaner/reviews");
+    }
+  }, [router, cleaner?.id, id]);
 
   const handleShare = useCallback(async () => {
     if (!cleaner) return;

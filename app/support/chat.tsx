@@ -113,7 +113,7 @@ export default function SupportChatScreen() {
             id: `err-${Date.now()}`,
             role: "system",
             content:
-              "Ho avuto un problema tecnico. Riprova oppure tocca \"Parla con un operatore\".",
+              "Mi dispiace, sto avendo un problema tecnico. Riprova tra qualche minuto.",
             created_at: new Date().toISOString(),
           },
         ]);
@@ -273,20 +273,6 @@ const styles = StyleSheet.create({
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
   headerTitle: { fontSize: 16, fontWeight: "600", color: Colors.text },
   headerSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
-  humanBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  humanBtnDone: { backgroundColor: Colors.successLight, borderColor: Colors.success },
-  humanBtnText: { fontSize: 12, color: Colors.secondary, fontWeight: "600" },
-
   listContent: { padding: Spacing.lg, gap: Spacing.sm },
   bubbleRow: { flexDirection: "row", marginVertical: 4, gap: 6 },
   bubbleRowUser: { justifyContent: "flex-end" },

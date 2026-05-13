@@ -259,7 +259,7 @@ export default function FaqTopicScreen() {
         <View style={styles.helpCard}>
           <Text style={styles.helpTitle}>Non hai trovato risposta?</Text>
           <Text style={styles.helpSub}>
-            L'assistente AI può aiutarti subito o trasferirti a un operatore umano.
+            L'assistente AI può aiutarti subito, oppure scrivici via email.
           </Text>
           <Pressable
             style={({ pressed }) => [styles.helpBtn, pressed && { opacity: 0.88 }]}
@@ -269,6 +269,17 @@ export default function FaqTopicScreen() {
           >
             <Ionicons name="sparkles" size={16} color="#fff" />
             <Text style={styles.helpBtnText}>Apri chat con CleanHome</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.helpBtnSecondary, pressed && { opacity: 0.88 }]}
+            onPress={() =>
+              Linking.openURL("mailto:support@cleanhomeapp.com").catch(() => {})
+            }
+            accessibilityLabel="Scrivi al team via email"
+            accessibilityRole="button"
+          >
+            <Ionicons name="mail-outline" size={16} color={Colors.secondary} />
+            <Text style={styles.helpBtnSecondaryText}>Scrivi al team via email</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -411,6 +422,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#fff",
+  },
+  helpBtnSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "transparent",
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    alignSelf: "flex-start",
+    marginTop: Spacing.sm,
+  },
+  helpBtnSecondaryText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.secondary,
   },
   notFound: {
     flex: 1,
