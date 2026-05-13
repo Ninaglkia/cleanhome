@@ -807,48 +807,74 @@ export default function PropertyEditScreen() {
               </View>
             </FieldBlock>
 
-            {/* Map picker CTA — dark-green filled, compact size so it's
-                clearly a secondary action without competing with the
-                primary "Salva" button at the bottom. */}
+            {/* Map picker CTA — premium dark-green chip with frosted icon
+                bubble, trailing chevron and layered shadow. Outer View owns
+                shape/shadow/highlight; inner Pressable holds the touch +
+                row layout. alignSelf: flex-start keeps it visually a
+                secondary action under the address field. */}
             <View
               style={{
-                marginTop: 10,
-                height: 44,
-                borderRadius: 12,
+                marginTop: 12,
+                height: 48,
+                borderRadius: 14,
                 backgroundColor: Colors.primary,
                 overflow: "hidden",
                 alignSelf: "flex-start",
+                borderTopWidth: 1,
+                borderTopColor: "rgba(255,255,255,0.08)",
                 shadowColor: Colors.primary,
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.14,
-                shadowRadius: 8,
-                elevation: 3,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.18,
+                shadowRadius: 14,
+                elevation: 5,
               }}
             >
               <Pressable
                 onPress={() => setMapPickerOpen(true)}
+                android_ripple={{ color: "rgba(255,255,255,0.12)" }}
                 style={({ pressed }) => [
                   {
                     flex: 1,
                     flexDirection: "row",
                     alignItems: "center",
-                    justifyContent: "center",
-                    paddingHorizontal: 16,
+                    paddingLeft: 6,
+                    paddingRight: 16,
                   },
-                  pressed && { opacity: 0.85 },
+                  pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
                 ]}
               >
-                <Ionicons name="map-outline" size={16} color="#ffffff" />
+                {/* Frosted icon bubble */}
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                  }}
+                  pointerEvents="none"
+                >
+                  <Ionicons name="map-outline" size={18} color="#ffffff" />
+                </View>
                 <Text
+                  pointerEvents="none"
                   style={{
                     fontSize: 14,
                     fontWeight: "700",
                     color: "#ffffff",
-                    marginLeft: 8,
+                    letterSpacing: 0.1,
                   }}
                 >
                   Scegli sulla mappa
                 </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color="rgba(255,255,255,0.55)"
+                  style={{ marginLeft: 10 }}
+                />
               </Pressable>
             </View>
           </View>
