@@ -36,10 +36,10 @@ if (!__DEV__) {
   }
 
   const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
-  if (!sentryDsn) {
+  if (__DEV__ && !sentryDsn) {
     console.warn(
-      "[CleanHome] WARNING: EXPO_PUBLIC_SENTRY_DSN is empty in a production build. " +
-        "Crash reports will NOT be captured by Sentry. Set the DSN in your EAS environment."
+      "[CleanHome] WARNING: EXPO_PUBLIC_SENTRY_DSN is not set. " +
+        "Crash reports will NOT be captured by Sentry."
     );
   }
 }

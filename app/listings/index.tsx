@@ -19,6 +19,7 @@ import { useStripe } from "@stripe/stripe-react-native";
 import { useAuth } from "../../lib/auth";
 import {
   fetchMyListings,
+  fetchListing,
   createListing,
   deleteListing,
 } from "../../lib/api";
@@ -283,17 +284,40 @@ export default function MyListingsScreen() {
         return;
       }
 
-      // 4) payment succeeded — webhook will flip status, reload list
-      Alert.alert(
-        "Annuncio creato",
-        "L'abbonamento è attivo. Ora puoi configurare il tuo nuovo annuncio.",
-        [
-          {
-            text: "Configura ora",
-            onPress: () => router.push(`/listing?id=${created.id}`),
-          },
-        ]
-      );
+      // 4) payment succeeded — poll until webhook flips subscription_status
+      let isActive = false;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 700));
+        const polled = await fetchListing(created.id);
+        if (polled?.subscription_status === "active") {
+          isActive = true;
+          break;
+        }
+      }
+
+      if (!isActive) {
+        Alert.alert(
+          "Annuncio creato",
+          "Conferma in corso, ricarica tra qualche secondo.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.push(`/listing?id=${created.id}`),
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Annuncio creato",
+          "L'abbonamento è attivo. Ora puoi configurare il tuo nuovo annuncio.",
+          [
+            {
+              text: "Configura ora",
+              onPress: () => router.push(`/listing?id=${created.id}`),
+            },
+          ]
+        );
+      }
       await load(false);
     } catch (err) {
       if (pendingListingId) {

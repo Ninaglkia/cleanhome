@@ -205,7 +205,7 @@ export default function CleanerProfileViewScreen() {
       ? cleaner.services.map((name) => ({
           name,
           price: `${displayRate}€/ora`,
-          duration: DEFAULT_SERVICE_DURATIONS[name] ?? "Su richiesta",
+          duration: DEFAULT_SERVICE_DURATIONS[name] ?? "Tempo variabile",
         }))
       : [
           {

@@ -550,6 +550,11 @@ export default function NewBookingScreen() {
       // Resolve property coordinates for dispatch mode
       const prop = properties.find((p) => p.id === selectedPropertyId);
 
+      // Validate: if a property was selected it must resolve to a row
+      if (selectedPropertyId && !prop) {
+        throw new Error("Casa non trovata. Riprova.");
+      }
+
       // Build body — backward compat: single cleanerId param preserved
       // when arriving from a cleaner profile page
       const body: Record<string, unknown> = {
@@ -568,7 +573,10 @@ export default function NewBookingScreen() {
         // Legacy single-cleaner flow (arrived from cleaner profile)
         body.cleaner_id = cleanerId;
       } else {
-        // Dispatch flow
+        // Dispatch flow — address is mandatory when no property pre-fills it
+        if (!address.trim()) {
+          throw new Error("Indirizzo richiesto");
+        }
         if (preferredCleanerIds.length > 0) {
           body.preferred_cleaner_ids = preferredCleanerIds;
         } else {

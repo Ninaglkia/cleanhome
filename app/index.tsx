@@ -10,7 +10,6 @@ import Animated, {
   withRepeat,
   Easing,
   runOnJS,
-  interpolate,
 } from "react-native-reanimated";
 import { useAuth } from "../lib/auth";
 import HouseIcon, {
@@ -375,5 +374,3 @@ const styles = StyleSheet.create({
   },
 });
 
-// Reserve interpolate for future tweaks (currently unused).
-void interpolate;
