@@ -12,8 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { fetchCleaner, fetchReviewsForCleaner } from "../../lib/api";
-import { CleanerProfile, Review } from "../../lib/types";
+import { fetchCleaner, fetchCleanerActiveListing, fetchReviewsForCleaner } from "../../lib/api";
+import { CleanerListing, CleanerProfile, Review } from "../../lib/types";
 import { Colors } from "../../lib/theme";
 
 function formatReviewDate(iso: string): string {
@@ -33,6 +33,7 @@ export default function CleanerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
+  const [listing, setListing] = useState<CleanerListing | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,8 +41,9 @@ export default function CleanerDetailScreen() {
     if (!id) return;
     (async () => {
       try {
-        const [cleanerData, reviewsData] = await Promise.all([
+        const [cleanerData, listingData, reviewsData] = await Promise.all([
           fetchCleaner(id),
+          fetchCleanerActiveListing(id).catch(() => null),
           fetchReviewsForCleaner(id).catch(() => [] as Review[]),
         ]);
         if (!cleanerData) {
@@ -50,6 +52,7 @@ export default function CleanerDetailScreen() {
           return;
         }
         setCleaner(cleanerData);
+        setListing(listingData);
         setReviews(reviewsData);
       } catch {
         Alert.alert("Errore", "Impossibile caricare il profilo");
@@ -72,6 +75,17 @@ export default function CleanerDetailScreen() {
   }
 
   if (!cleaner) return null;
+
+  // Merge listing data over profile data — the rich content (cover photo,
+  // hourly rate, services, description) lives in `cleaner_listings` not
+  // in `cleaner_profiles`, so we prefer the listing values when present.
+  const coverUrl = listing?.cover_url ?? null;
+  const displayRate = listing?.hourly_rate ?? cleaner.hourly_rate ?? null;
+  const displayServices =
+    listing?.services && listing.services.length > 0
+      ? listing.services
+      : cleaner.services ?? [];
+  const displayDescription = listing?.description?.trim() || cleaner.bio || "";
 
   const initials = cleaner.full_name
     .split(" ")
@@ -135,6 +149,33 @@ export default function CleanerDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 140 }}
       >
+        {/* Cover photo from the active listing — shown only when the
+            cleaner uploaded one. Sits above the avatar so the client
+            sees the same image they saw on the map / listing card. */}
+        {coverUrl && (
+          <View
+            style={{
+              marginHorizontal: 20,
+              marginTop: 4,
+              marginBottom: 16,
+              borderRadius: 22,
+              overflow: "hidden",
+              backgroundColor: Colors.surface,
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.12,
+              shadowRadius: 14,
+              elevation: 4,
+            }}
+          >
+            <Image
+              source={{ uri: coverUrl }}
+              style={{ width: "100%", height: 220 }}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+
         {/* Hero section */}
         <View
           style={{
@@ -246,7 +287,7 @@ export default function CleanerDetailScreen() {
           }}
         >
           {/* Rate */}
-          {cleaner.hourly_rate && (
+          {displayRate && (
             <View
               style={{
                 flex: 1,
@@ -269,7 +310,7 @@ export default function CleanerDetailScreen() {
                   letterSpacing: -0.5,
                 }}
               >
-                €{cleaner.hourly_rate}
+                €{displayRate}
               </Text>
               <Text style={{ fontSize: 12, color: Colors.textTertiary, marginTop: 3 }}>
                 all'ora
@@ -343,7 +384,7 @@ export default function CleanerDetailScreen() {
         </View>
 
         {/* Bio */}
-        {cleaner.bio && (
+        {displayDescription && (
           <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
             <Text
               style={{
@@ -376,14 +417,14 @@ export default function CleanerDetailScreen() {
                   lineHeight: 22,
                 }}
               >
-                {cleaner.bio}
+                {displayDescription}
               </Text>
             </View>
           </View>
         )}
 
         {/* Services */}
-        {cleaner.services && cleaner.services.length > 0 && (
+        {displayServices.length > 0 && (
           <View style={{ paddingHorizontal: 20 }}>
             <Text
               style={{
@@ -398,7 +439,7 @@ export default function CleanerDetailScreen() {
               Servizi offerti
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {cleaner.services.map((s) => (
+              {displayServices.map((s) => (
                 <View
                   key={s}
                   style={{

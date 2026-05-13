@@ -604,6 +604,25 @@ export async function fetchMyListings(
   return (data as CleanerListing[]) ?? [];
 }
 
+// Fetch the active listing for a given cleaner — used by the public
+// cleaner profile to show cover image, hourly rate, services and
+// description that live in `cleaner_listings`, not `cleaner_profiles`.
+export async function fetchCleanerActiveListing(
+  cleanerId: string
+): Promise<CleanerListing | null> {
+  const { data, error } = await supabase
+    .from("cleaner_listings")
+    .select()
+    .eq("cleaner_id", cleanerId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as CleanerListing | null;
+}
+
 // Fetch a single listing by id (for the edit page).
 export async function fetchListing(
   listingId: string
