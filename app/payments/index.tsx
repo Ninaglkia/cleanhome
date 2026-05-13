@@ -28,7 +28,6 @@ interface PaymentMethodRowProps {
 interface InfoRowProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
-  badge?: string;
   onPress?: () => void;
 }
 
@@ -58,7 +57,7 @@ function PaymentMethodRow({ icon, title, subtitle, onPress }: PaymentMethodRowPr
   );
 }
 
-function InfoRow({ icon, title, badge, onPress }: InfoRowProps) {
+function InfoRow({ icon, title, onPress }: InfoRowProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -69,13 +68,10 @@ function InfoRow({ icon, title, badge, onPress }: InfoRowProps) {
       {/* Inner View ensures the horizontal layout survives on iOS even
           when the Pressable style is a function-based style array. */}
       <View style={styles.infoRow}>
-        <Ionicons name={icon} size={16} color={Colors.textSecondary} />
+        <View style={styles.infoIconWrap}>
+          <Ionicons name={icon} size={18} color={Colors.textSecondary} />
+        </View>
         <Text style={styles.infoRowText}>{title}</Text>
-        {badge ? (
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>{badge}</Text>
-          </View>
-        ) : null}
         {onPress ? (
           <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
         ) : null}
@@ -132,7 +128,7 @@ export default function PaymentsScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.breadcrumb}>Supporto</Text>
+          <Text style={styles.breadcrumb}>Supporto · Help Center</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Image
               // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -141,9 +137,6 @@ export default function PaymentsScreen() {
             />
             <Text style={styles.headerBrand}>CleanHome</Text>
           </View>
-        </View>
-        <View style={styles.helpCenterBadge}>
-          <Text style={styles.helpCenterText}>HELP CENTER</Text>
         </View>
       </View>
 
@@ -209,15 +202,15 @@ export default function PaymentsScreen() {
         <View style={styles.securityCard}>
           <View style={styles.securityLeft}>
             <View style={styles.shieldWrap}>
-              <Ionicons name="shield-checkmark" size={28} color={Colors.textOnDark} />
+              <Ionicons name="shield-checkmark" size={22} color={Colors.textOnDark} />
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.securityTitle}>Sicurezza prima di tutto</Text>
               <Text style={styles.securitySub}>PCI DSS Compliant</Text>
             </View>
           </View>
           <View style={styles.securityBadge}>
-            <Ionicons name="lock-closed" size={12} color={Colors.accent} />
+            <Ionicons name="lock-closed" size={11} color={Colors.accent} />
             <Text style={styles.securityBadgeText}>SICURO</Text>
           </View>
         </View>
@@ -263,12 +256,7 @@ export default function PaymentsScreen() {
 
         {/* ── Invoice Issues ── */}
         <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Problemi con le fatture</Text>
-            <View style={styles.activePill}>
-              <Text style={styles.activePillText}>ATTIVO</Text>
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Problemi con le fatture</Text>
           <View style={styles.card}>
             <InfoRow
               icon="alert-circle-outline"
@@ -287,37 +275,35 @@ export default function PaymentsScreen() {
         {/* ── Footer assistance ── */}
         <View style={styles.assistanceCard}>
           <View style={styles.assistanceIconWrap}>
-            <Ionicons name="help-buoy-outline" size={24} color={Colors.secondary} />
+            <Ionicons name="help-buoy-outline" size={20} color={Colors.secondary} />
           </View>
           <Text style={styles.assistanceTitle}>Hai ancora bisogno di aiuto?</Text>
           <Text style={styles.assistanceSub}>
             Il nostro team di assistenza è disponibile 7 giorni su 7.
           </Text>
           <View style={styles.assistanceBtns}>
-            <View style={styles.assistanceBtnPrimary}>
-              <Pressable
-                onPress={handleChat}
-                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: Spacing.sm,
-                  height: "100%",
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
+            <Pressable
+              onPress={handleChat}
+              accessibilityRole="button"
+              accessibilityLabel="Chat con noi"
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }, { flex: 1 }]}
+            >
+              <View style={styles.assistanceBtnPrimary}>
                 <Ionicons name="chatbubble-ellipses-outline" size={17} color={Colors.textOnDark} />
                 <Text style={styles.assistanceBtnPrimaryText}>Chat con noi</Text>
-              </Pressable>
-            </View>
+              </View>
+            </Pressable>
             <Pressable
               onPress={handleEmailBilling}
-              style={({ pressed }) => [styles.assistanceBtnSecondary, pressed && { opacity: 0.75 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Email al team"
+              style={({ pressed }) => [pressed && { opacity: 0.85 }, { flex: 1 }]}
             >
-              <Ionicons name="mail-outline" size={17} color={Colors.secondary} />
-              <Text style={styles.assistanceBtnSecondaryText}>Email al team</Text>
+              <View style={styles.assistanceBtnSecondary}>
+                <Ionicons name="mail-outline" size={17} color={Colors.secondary} />
+                <Text style={styles.assistanceBtnSecondaryText}>Email</Text>
+              </View>
             </Pressable>
           </View>
         </View>
@@ -420,24 +406,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     fontFamily: "NotoSerif-Bold",
   },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  activePill: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    backgroundColor: Colors.successLight,
-    borderRadius: Radius.full,
-  },
-  activePillText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.success,
-    letterSpacing: 1,
-  },
-
   // Card
   card: {
     backgroundColor: Colors.surface,
@@ -446,9 +414,10 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   cardDivider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
     marginLeft: 56,
+    opacity: 0.6,
   },
 
   // Method row
@@ -551,13 +520,21 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Info row
+  // Info row — keeps same outer dimensions as methodRow for visual parity
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.base,
+  },
+  infoIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.accentLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoRowText: {
     flex: 1,
@@ -566,19 +543,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontFamily: "PlusJakartaSans-Medium",
   },
-  activeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    backgroundColor: Colors.accentLight,
-    borderRadius: Radius.full,
-  },
-  activeBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.secondary,
-    letterSpacing: 0.8,
-  },
-
   // Assistance card
   assistanceCard: {
     backgroundColor: Colors.surface,
@@ -589,13 +553,13 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   assistanceIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   assistanceTitle: {
     fontSize: 20,
@@ -617,11 +581,13 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   assistanceBtnPrimary: {
-    flex: 1,
-    height: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    height: 48,
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
-    overflow: "hidden",
     ...Shadows.sm,
   },
   assistanceBtnPrimaryText: {
@@ -630,16 +596,13 @@ const styles = StyleSheet.create({
     color: Colors.textOnDark,
   },
   assistanceBtnSecondary: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    height: 50,
-    backgroundColor: Colors.surface,
+    height: 48,
+    backgroundColor: Colors.accentLight,
     borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
   },
   assistanceBtnSecondaryText: {
     fontSize: 14,
