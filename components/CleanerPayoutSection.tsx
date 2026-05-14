@@ -84,11 +84,60 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
     if (!cleanerId) return;
     setInvoking(true);
     try {
+      // Force-refresh the session before invoking the Edge Function so a
+      // stale access token (e.g. after the app comes back from
+      // background) doesn't cause a silent 401. If no session is
+      // available at all, surface a clear message asking to log in
+      // again instead of the generic "Edge Function returned a non-2xx".
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        Alert.alert(
+          "Sessione scaduta",
+          "Esci e accedi di nuovo per configurare i pagamenti."
+        );
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "stripe-connect-onboarding-link",
         { body: {} }
       );
-      if (error) throw error;
+      if (error) {
+        // Extract status + real body from supabase-js FunctionsError so
+        // we stop hiding the actual cause behind "non-2xx status code".
+        type EdgeError = Error & {
+          status?: number;
+          context?: { status?: number; json?: () => Promise<unknown> };
+        };
+        const ee = error as EdgeError;
+        const status = ee.status ?? ee.context?.status;
+        if (status === 401) {
+          Alert.alert(
+            "Sessione scaduta",
+            "Esci e accedi di nuovo per configurare i pagamenti."
+          );
+          return;
+        }
+        let detail: string | undefined;
+        const ctx = ee.context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            const body = (await ctx.json()) as {
+              error?: string;
+              detail?: string;
+            };
+            detail = body?.detail || body?.error;
+          } catch {
+            /* body was not JSON */
+          }
+        }
+        Alert.alert(
+          "Errore configurazione pagamenti",
+          `${detail ?? ee.message ?? "Errore sconosciuto"}` +
+            (status ? `\n\n(status ${status})` : "")
+        );
+        return;
+      }
       const url = (data as { url?: string } | null)?.url;
       if (!url) throw new Error("Nessun URL ricevuto");
 
