@@ -138,13 +138,23 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
         );
         return;
       }
-      const url = (data as { url?: string } | null)?.url;
+      const url = (data as { url?: string; kind?: string } | null)?.url;
+      const kind = (data as { url?: string; kind?: string } | null)?.kind;
       if (!url) throw new Error("Nessun URL ricevuto");
 
-      await WebBrowser.openAuthSessionAsync(
-        url,
-        "cleanhome://stripe-connect/return"
-      );
+      // Onboarding links use a one-time account_links URL that redirects
+      // back via cleanhome://stripe-connect/return — auth session catches it.
+      // Dashboard (login) links go to the Stripe Express dashboard and do
+      // NOT come back through the deep link, so we use a regular in-app
+      // browser instead of auth session.
+      if (kind === "dashboard") {
+        await WebBrowser.openBrowserAsync(url);
+      } else {
+        await WebBrowser.openAuthSessionAsync(
+          url,
+          "cleanhome://stripe-connect/return"
+        );
+      }
       // Refresh status after the user returns from Stripe
       refetch();
     } catch (err) {
@@ -193,13 +203,18 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
         throw new Error(detail ?? error.message ?? "Errore sconosciuto");
       }
 
-      const url = (data as { url?: string } | null)?.url;
+      const url = (data as { url?: string; kind?: string } | null)?.url;
+      const kind = (data as { url?: string; kind?: string } | null)?.kind;
       if (!url) throw new Error("Nessun URL ricevuto");
 
-      await WebBrowser.openAuthSessionAsync(
-        url,
-        "cleanhome://stripe-connect/return"
-      );
+      if (kind === "dashboard") {
+        await WebBrowser.openBrowserAsync(url);
+      } else {
+        await WebBrowser.openAuthSessionAsync(
+          url,
+          "cleanhome://stripe-connect/return"
+        );
+      }
       refetch();
     } catch (err) {
       Alert.alert(

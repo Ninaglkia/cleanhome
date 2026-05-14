@@ -115,12 +115,10 @@
         "NSPrivacyTracking": false
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "CleanHome usa la tua posizione per trovare i professionisti vicino a te.",
+        "NSLocationWhenInUseUsageDescription": "CleanHome usa la tua posizione quando cerchi professionisti delle pulizie nella tua zona e quando monitori l'arrivo del professionista prenotato.",
         "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e le foto delle case da pulire.",
-        "NSPhotoLibraryAddUsageDescription": "CleanHome può salvare ricevute e conferme nella tua libreria foto quando glielo chiedi.",
-        "NSCameraUsageDescription": "CleanHome usa la fotocamera per scattare foto del documento d'identità e per le pulizie.",
+        "NSCameraUsageDescription": "CleanHome usa la fotocamera per fotografare il documento d'identità durante la verifica Stripe e per scattare foto degli ambienti da inserire negli annunci.",
         "NSMicrophoneUsageDescription": "CleanHome usa il microfono durante la verifica liveness del documento d'identità Stripe.",
-        "NSUserTrackingUsageDescription": "CleanHome non traccia la tua attività tra app di terze parti.",
         "UIBackgroundModes": [
           "remote-notification"
         ],
@@ -141,9 +139,8 @@
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_EXTERNAL_STORAGE",
         "CAMERA",
+        "READ_MEDIA_IMAGES",
         "POST_NOTIFICATIONS",
         "VIBRATE"
       ],
@@ -177,8 +174,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "CleanHome accede alle foto per caricare avatar e documenti di verifica.",
-          "cameraPermission": "CleanHome usa la fotocamera per scattare foto del documento d'identità."
+          "photosPermission": "CleanHome accede alle foto per caricare l'avatar del profilo e le foto delle case da pulire.",
+          "cameraPermission": "CleanHome usa la fotocamera per fotografare il documento d'identità durante la verifica Stripe e per scattare foto degli ambienti da inserire negli annunci."
         }
       ],
       [

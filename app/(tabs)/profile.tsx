@@ -35,7 +35,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { UserProfile } from "../../lib/types";
-import { uploadAvatar, removeAvatar, deleteOwnAccount } from "../../lib/api";
+import { uploadAvatar, removeAvatar, deleteOwnAccount, AvatarRejectedError } from "../../lib/api";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 import { CleanerPayoutSection } from "../../components/CleanerPayoutSection";
@@ -79,7 +79,13 @@ function useAvatarActions(
       await uploadAvatar(userId, uri);
       await refreshProfile();
     } catch (err: unknown) {
-      Alert.alert("Errore upload", err instanceof Error ? err.message : "Riprova.");
+      // SafeSearch moderation rejection — show the friendly Italian
+      // message produced by the server instead of a generic upload error.
+      if (err instanceof AvatarRejectedError) {
+        Alert.alert("Foto non accettata", err.friendlyMessage);
+      } else {
+        Alert.alert("Errore upload", err instanceof Error ? err.message : "Riprova.");
+      }
     } finally {
       setUploading(false);
     }
@@ -94,7 +100,7 @@ function useAvatarActions(
       });
       await handlePickResult(result);
     } catch (err) {
-      console.warn("[camera] launchCameraAsync error", err);
+      if (__DEV__) console.warn("[camera] launchCameraAsync error", err);
       Alert.alert("Fotocamera non disponibile", err instanceof Error ? err.message : "Prova a scegliere dalla libreria.");
     }
   };
@@ -469,7 +475,7 @@ function CleanerView({
       <View style={compactToggleStyles.row}>
         <Text style={compactToggleStyles.label}>Modalità Professionista</Text>
         <AnimatedToggle
-          value={false}
+          value={true}
           onValueChange={() => onSwitchRole()}
           activeColor="#D4A574"
           inactiveColor="#4fc4a3"

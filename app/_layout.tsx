@@ -359,9 +359,9 @@ export default function RootLayout() {
     // identities[] BOTH for repeat signups (anti-enumeration) AND for
     // genuinely new users (the identity row isn't materialized until
     // the email is confirmed). So we can't tell them apart here without
-    // false positives. We just trust the success path; if the email
-    // was already in use, no confirmation email is sent and the user
-    // will figure it out trying to log in.
+    // false positives. The register screen's success copy must therefore
+    // mention BOTH cases ("if you don't get the email, try logging in
+    // because the account may already exist") — see register.tsx.
   };
 
   const signInWithGoogleNative = async (

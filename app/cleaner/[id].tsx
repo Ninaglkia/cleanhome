@@ -87,12 +87,15 @@ export default function CleanerDetailScreen() {
       : cleaner.services ?? [];
   const displayDescription = listing?.description?.trim() || cleaner.bio || "";
 
-  const initials = cleaner.full_name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  // Defensive: full_name can be null/empty for newly-created profiles with
+  // no display name yet (social signup without a name claim).
+  const initials =
+    (cleaner.full_name ?? "")
+      .split(" ")
+      .map((n) => n[0] ?? "")
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?";
 
   return (
     <SafeAreaView
@@ -251,7 +254,7 @@ export default function CleanerDetailScreen() {
                 marginLeft: 5,
               }}
             >
-              {cleaner.avg_rating.toFixed(1)}
+              {(cleaner.avg_rating ?? 0).toFixed(1)}
             </Text>
             <Text
               style={{ fontSize: 13, color: Colors.textSecondary, marginLeft: 5 }}
@@ -500,7 +503,7 @@ export default function CleanerDetailScreen() {
                     marginLeft: 4,
                   }}
                 >
-                  {cleaner.avg_rating.toFixed(1)}
+                  {(cleaner.avg_rating ?? 0).toFixed(1)}
                 </Text>
                 <Text
                   style={{

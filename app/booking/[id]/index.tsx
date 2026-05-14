@@ -159,9 +159,11 @@ export default function BookingDetailScreen() {
   const canCleanerMarkDone =
     isCleaner && booking.status === "accepted" && !booking.work_done_at;
 
+  // Once the cleaner marks the job done, the booking moves to "work_done".
+  // The client must still be able to confirm or dispute in that state.
   const canClientReview =
     isClient &&
-    booking.status === "accepted" &&
+    (booking.status === "accepted" || booking.status === "work_done") &&
     !!booking.work_done_at &&
     !booking.client_confirmed_at &&
     !booking.client_dispute_opened_at;
@@ -209,7 +211,7 @@ export default function BookingDetailScreen() {
           <TimelineRow
             done={true}
             label="Pagamento ricevuto"
-            sublabel={`€${booking.total_price.toFixed(2)}`}
+            sublabel={`€${(booking.total_price ?? 0).toFixed(2)}`}
           />
           <TimelineRow
             done={booking.status === "accepted" || !!booking.work_done_at || booking.status === "completed"}

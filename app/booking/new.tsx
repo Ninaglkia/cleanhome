@@ -716,6 +716,7 @@ export default function NewBookingScreen() {
 
       // 3) Payment succeeded
       const bookingId = payload.booking_id;
+      const paymentIntentId = payload.paymentIntentId;
 
       if (cleanerId) {
         // Legacy single-cleaner: send push and go to bookings
@@ -730,7 +731,14 @@ export default function NewBookingScreen() {
         // Dispatch flow: navigate to waiting screen
         router.replace(`/booking/${bookingId}/waiting` as never);
       } else {
-        router.replace("/(tabs)/bookings");
+        // The payment was captured but the webhook hasn't yet created the
+        // booking row. Don't silently drop the user — surface the
+        // PaymentIntent ID so support can recover the booking manually.
+        Alert.alert(
+          "Pagamento ricevuto",
+          `Il pagamento è andato a buon fine ma la prenotazione è ancora in fase di creazione.\n\nCodice pagamento: ${paymentIntentId ?? "—"}\n\nContatta info@cleanhomeapp.com se non vedi la prenotazione tra 5 minuti.`,
+          [{ text: "OK", onPress: () => router.replace("/(tabs)/bookings") }]
+        );
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Impossibile creare la prenotazione";
