@@ -89,6 +89,17 @@ import { supabase } from "../lib/supabase";
 // OAuth flow inside signInWithGoogle.
 type GoogleSigninModule =
   typeof import("@react-native-google-signin/google-signin");
+// The library's return shape changed across versions: older builds returned
+// the user object directly with idToken at the top level, newer builds wrap
+// success as { type: "success", data: { idToken, ... } } and cancellation as
+// { type: "cancelled" }. Cover both so we don't need an `as any` cast.
+type GoogleSignInResult =
+  | { type: "cancelled"; data?: undefined; idToken?: undefined }
+  | {
+      type?: "success";
+      data?: { idToken?: string | null } | null;
+      idToken?: string | null;
+    };
 let cachedGoogleSignin: GoogleSigninModule | null | undefined = undefined;
 function loadGoogleSignin(): GoogleSigninModule | null {
   if (cachedGoogleSignin !== undefined) return cachedGoogleSignin;
@@ -370,15 +381,13 @@ export default function RootLayout() {
     const { GoogleSignin, statusCodes, isErrorWithCode } = mod;
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const result = await GoogleSignin.signIn();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const anyResult = result as any;
-      if (anyResult?.type === "cancelled") {
+      const result: GoogleSignInResult = await GoogleSignin.signIn();
+      if (result?.type === "cancelled") {
         setIsAuthenticating(false);
         return;
       }
-      const idToken: string | undefined =
-        anyResult?.data?.idToken ?? anyResult?.idToken;
+      const idToken =
+        result?.data?.idToken ?? result?.idToken ?? undefined;
       if (!idToken) throw new Error("Google non ha restituito un idToken");
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
