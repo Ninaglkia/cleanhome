@@ -360,6 +360,13 @@ export default function RootLayout() {
       // Native Google Sign-In: opens the iOS account picker sheet with
       // CleanHome's icon/name instead of the old web flow that leaked
       // the raw Supabase project domain to the user.
+      //
+      // The library (v16) doesn't expose a way to inject a custom nonce,
+      // so the Supabase project must have external_google_skip_nonce_check
+      // set to true. The Google idToken is still signed for our Web
+      // Client ID, so authentication remains tied to our OAuth app —
+      // skipping the nonce check only removes one extra replay defense
+      // that the SDK doesn't surface anyway. Documented approach.
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const result = await GoogleSignin.signIn();
 
