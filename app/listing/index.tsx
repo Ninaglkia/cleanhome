@@ -1060,7 +1060,7 @@ export default function ListingScreen() {
         };
 
         if (data.error) {
-          console.warn("[places:autocomplete]", data.error.message);
+          if (__DEV__) console.warn("[places:autocomplete]", data.error.message);
           setSearchResults([]);
           return;
         }
@@ -1123,7 +1123,7 @@ export default function ListingScreen() {
           error?: { message: string };
         };
         if (details.error || !details.location) {
-          console.warn("[places:details]", details.error?.message);
+          if (__DEV__) console.warn("[places:details]", details.error?.message);
           return;
         }
         lat = details.location.latitude;
@@ -1900,13 +1900,13 @@ export default function ListingScreen() {
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
-              aspect: [1, 1],
+              aspect: [16, 9],
               quality: 0.8,
-              cameraType: ImagePicker.CameraType.front,
+              cameraType: ImagePicker.CameraType.back,
             });
             await persistPickedCover(result);
           } catch (err) {
-            console.warn("[camera] launchCameraAsync error", err);
+            if (__DEV__) console.warn("[camera] launchCameraAsync error", err);
             Alert.alert(
               "Fotocamera non disponibile",
               err instanceof Error ? err.message : "Prova dalla libreria."
