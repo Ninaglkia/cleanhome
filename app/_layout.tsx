@@ -79,25 +79,34 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
-import {
-  GoogleSignin,
-  statusCodes,
-  isErrorWithCode,
-} from "@react-native-google-signin/google-signin";
 import { supabase } from "../lib/supabase";
 
-// Configure Google Sign-In once at module load.
-// - webClientId: the OAuth client that Supabase uses to verify the
-//   ID token server-side (the same one configured in
-//   Authentication → Providers → Google on Supabase).
-// - iosClientId: the iOS-typed OAuth client tied to com.cleanhome.app.
-//   Required to launch the native iOS sheet (with CleanHome logo).
-GoogleSignin.configure({
-  webClientId:
-    "255465018931-apns3c72atrijvg3l54k2aulrjtl50kj.apps.googleusercontent.com",
-  iosClientId:
-    "255465018931-703lire871dh8t90vu0e7cooo7vp4tfm.apps.googleusercontent.com",
-});
+// Native Google Sign-In is loaded lazily and behind try/catch so the
+// app keeps booting even on a dev client that doesn't yet have the
+// @react-native-google-signin native module compiled in (e.g. before
+// the next EAS build). When the module IS available we configure it
+// once on first use; otherwise we silently fall back to the old web
+// OAuth flow inside signInWithGoogle.
+type GoogleSigninModule =
+  typeof import("@react-native-google-signin/google-signin");
+let cachedGoogleSignin: GoogleSigninModule | null | undefined = undefined;
+function loadGoogleSignin(): GoogleSigninModule | null {
+  if (cachedGoogleSignin !== undefined) return cachedGoogleSignin;
+  try {
+    const mod =
+      require("@react-native-google-signin/google-signin") as GoogleSigninModule;
+    mod.GoogleSignin.configure({
+      webClientId:
+        "255465018931-apns3c72atrijvg3l54k2aulrjtl50kj.apps.googleusercontent.com",
+      iosClientId:
+        "255465018931-703lire871dh8t90vu0e7cooo7vp4tfm.apps.googleusercontent.com",
+    });
+    cachedGoogleSignin = mod;
+  } catch {
+    cachedGoogleSignin = null;
+  }
+  return cachedGoogleSignin;
+}
 import { AuthContext } from "../lib/auth";
 import { UserProfile } from "../lib/types";
 import { fetchProfile, upsertActiveRole } from "../lib/api";
@@ -354,24 +363,13 @@ export default function RootLayout() {
     }
   };
 
-  const signInWithGoogle = async () => {
-    setIsAuthenticating(true);
+  const signInWithGoogleNative = async (
+    mod: NonNullable<ReturnType<typeof loadGoogleSignin>>
+  ) => {
+    const { GoogleSignin, statusCodes, isErrorWithCode } = mod;
     try {
-      // Native Google Sign-In: opens the iOS account picker sheet with
-      // CleanHome's icon/name instead of the old web flow that leaked
-      // the raw Supabase project domain to the user.
-      //
-      // The library (v16) doesn't expose a way to inject a custom nonce,
-      // so the Supabase project must have external_google_skip_nonce_check
-      // set to true. The Google idToken is still signed for our Web
-      // Client ID, so authentication remains tied to our OAuth app —
-      // skipping the nonce check only removes one extra replay defense
-      // that the SDK doesn't surface anyway. Documented approach.
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const result = await GoogleSignin.signIn();
-
-      // The library returns either { type: "success", data } or
-      // { type: "cancelled" }. Handle both shapes defensively.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const anyResult = result as any;
       if (anyResult?.type === "cancelled") {
@@ -380,25 +378,74 @@ export default function RootLayout() {
       }
       const idToken: string | undefined =
         anyResult?.data?.idToken ?? anyResult?.idToken;
-      if (!idToken) {
-        throw new Error("Google non ha restituito un idToken");
-      }
-
+      if (!idToken) throw new Error("Google non ha restituito un idToken");
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: idToken,
       });
       if (error) throw error;
-      // isAuthenticating stays true until onAuthStateChange routes the user.
     } catch (e) {
       setIsAuthenticating(false);
-      // User cancellations from the native sheet come through as a
-      // SIGN_IN_CANCELLED status code — silence them.
-      if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) {
-        return;
-      }
+      if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) return;
       const message = e instanceof Error ? e.message : "Errore imprevisto";
       Alert.alert("Errore Google", message);
+    }
+  };
+
+  // Legacy web-OAuth fallback. Used when the native Google Sign-In
+  // module isn't compiled into the running dev client (i.e. before the
+  // next EAS build picks it up).
+  const signInWithGoogleWeb = async () => {
+    const redirectUrl = Linking.createURL("auth/callback");
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+      });
+      if (error) throw error;
+      if (!data?.url) {
+        setIsAuthenticating(false);
+        return;
+      }
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl, {
+        preferEphemeralSession: false,
+      });
+      if (result.type !== "success" || !result.url) {
+        setIsAuthenticating(false);
+        return;
+      }
+      const url = new URL(result.url);
+      const hashParams = new URLSearchParams(url.hash.substring(1));
+      const searchParams = new URLSearchParams(url.search);
+      const accessToken =
+        hashParams.get("access_token") ?? searchParams.get("access_token");
+      const refreshToken =
+        hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
+      const code = searchParams.get("code");
+      if (code) {
+        const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (exErr) throw exErr;
+      } else if (accessToken && refreshToken) {
+        const { error: sErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sErr) throw sErr;
+      }
+    } catch (e) {
+      setIsAuthenticating(false);
+      const message = e instanceof Error ? e.message : "Errore imprevisto";
+      Alert.alert("Errore Google", message);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setIsAuthenticating(true);
+    const mod = loadGoogleSignin();
+    if (mod) {
+      await signInWithGoogleNative(mod);
+    } else {
+      await signInWithGoogleWeb();
     }
   };
 
@@ -441,11 +488,13 @@ export default function RootLayout() {
   const signOut = async () => {
     // Best-effort revoke of the cached Google credential so the next
     // tap on "Accedi con Google" lets the user pick a different account
-    // instead of silently re-signing them in.
+    // instead of silently re-signing them in. Skipped when the native
+    // module isn't loaded (web-OAuth fallback path).
     try {
-      await GoogleSignin.signOut();
+      const mod = loadGoogleSignin();
+      if (mod) await mod.GoogleSignin.signOut();
     } catch {
-      /* ignore — Google not signed in or library not initialized */
+      /* ignore */
     }
     await supabase.auth.signOut();
     setProfile(null);
