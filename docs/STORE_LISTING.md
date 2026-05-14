@@ -190,12 +190,77 @@ Da catturare prima della submission:
 
 ---
 
+## Demo account credentials
+
+Apple e Google chiedono account demo per la review. Crea **prima della submission** due account dedicati con dati di test, mai dati personali reali. Mantieni queste credenziali al sicuro (1Password / vault personale, non in repo) e popola i placeholder qui sotto **solo nel file locale** prima di copiare in App Store Connect / Play Console — questo file è committato.
+
+### Cliente (per il flusso di prenotazione)
+- Email: `review-apple@cleanhomeapp.com`  (Apple) — `review-google@cleanhomeapp.com` (Google)
+- Password: `<GENERA-PRIMA-DELLA-SUBMISSION>` (16+ caratteri, salva in vault)
+- Ruolo attivo: `client`
+- Casa salvata: Milano, Via Test 1, 60 mq
+- Carta di test Stripe: `4242 4242 4242 4242`, qualsiasi data futura, qualsiasi CVC, ZIP `00100`
+
+### Cleaner (per mostrare la doppia anima)
+- Email: `review-cleaner@cleanhomeapp.com`
+- Password: `<GENERA-PRIMA-DELLA-SUBMISSION>`
+- Ruolo attivo: `cleaner`
+- Stripe Identity: **NON** chiedere a Apple di completare il KYC reale — il flow di onboarding è osservabile fino al lancio della sheet Stripe Identity e questo è sufficiente.
+- Almeno 1 annuncio attivo (Base, gratis) con copertura su Milano.
+
+### Note per i revisori (da copiare in App Review Information)
+- "Tutti i pagamenti sono mediati da Stripe. Per la review usare la carta di test 4242 4242 4242 4242. L'app è in italiano."
+- "Per accedere come professionista usare `review-cleaner@...`. Per il flusso completo cliente → cleaner consigliamo di provare PRIMA il cliente, prenotare, poi loggarsi col cleaner e accettare/segnare-fatto la stessa booking."
+- Email di supporto: `info@cleanhomeapp.com`
+
+---
+
+## Workflow EAS submit
+
+### One-time setup
+1. **Apple Developer**: account attivo (€99/anno) → genera **App-Specific Password** su appleid.apple.com (sezione Sign-In and Security) → salvala in `EXPO_APPLE_APP_SPECIFIC_PASSWORD` come secret EAS:
+   ```bash
+   eas secret:create --scope project --name EXPO_APPLE_APP_SPECIFIC_PASSWORD --value <password>
+   ```
+2. **App Store Connect**: crea l'app, bundle id = `com.cleanhome.app`, copia l'`ASC App ID` (numero a 10 cifre).
+3. **Apple Team ID**: lo trovi su developer.apple.com → Membership.
+4. **Aggiorna `eas.json`** (oggi ha 3 placeholder):
+   - `submit.production.ios.appleId` → `ninaglia089@gmail.com` (Apple ID owner)
+   - `submit.production.ios.ascAppId` → `<ID da App Store Connect>`
+   - `submit.production.ios.appleTeamId` → `<Team ID>`
+5. **Google Play**: crea l'app, bundle = `com.cleanhome.app`, genera un **Service Account** (Play Console → Setup → API Access) con ruolo "Release manager", scarica il JSON in `./play-store-service-account.json` (è già in `.gitignore`).
+
+### Per-build workflow
+
+```bash
+# 1) bump version + buildNumber (manuale, in app.json — autoIncrement gestisce versionCode su Android)
+# 2) build production iOS
+eas build --platform ios --profile production
+# 3) build production Android
+eas build --platform android --profile production
+# 4) submit iOS → TestFlight
+eas submit --platform ios --latest
+# 5) submit Android → internal track
+eas submit --platform android --latest
+```
+
+### Post-submit
+- **TestFlight**: aggiungi internal testers (max 100, no review) entro 5 min dalla build. External testers richiedono "Beta App Review" (~24h).
+- **Play internal track**: visibile ai tester linkati entro 15 min.
+- **Production review Apple**: 24-72h tipico per la prima submission. Se ti rifiutano, leggi il **Resolution Center** in App Store Connect prima di rebuildare — spesso è una stringa permission o un asset.
+
+### Rollback
+Se una build crasha in TestFlight: NON ritirare la build, **incrementa `buildNumber` e ri-submetti** con il fix. Le build retired confondono i tester perché spariscono dalla loro lista.
+
+---
+
 ## Checklist pre-submit
 
 - [ ] Apple Developer Program $99/anno acquistato
 - [ ] Google Play Console $25 acquistato
-- [ ] EAS profile production: `eas.json` placeholder Apple ID + ASC App ID + Team ID compilati
+- [ ] EAS profile production: `eas.json` placeholder Apple ID + ASC App ID + Team ID compilati (vedi "Workflow EAS submit" sopra)
 - [ ] Service account Play Store generato e linkato a `play-store-service-account.json`
+- [ ] Account demo creati (vedi "Demo account credentials" sopra) e password salvate
 - [ ] Build production iOS: `eas build --platform ios --profile production`
 - [ ] Build production Android: `eas build --platform android --profile production`
 - [ ] Screenshots presi e caricati

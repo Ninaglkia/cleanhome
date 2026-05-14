@@ -286,7 +286,7 @@ export default function PropertyEditScreen() {
         setCoverPhoto(row.cover_photo_url ?? row.photo_url ?? null);
         setRoomPhotos(row.room_photo_urls ?? []);
       } catch (err) {
-        console.error("[property edit] load error", err);
+        if (__DEV__) console.error("[property edit] load error", err);
         Alert.alert("Errore", "Impossibile caricare la casa.");
       } finally {
         if (!cancelled) setLoading(false);

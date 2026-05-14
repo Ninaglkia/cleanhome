@@ -41,7 +41,7 @@ export default function PropertiesListScreen() {
       const data = await fetchClientProperties(user.id);
       setItems(data);
     } catch (err) {
-      console.error("[properties] load error", err);
+      if (__DEV__) console.error("[properties] load error", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
