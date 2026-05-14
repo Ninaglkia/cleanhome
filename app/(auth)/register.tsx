@@ -523,7 +523,7 @@ export default function RegisterScreen() {
                   style={styles.socialTap}
                 >
                   <AppleLogo size={20} color="#ffffff" />
-                  <Text style={styles.appleText}>Apple</Text>
+                  <Text style={styles.appleText}>Continua con Apple</Text>
                 </Pressable>
               </View>
             </View>

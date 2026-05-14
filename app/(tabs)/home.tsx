@@ -1130,7 +1130,7 @@ export default function HomeScreen() {
                 minWidth: 120,
               }}
               placeholder="Cerca città"
-              placeholderTextColor="#022420"
+              placeholderTextColor="rgba(2,36,32,0.4)"
               value={searchText}
               onChangeText={setSearchText}
               onSubmitEditing={() => handleSearch(searchText)}
@@ -1850,7 +1850,9 @@ export default function HomeScreen() {
               Prova a cercare in un'altra zona o rimuovi i filtri
             </Text>
             <TouchableOpacity
-              onPress={() => handleSearch("")}
+              onPress={() =>
+                loadCleanersAtPoint(region.latitude, region.longitude)
+              }
               activeOpacity={0.85}
               style={{
                 backgroundColor: Colors.primary,
@@ -1866,7 +1868,7 @@ export default function HomeScreen() {
                   fontWeight: "700",
                 }}
               >
-                Mostra tutti
+                Cerca in questa zona
               </Text>
             </TouchableOpacity>
           </View>

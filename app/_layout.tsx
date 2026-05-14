@@ -297,7 +297,14 @@ export default function RootLayout() {
       // the notification senders.
       switch (data.screen) {
         case "bookings":
-          router.push("/(tabs)/bookings");
+          // If the push referenced a specific booking (e.g. "Prenotazione
+          // confermata"), deep-link to the detail screen — otherwise the
+          // user lands on the list and has to find it themselves.
+          if (data.bookingId) {
+            router.push(`/booking/${data.bookingId}` as never);
+          } else {
+            router.push("/(tabs)/bookings");
+          }
           break;
         case "cleaner-home":
           router.push("/(tabs)/cleaner-home");
@@ -309,7 +316,11 @@ export default function RootLayout() {
           if (data.bookingId) router.push(`/chat/${data.bookingId}`);
           break;
         case "jobs":
-          router.push("/cleaner/jobs");
+          if (data.bookingId) {
+            router.push(`/booking/${data.bookingId}` as never);
+          } else {
+            router.push("/cleaner/jobs");
+          }
           break;
         case "reviews":
           router.push("/cleaner/reviews");
@@ -317,6 +328,8 @@ export default function RootLayout() {
         default:
           break;
       }
+      // Reset the iOS badge on tap (the user has now seen the notification).
+      Notifications.setBadgeCountAsync(0).catch(() => {});
     });
     return () => sub.remove();
   }, []);

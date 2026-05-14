@@ -119,6 +119,9 @@
         "NSPhotoLibraryUsageDescription": "CleanHome accede alle tue foto per caricare l'avatar del profilo e le foto delle case da pulire.",
         "NSCameraUsageDescription": "CleanHome usa la fotocamera per fotografare il documento d'identità durante la verifica Stripe e per scattare foto degli ambienti da inserire negli annunci.",
         "NSMicrophoneUsageDescription": "CleanHome usa il microfono durante la verifica liveness del documento d'identità Stripe.",
+        "NSFaceIDUsageDescription": "CleanHome usa Face ID durante la verifica del documento d'identità tramite Stripe Identity.",
+        "CFBundleDevelopmentRegion": "it",
+        "CFBundleLocalizations": ["it", "en"],
         "UIBackgroundModes": [
           "remote-notification"
         ],

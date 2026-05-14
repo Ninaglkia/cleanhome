@@ -1481,8 +1481,24 @@ export function subscribeToCleanerOffers(
   cleanerId: string,
   onUpdate: (offer: BookingOffer) => void
 ) {
+  // We must listen for BOTH INSERT (a new dispatch offer just arrived) and
+  // UPDATE (an existing offer changed status, e.g. cancelled by the
+  // dispatch_accept_offer RPC when another cleaner won). Without the
+  // INSERT branch, a cleaner who already has the home tab open never
+  // sees new offers arriving in real time — only after switching tabs
+  // and triggering useFocusEffect.
   return supabase
     .channel(`cleaner-offers-${cleanerId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "booking_offers",
+        filter: `cleaner_id=eq.${cleanerId}`,
+      },
+      (payload) => onUpdate(payload.new as BookingOffer)
+    )
     .on(
       "postgres_changes",
       {
