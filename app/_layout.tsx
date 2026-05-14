@@ -79,7 +79,25 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
+import {
+  GoogleSignin,
+  statusCodes,
+  isErrorWithCode,
+} from "@react-native-google-signin/google-signin";
 import { supabase } from "../lib/supabase";
+
+// Configure Google Sign-In once at module load.
+// - webClientId: the OAuth client that Supabase uses to verify the
+//   ID token server-side (the same one configured in
+//   Authentication → Providers → Google on Supabase).
+// - iosClientId: the iOS-typed OAuth client tied to com.cleanhome.app.
+//   Required to launch the native iOS sheet (with CleanHome logo).
+GoogleSignin.configure({
+  webClientId:
+    "255465018931-apns3c72atrijvg3l54k2aulrjtl50kj.apps.googleusercontent.com",
+  iosClientId:
+    "255465018931-703lire871dh8t90vu0e7cooo7vp4tfm.apps.googleusercontent.com",
+});
 import { AuthContext } from "../lib/auth";
 import { UserProfile } from "../lib/types";
 import { fetchProfile, upsertActiveRole } from "../lib/api";
@@ -337,59 +355,41 @@ export default function RootLayout() {
   };
 
   const signInWithGoogle = async () => {
-    const redirectUrl = Linking.createURL("auth/callback");
-    setIsAuthenticating(true); // Blocco lo schermo subito!
-
+    setIsAuthenticating(true);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
+      // Native Google Sign-In: opens the iOS account picker sheet with
+      // CleanHome's icon/name instead of the old web flow that leaked
+      // the raw Supabase project domain to the user.
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const result = await GoogleSignin.signIn();
 
-      if (error) throw error;
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl,
-          { preferEphemeralSession: false }
-        );
-
-        // Se l'utente annulla il browser, sblocchiamo lo schermo
-        if (result.type !== "success") {
-          setIsAuthenticating(false);
-          return;
-        }
-
-        if (result.type === "success" && result.url) {
-          const url = new URL(result.url);
-          const hashParams = new URLSearchParams(url.hash.substring(1));
-          const searchParams = new URLSearchParams(url.search);
-
-          const accessToken = hashParams.get("access_token") ?? searchParams.get("access_token");
-          const refreshToken = hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
-          const code = searchParams.get("code");
-
-          if (code) {
-            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (exErr) throw exErr;
-          } else if (accessToken && refreshToken) {
-            const { error: sErr } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (sErr) throw sErr;
-          }
-          // NOTA: isAuthenticating rimarrà true finché il redirect automatico non ci sposta!
-        }
-      } else {
+      // The library returns either { type: "success", data } or
+      // { type: "cancelled" }. Handle both shapes defensively.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const anyResult = result as any;
+      if (anyResult?.type === "cancelled") {
         setIsAuthenticating(false);
+        return;
       }
+      const idToken: string | undefined =
+        anyResult?.data?.idToken ?? anyResult?.idToken;
+      if (!idToken) {
+        throw new Error("Google non ha restituito un idToken");
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      });
+      if (error) throw error;
+      // isAuthenticating stays true until onAuthStateChange routes the user.
     } catch (e) {
       setIsAuthenticating(false);
+      // User cancellations from the native sheet come through as a
+      // SIGN_IN_CANCELLED status code — silence them.
+      if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      }
       const message = e instanceof Error ? e.message : "Errore imprevisto";
       Alert.alert("Errore Google", message);
     }
@@ -432,6 +432,14 @@ export default function RootLayout() {
   };
 
   const signOut = async () => {
+    // Best-effort revoke of the cached Google credential so the next
+    // tap on "Accedi con Google" lets the user pick a different account
+    // instead of silently re-signing them in.
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      /* ignore — Google not signed in or library not initialized */
+    }
     await supabase.auth.signOut();
     setProfile(null);
   };

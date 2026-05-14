@@ -95,7 +95,13 @@
       ],
       "@sentry/react-native",
       "expo-secure-store",
-      "react-native-bottom-tabs"
+      "react-native-bottom-tabs",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.255465018931-703lire871dh8t90vu0e7cooo7vp4tfm"
+        }
+      ]
     ],
     "extra": {
       "router": {},
