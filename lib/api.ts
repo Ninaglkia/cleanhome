@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system";
 import { supabase } from "./supabase";
 import {
   Booking,
@@ -358,17 +359,10 @@ export async function validatePropertyPhoto(
     return { isValid: true, topLabels: [] };
   }
 
-  const response = await fetch(localUri);
-  const blob = await response.blob();
-  const base64: string = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      // result is `data:image/jpeg;base64,<base64-data>` — strip the prefix
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
+  // FileReader is a Web API not available in Hermes — use expo-file-system
+  // to read the local URI directly as Base64. Same pattern as uploadAvatar.
+  const base64 = await FileSystem.readAsStringAsync(localUri, {
+    encoding: (FileSystem as any).EncodingType?.Base64 ?? "base64",
   });
 
   const visionRes = await fetch(
@@ -535,12 +529,23 @@ export async function cleanerBookingAction(
 }
 
 export async function markWorkDone(bookingId: string) {
-  const { error } = await supabase
+  // Guard the state machine: only an "accepted" booking can transition
+  // to "work_done". Without this filter a client/cleaner with UPDATE
+  // permission could re-open an already-completed/disputed escrow.
+  const { data, error } = await supabase
     .from("bookings")
     .update({ status: "work_done", work_done_at: new Date().toISOString() })
-    .eq("id", bookingId);
+    .eq("id", bookingId)
+    .eq("status", "accepted")
+    .select("id")
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) {
+    throw new Error(
+      "Stato della prenotazione non aggiornabile. Ricarica la lista."
+    );
+  }
 }
 
 // --- Cleaners ---
@@ -949,42 +954,87 @@ export async function deleteOwnAccount(): Promise<void> {
 // --- Avatar ---
 
 /**
- * Uploads a local image URI to Supabase Storage (bucket: avatars),
- * updates the profile's avatar_url, and returns the public URL.
+ * Thrown when the avatar/listing-cover image fails SafeSearch moderation
+ * on the server. The `friendlyMessage` is already localized in Italian
+ * and safe to render directly to users.
+ */
+export class AvatarRejectedError extends Error {
+  reason: string;
+  friendlyMessage: string;
+  constructor(reason: string, friendlyMessage: string) {
+    super(friendlyMessage);
+    this.name = "AvatarRejectedError";
+    this.reason = reason;
+    this.friendlyMessage = friendlyMessage;
+  }
+}
+
+/**
+ * Uploads a local image URI to the `avatars` bucket via the
+ * `moderate-image` edge function (kind="avatar"). The function performs:
+ *   - service-role upload (avoids fragile RN storage RLS interactions)
+ *   - Google Vision SafeSearch (Apple Guideline 1.1.4 compliance)
+ *   - 5 MB hard byte cap (rejected with 413 if exceeded)
+ *   - profiles.avatar_url update on approve
+ *   - object removal + avatar_url=NULL on reject
+ *
+ * Throws `AvatarRejectedError` when moderation flags the image so the
+ * UI can show the localized message.
  */
 export async function uploadAvatar(userId: string, localUri: string): Promise<string> {
-  const { File } = await import("expo-file-system");
+  void userId; // kept for backwards compatibility with callers; identity comes from JWT
+  const ext = localUri.split(".").pop()?.toLowerCase().split("?")[0] ?? "jpg";
+  const contentType =
+    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
-  const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const fileName = `${userId}/${Date.now()}.${ext}`;
-
-  // RN-safe upload: read file as ArrayBuffer via expo-file-system.
-  // fetch(uri).blob() is unreliable on iOS RN and silently uploads 0 bytes.
-  const arrayBuffer = await new File(localUri).arrayBuffer();
-
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(fileName, arrayBuffer, {
-      contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
-      upsert: true,
+  // Read local image as base64 — mirrors uploadListingCover so the
+  // same RN file-system fallback chain applies.
+  let base64: string;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const FileSystem = require("expo-file-system");
+    base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType?.Base64 ?? "base64",
     });
+  } catch {
+    const response = await fetch(localUri);
+    const buf = await response.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    base64 = globalThis.btoa(binary);
+  }
 
-  if (uploadError) throw uploadError;
+  const { data, error } = await supabase.functions.invoke("moderate-image", {
+    body: { kind: "avatar", image_base64: base64, content_type: contentType },
+  });
 
-  const { data: urlData } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(fileName);
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const payload = await ctx.json();
+        if (payload?.rejected) {
+          throw new AvatarRejectedError(
+            String(payload.reason ?? "policy_violation"),
+            String(payload.message ?? "L'immagine non è stata accettata.")
+          );
+        }
+        if (payload?.error === "too_large") {
+          throw new Error("L'immagine è troppo grande. Caricane una sotto 5 MB.");
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof AvatarRejectedError) throw parseErr;
+      }
+    }
+    throw error;
+  }
 
-  const publicUrl = urlData.publicUrl;
+  if (!data?.approved || !data?.public_url) {
+    throw new Error("L'immagine non è stata approvata. Riprova.");
+  }
 
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ avatar_url: publicUrl })
-    .eq("id", userId);
-
-  if (updateError) throw updateError;
-
-  return publicUrl;
+  return String(data.public_url);
 }
 
 /**

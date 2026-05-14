@@ -30,8 +30,7 @@ import Animated, {
 } from "react-native-reanimated";
 import LottieView from "lottie-react-native";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings, updateBookingStatus } from "../../lib/api";
-import { sendPushNotification } from "../../lib/notifications";
+import { fetchBookings, confirmBookingCompletion } from "../../lib/api";
 import { Booking } from "../../lib/types";
 import { NotificationBell } from "../../components/NotificationBell";
 
@@ -760,23 +759,17 @@ export default function BookingsScreen() {
             text: "Conferma",
             onPress: async () => {
               try {
-                await updateBookingStatus(bookingId, "completed");
-                const booking = bookings.find((b) => b.id === bookingId);
-                if (booking) {
-                  sendPushNotification(
-                    booking.cleaner_id,
-                    "Lavoro confermato",
-                    "Il cliente ha confermato il lavoro. Il pagamento è in arrivo.",
-                    { screen: "jobs", bookingId }
-                  ).catch(() => {});
-                }
+                await confirmBookingCompletion(bookingId);
                 setBookings((prev) =>
                   prev.map((b) =>
                     b.id === bookingId ? { ...b, status: "completed" } : b
                   )
                 );
-              } catch {
-                Alert.alert("Errore", "Impossibile confermare il lavoro");
+              } catch (e: any) {
+                Alert.alert(
+                  "Errore",
+                  e?.message ?? "Impossibile confermare il lavoro. Riprova tra qualche secondo."
+                );
               }
             },
           },
