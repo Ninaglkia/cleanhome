@@ -20,9 +20,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// Deep-link scheme the in-app browser should use to return to the app.
-// The RN app registers "cleanhome" as a URL scheme in app.json.
-const APP_SCHEME = "cleanhome";
+// Stripe rejects custom URL schemes (cleanhome://) on account_links, so
+// we send Stripe an HTTPS endpoint hosted on Supabase that immediately
+// bounces the browser back into the app via the cleanhome:// deep link.
+const REDIRECT_BASE = `${SUPABASE_URL}/functions/v1/stripe-connect-redirect`;
 const STRIPE_API_VERSION = "2023-10-16";
 
 const corsHeaders = {
@@ -161,8 +162,8 @@ serve(async (req: Request) => {
 
     const accountLink = await stripeFetch("account_links", {
       account: accountId,
-      refresh_url: `${APP_SCHEME}://stripe-connect/refresh`,
-      return_url: `${APP_SCHEME}://stripe-connect/return`,
+      refresh_url: `${REDIRECT_BASE}?to=refresh`,
+      return_url: `${REDIRECT_BASE}?to=return`,
       type: "account_onboarding",
     });
 
