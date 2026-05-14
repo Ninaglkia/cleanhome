@@ -342,7 +342,7 @@ export default function RootLayout() {
     // deep link instead of the default web URL — otherwise tapping the
     // link opens a blank Safari page.
     const emailRedirectTo = Linking.createURL("auth/callback");
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -355,12 +355,13 @@ export default function RootLayout() {
       },
     });
     if (error) throw error;
-    // Supabase masks "user already exists" as a 200 with an empty
-    // identities array (anti-enumeration). Detect it and surface a
-    // clear error so the UI doesn't show a fake success state.
-    if (data.user && data.user.identities && data.user.identities.length === 0) {
-      throw new Error("EMAIL_ALREADY_REGISTERED");
-    }
+    // Note: when "Confirm email" is ON, Supabase returns 200 with empty
+    // identities[] BOTH for repeat signups (anti-enumeration) AND for
+    // genuinely new users (the identity row isn't materialized until
+    // the email is confirmed). So we can't tell them apart here without
+    // false positives. We just trust the success path; if the email
+    // was already in use, no confirmation email is sent and the user
+    // will figure it out trying to log in.
   };
 
   const signInWithGoogleNative = async (
