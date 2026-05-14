@@ -140,8 +140,14 @@ serve(async (req: Request) => {
     if (!body.service_type || !body.date || !body.time_slot) {
       return json({ error: "service_type, date e time_slot sono obbligatori" }, 400);
     }
-    if (typeof body.base_price !== "number" || body.base_price <= 0 || body.base_price > 10000) {
-      return json({ error: "Prezzo base non valido" }, 400);
+    // MIN_ORDER matches lib/pricing.ts — €50 is the platform minimum.
+    // The upper cap of €10k is sanity (largest realistic clean is ~€800).
+    const MIN_BASE = 50;
+    if (typeof body.base_price !== "number" || body.base_price < MIN_BASE || body.base_price > 10000) {
+      return json(
+        { error: `Prezzo base non valido (min €${MIN_BASE})` },
+        400
+      );
     }
     if (typeof body.num_rooms !== "number" || body.num_rooms < 1 || body.num_rooms > 50) {
       return json({ error: "Numero stanze non valido" }, 400);

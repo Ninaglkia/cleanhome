@@ -562,7 +562,7 @@ const BookingCard = ({
         {/* ── Footer: price + action ── */}
         <View style={styles.cardFooter}>
           <Text style={[styles.priceText, { color: theme.primary }, isCompleted && styles.priceTextDim]}>
-            €{item.total_price.toFixed(2)}
+            €{(item.total_price ?? 0).toFixed(2)}
           </Text>
 
           {needsClientConfirm ? (
@@ -748,8 +748,17 @@ export default function BookingsScreen() {
     [router]
   );
 
+  // Mutex against double-tap on the Alert "Conferma" button.
+  // Set when we start the network call, cleared when it resolves/rejects.
+  // Without this guard, two rapid taps fire two parallel confirmBookingCompletion
+  // calls — and although the server enforces atomic claim, the optimistic UI
+  // update can show "completed" before the server's idempotency check returns,
+  // confusing the user.
+  const confirmingRef = useRef<Set<string>>(new Set());
+
   const handleConfirmWorkDone = useCallback(
     (bookingId: string) => {
+      if (confirmingRef.current.has(bookingId)) return;
       Alert.alert(
         "Confermare il lavoro?",
         "Confermando il lavoro rilasci il pagamento al professionista. Questa azione non può essere annullata.",
@@ -758,6 +767,8 @@ export default function BookingsScreen() {
           {
             text: "Conferma",
             onPress: async () => {
+              if (confirmingRef.current.has(bookingId)) return;
+              confirmingRef.current.add(bookingId);
               try {
                 await confirmBookingCompletion(bookingId);
                 setBookings((prev) =>
@@ -770,13 +781,15 @@ export default function BookingsScreen() {
                   "Errore",
                   e?.message ?? "Impossibile confermare il lavoro. Riprova tra qualche secondo."
                 );
+              } finally {
+                confirmingRef.current.delete(bookingId);
               }
             },
           },
         ]
       );
     },
-    [bookings]
+    []
   );
 
   // ─── Filtered data ───────────────────────────────────────────────────────────

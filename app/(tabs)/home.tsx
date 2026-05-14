@@ -301,7 +301,7 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
                     color: C.secondary,
                   }}
                 >
-                  {cleaner.avg_rating.toFixed(1)}
+                  {(cleaner.avg_rating ?? 0).toFixed(1)}
                 </Text>
               </View>
 

@@ -89,6 +89,40 @@ serve(async (req: Request) => {
     return new Response("Webhook signature verification failed", { status: 400 });
   }
 
+  // ── Idempotency guard ──────────────────────────────────────────
+  // Stripe retries 4xx/5xx for up to 3 days, and even a 200 can be
+  // delivered twice in rare cases. Record event.id atomically and
+  // short-circuit if we've already processed it. Without this, a
+  // retried payment_intent.succeeded could double-create bookings,
+  // a charge.refunded could send duplicate notifications, etc.
+  try {
+    const { data: dup } = await supabase
+      .from("stripe_events")
+      .insert({ id: event.id, type: event.type })
+      .select("id")
+      .maybeSingle();
+    if (!dup) {
+      // ON CONFLICT path — already seen this event. Stripe wants 200
+      // so it stops retrying.
+      return new Response(JSON.stringify({ received: true, deduped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } catch (e: any) {
+    // PostgREST surfaces unique violations as 409 → that's the dedup
+    // signal. Anything else, log and proceed (better to risk a
+    // duplicate than to skip a real event silently).
+    const msg = String(e?.message ?? "");
+    if (msg.includes("duplicate") || msg.includes("23505")) {
+      return new Response(JSON.stringify({ received: true, deduped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    console.error("[stripe-webhook] idempotency insert failed:", msg);
+  }
+
   try {
     switch (event.type) {
       // ── Subscription events ──────────────────────────────────────
@@ -223,6 +257,78 @@ serve(async (req: Request) => {
             ...(won ? {} : { payment_status: "refunded" }),
           })
           .eq("id", booking.id);
+
+        // ── DISPUTE WON: trigger the cleaner transfer ─────────────
+        // When the platform wins a dispute, the money is no longer at risk.
+        // Without this, funds remain on the platform balance forever and
+        // the cleaner never gets paid for completed work.
+        if (won && booking.cleaner_id) {
+          const { data: fullBooking } = await supabase
+            .from("bookings")
+            .select("base_price, cleaner_fee, stripe_transfer_id")
+            .eq("id", booking.id)
+            .maybeSingle();
+
+          if (fullBooking && !fullBooking.stripe_transfer_id) {
+            const { data: cp } = await supabase
+              .from("cleaner_profiles")
+              .select("stripe_account_id, stripe_charges_enabled")
+              .eq("id", booking.cleaner_id)
+              .maybeSingle();
+
+            if (cp?.stripe_account_id && cp.stripe_charges_enabled) {
+              const cleanerNetEur =
+                Number(fullBooking.base_price ?? 0) -
+                Number(fullBooking.cleaner_fee ?? 0);
+              const cleanerNetCents = Math.round(cleanerNetEur * 100);
+
+              if (cleanerNetCents > 0) {
+                try {
+                  const trRes = await fetch(
+                    "https://api.stripe.com/v1/transfers",
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Stripe-Version": "2023-10-16",
+                        "Idempotency-Key": `transfer_dispute_won_${booking.id}`,
+                      },
+                      body: new URLSearchParams({
+                        amount: String(cleanerNetCents),
+                        currency: "eur",
+                        destination: cp.stripe_account_id,
+                        "metadata[booking_id]": booking.id,
+                        "metadata[trigger]": "dispute_won",
+                      }).toString(),
+                    }
+                  );
+                  const trData = await trRes.json();
+                  if (trRes.ok) {
+                    await supabase
+                      .from("bookings")
+                      .update({
+                        stripe_transfer_id: trData.id,
+                        payment_status: "transferred",
+                      })
+                      .eq("id", booking.id);
+                  } else {
+                    console.error(
+                      "[stripe-webhook] dispute_won transfer failed:",
+                      trData?.error?.message
+                    );
+                  }
+                } catch (e: any) {
+                  console.error(
+                    "[stripe-webhook] dispute_won transfer threw:",
+                    e?.message
+                  );
+                }
+              }
+            }
+          }
+        }
+
         const outcomeTitle = won ? "Contestazione risolta a tuo favore" : "Contestazione persa";
         const outcomeBody = won
           ? "La contestazione è stata chiusa a tuo favore."

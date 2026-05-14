@@ -98,7 +98,9 @@ function CleanerCard({ cleaner, onPress }: Props) {
                 marginLeft: 4,
               }}
             >
-              {cleaner.avg_rating.toFixed(1)}
+              {cleaner.avg_rating != null && cleaner.avg_rating > 0
+                ? cleaner.avg_rating.toFixed(1)
+                : "Nuovo"}
             </Text>
             <Text
               style={{

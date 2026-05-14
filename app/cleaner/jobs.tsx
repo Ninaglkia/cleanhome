@@ -60,9 +60,9 @@ interface JobCardProps {
 }
 
 function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
-  const earnings = (booking.base_price - booking.cleaner_fee).toFixed(2);
-  const hourlyRate = booking.estimated_hours > 0
-    ? (booking.base_price / booking.estimated_hours).toFixed(0)
+  const earnings = ((booking.base_price ?? 0) - (booking.cleaner_fee ?? 0)).toFixed(2);
+  const hourlyRate = (booking.estimated_hours ?? 0) > 0
+    ? ((booking.base_price ?? 0) / (booking.estimated_hours || 1)).toFixed(0)
     : "—";
 
   const canMarkDone = booking.status === "accepted";

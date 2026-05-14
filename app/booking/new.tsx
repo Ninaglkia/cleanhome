@@ -1321,7 +1321,10 @@ export default function NewBookingScreen() {
 
         {nearbyListings.map((listing) => {
           const isSelected = preferredCleanerIds.includes(listing.cleaner_id);
-          const stars = listing.avg_rating.toFixed(1);
+          const stars =
+            listing.avg_rating != null && listing.avg_rating > 0
+              ? listing.avg_rating.toFixed(1)
+              : "—";
           const initials = listing.cleaner_name.slice(0, 2).toUpperCase();
           return (
             <TouchableOpacity
