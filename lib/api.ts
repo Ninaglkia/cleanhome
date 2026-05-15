@@ -1088,10 +1088,37 @@ export async function uploadListingCover(
     base64 = globalThis.btoa(binary);
   }
 
-  const { data, error } = await supabase.functions.invoke(
-    "moderate-listing-cover",
-    { body: { listing_id: listingId, image_base64: base64, content_type: contentType } }
-  );
+  // Hard timeout against a hung Vision API or stalled network. Without it,
+  // the spinner can stay forever because supabase-js has no built-in
+  // request timeout and the edge function can take 20-30s with a 5 MB
+  // image. 60s is generous — if it hits, something is genuinely wrong.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+
+  let data: { approved?: boolean; public_url?: string } | null = null;
+  let error: { context?: Response; message?: string } | null = null;
+  try {
+    const invokeOpts: Record<string, unknown> = {
+      body: { listing_id: listingId, image_base64: base64, content_type: contentType },
+      signal: controller.signal,
+    };
+    const res = await supabase.functions.invoke<{ approved: boolean; public_url: string }>(
+      "moderate-listing-cover",
+      invokeOpts as Parameters<typeof supabase.functions.invoke>[1]
+    );
+    data = res.data;
+    error = res.error;
+  } catch (e: unknown) {
+    const name = (e as { name?: string })?.name;
+    if (name === "AbortError") {
+      throw new Error(
+        "Caricamento foto troppo lento. Controlla la connessione e riprova."
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (error) {
     const ctx = (error as { context?: Response }).context;
@@ -1108,7 +1135,7 @@ export async function uploadListingCover(
         if (parseErr instanceof ListingCoverRejectedError) throw parseErr;
       }
     }
-    throw error;
+    throw new Error(error.message ?? "Errore caricamento foto");
   }
 
   if (!data?.approved || !data?.public_url) {
