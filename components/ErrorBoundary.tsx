@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 
 interface Props {
   children: React.ReactNode;
@@ -26,8 +27,24 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // In production, send to Sentry/Crashlytics here
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    // Forward to Sentry so we see the React tree that crashed alongside
+    // the JS exception. `enabled` is gated by env in _layout.tsx — this
+    // is a no-op in local dev.
+    try {
+      Sentry.captureException(error, {
+        contexts: {
+          react: { componentStack: info.componentStack },
+        },
+      });
+    } catch {
+      /* Sentry init may have failed silently — never let the error UI itself throw */
+    }
+    if (__DEV__) {
+      // Keep visibility during development; in prod the Sentry call above
+      // is the authoritative record.
+      // eslint-disable-next-line no-console
+      console.error("[ErrorBoundary]", error, info.componentStack);
+    }
   }
 
   handleRetry = () => {
