@@ -500,6 +500,16 @@ export default function RootLayout() {
   };
 
   const signOut = async () => {
+    // Tear down realtime subscriptions BEFORE auth.signOut. Otherwise
+    // channels opened against the outgoing user's UUID (cleaner offers,
+    // tracking, notifications, identity, stripe status) keep streaming
+    // in the background and — if a different user logs in on the same
+    // device — they leak data across sessions.
+    try {
+      await supabase.removeAllChannels();
+    } catch {
+      /* ignore — best-effort cleanup */
+    }
     // Best-effort revoke of the cached Google credential so the next
     // tap on "Accedi con Google" lets the user pick a different account
     // instead of silently re-signing them in. Skipped when the native
