@@ -1897,10 +1897,15 @@ export default function ListingScreen() {
             return;
           }
           try {
+            // NOTE: NO allowsEditing/aspect on the camera path.
+            // The expo-image-picker 16:9 crop UI on iOS hangs after
+            // capture on real devices (the user sees the camera open,
+            // scatter the photo, and then the crop screen never returns
+            // control to the app). Letting the user keep the raw shot
+            // is the safe path; we can crop server-side or in a future
+            // dedicated editor.
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [16, 9],
               quality: 0.8,
               cameraType: ImagePicker.CameraType.back,
             });
