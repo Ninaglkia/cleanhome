@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StatusBar,
   StyleSheet,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -97,6 +98,7 @@ export default function MessagesScreen() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadConversations = useCallback(async () => {
     if (!user || !profile) return;
@@ -113,6 +115,15 @@ export default function MessagesScreen() {
       setLoading(false);
     }
   }, [user, profile]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadConversations();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadConversations]);
 
   useEffect(() => {
     loadConversations();
@@ -199,6 +210,14 @@ export default function MessagesScreen() {
           removeClippedSubviews
           maxToRenderPerBatch={12}
           windowSize={5}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={C.secondary}
+              colors={[C.secondary]}
+            />
+          }
         />
       )}
     </SafeAreaView>
