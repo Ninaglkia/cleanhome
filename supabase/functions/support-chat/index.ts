@@ -240,6 +240,28 @@ serve(async (req) => {
 
     const chatId = await ensureChat();
 
+    // Rate limit: max 8 user messages in any rolling 60-second window.
+    // Without this, a single bad actor (or buggy client retry loop)
+    // could rack up Anthropic API spend in minutes. The check runs
+    // BEFORE the insert and BEFORE the Claude call so neither cost is
+    // incurred when the limit is hit.
+    const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("support_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("chat_id", chatId)
+      .eq("role", "user")
+      .gte("created_at", sixtySecondsAgo);
+    if ((recentCount ?? 0) >= 8) {
+      return json(
+        {
+          error:
+            "Stai inviando messaggi troppo velocemente. Attendi qualche secondo prima di riprovare.",
+        },
+        429
+      );
+    }
+
     // Persist user message
     await supabase.from("support_messages").insert({
       chat_id: chatId,

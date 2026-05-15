@@ -1741,7 +1741,23 @@ export async function sendSupportMessage(args: {
   const { data, error } = await supabase.functions.invoke("support-chat", {
     body: { action: "send", chat_id: args.chatId, content: args.content },
   });
-  if (error) throw error;
+  if (error) {
+    // Surface the server's friendly Italian message when present (e.g. the
+    // 429 rate-limit reply). Without this, the user sees the generic
+    // supabase-js "non-2xx status code" string.
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const body = await ctx.json();
+        if (body?.error) throw new Error(String(body.error));
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== "[object Object]") {
+          throw parseErr;
+        }
+      }
+    }
+    throw error;
+  }
   return {
     chatId: String(data.chat_id),
     reply: String(data.reply),
