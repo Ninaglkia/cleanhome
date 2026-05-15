@@ -98,15 +98,21 @@ export default function WelcomeRocketScreen() {
     } catch {
       // non-critical — proceed anyway
     }
+    await markFirstLogin();
     navigateToHome();
-  }, [navigateToHome]);
+  }, [navigateToHome, markFirstLogin]);
 
-  const handleSkipTour = useCallback(() => {
+  const handleSkipTour = useCallback(async () => {
+    await markFirstLogin();
     navigateToHome();
-  }, [navigateToHome]);
+  }, [navigateToHome, markFirstLogin]);
 
   useEffect(() => {
-    markFirstLogin();
+    // NOTE: first_login_done is intentionally NOT set here on mount —
+    // it is set only when the user actually engages (handleStartTour or
+    // handleSkipTour). Otherwise an app crash or kill during the rocket
+    // animation would silently consume the user's only first-run
+    // experience.
 
     // Step 1: Lottie content pops in with spring
     contentScale.value = withSpring(1.05, { damping: 14, stiffness: 120 });
