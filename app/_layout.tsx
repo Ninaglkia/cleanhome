@@ -110,7 +110,7 @@ function loadGoogleSignin(): GoogleSigninModule | null {
 import { AuthContext } from "../lib/auth";
 import { UserProfile } from "../lib/types";
 import { fetchProfile, upsertActiveRole } from "../lib/api";
-import { registerForPushNotifications } from "../lib/notifications";
+import { registerForPushNotifications, sendWelcomeEmail } from "../lib/notifications";
 import "../global.css";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -166,6 +166,12 @@ export default function RootLayout() {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        // Welcome email on sign-in (any method: email, Google, Apple). The
+        // edge function de-duplicates server-side, so this only ever sends
+        // once per user; it's a no-op until the email provider is configured.
+        if (_event === "SIGNED_IN") {
+          sendWelcomeEmail();
+        }
         setIsProfileLoading(true);
         fetchProfile(s.user.id)
           .then(setProfile)

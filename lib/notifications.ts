@@ -181,6 +181,20 @@ export async function sendPushNotification(
 }
 
 /**
+ * Trigger the branded welcome email for the current user. Safe to call on
+ * every SIGNED_IN: the edge function only sends once per user (it tracks
+ * profiles.welcome_email_sent_at) and is a graceful no-op until the email
+ * provider is configured. Fire-and-forget — never breaks the login flow.
+ */
+export async function sendWelcomeEmail(): Promise<void> {
+  try {
+    await supabase.functions.invoke("send-welcome-email", { body: {} });
+  } catch {
+    // Silent — a missing welcome email must never block sign-in.
+  }
+}
+
+/**
  * Notification types for the app.
  */
 export const NotificationMessages = {
