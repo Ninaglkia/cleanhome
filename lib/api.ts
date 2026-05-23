@@ -814,6 +814,75 @@ export function subscribeToMessages(
     .subscribe();
 }
 
+// --- Safety: user blocks & content reports (App Store Guideline 1.2) ---
+
+async function requireUserId(): Promise<string> {
+  const { data } = await supabase.auth.getUser();
+  const id = data.user?.id;
+  if (!id) throw new Error("Devi accedere per eseguire questa azione.");
+  return id;
+}
+
+/** Block another user. Idempotent — re-blocking the same user is a no-op. */
+export async function blockUser(blockedUserId: string): Promise<void> {
+  const me = await requireUserId();
+  const { error } = await supabase
+    .from("user_blocks")
+    .upsert(
+      { blocker_id: me, blocked_id: blockedUserId },
+      { onConflict: "blocker_id,blocked_id", ignoreDuplicates: true }
+    );
+  if (error) throw error;
+}
+
+/** Remove a previously created block. */
+export async function unblockUser(blockedUserId: string): Promise<void> {
+  const me = await requireUserId();
+  const { error } = await supabase
+    .from("user_blocks")
+    .delete()
+    .eq("blocker_id", me)
+    .eq("blocked_id", blockedUserId);
+  if (error) throw error;
+}
+
+/** True when the current user has blocked `otherUserId`. */
+export async function hasBlockedUser(otherUserId: string): Promise<boolean> {
+  const { data: auth } = await supabase.auth.getUser();
+  const me = auth.user?.id;
+  if (!me) return false;
+  const { data, error } = await supabase
+    .from("user_blocks")
+    .select("id")
+    .eq("blocker_id", me)
+    .eq("blocked_id", otherUserId)
+    .maybeSingle();
+  if (error) return false;
+  return data != null;
+}
+
+export interface ReportContentInput {
+  reportedUserId?: string;
+  bookingId?: string;
+  messageId?: string;
+  reason: string;
+  details?: string;
+}
+
+/** File an abuse/content report for the safety team to review. */
+export async function reportContent(input: ReportContentInput): Promise<void> {
+  const me = await requireUserId();
+  const { error } = await supabase.from("content_reports").insert({
+    reporter_id: me,
+    reported_user_id: input.reportedUserId ?? null,
+    booking_id: input.bookingId ?? null,
+    message_id: input.messageId ?? null,
+    reason: input.reason,
+    details: input.details ?? null,
+  });
+  if (error) throw error;
+}
+
 // --- Profile ---
 
 export async function fetchProfile(userId: string): Promise<UserProfile | null> {

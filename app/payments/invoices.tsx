@@ -9,7 +9,6 @@ import {
   StyleSheet,
   RefreshControl,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -72,17 +71,13 @@ const STATUS_CONFIG: Record<InvoiceStatus, { color: string; bg: string; label: s
 
 interface InvoiceRowProps {
   item: Invoice;
-  onPress: (id: string) => void;
 }
 
-function InvoiceRow({ item, onPress }: InvoiceRowProps) {
+function InvoiceRow({ item }: InvoiceRowProps) {
   const cfg = STATUS_CONFIG[item.status];
 
   return (
-    <Pressable
-      onPress={() => onPress(item.id)}
-      style={({ pressed }) => [styles.invoiceRow, pressed && { opacity: 0.8 }]}
-    >
+    <View style={styles.invoiceRow}>
       {/* Left icon */}
       <View style={styles.invoiceIconWrap}>
         <Ionicons name="document-text-outline" size={20} color={Colors.secondary} />
@@ -103,8 +98,7 @@ function InvoiceRow({ item, onPress }: InvoiceRowProps) {
         </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-    </Pressable>
+    </View>
   );
 }
 
@@ -146,20 +140,6 @@ export default function InvoicesScreen() {
     setRefreshing(false);
   }, [loadInvoices]);
 
-  const handleInvoicePress = useCallback((_id: string) => {
-    Alert.alert(
-      "Prossimamente",
-      "Il dettaglio delle fatture sarà disponibile a breve. Puoi consultare lo storico pagamenti dal Dashboard Stripe.",
-    );
-  }, []);
-
-  const handleExport = useCallback(() => {
-    Alert.alert(
-      "Prossimamente",
-      "L'esportazione PDF delle fatture sarà disponibile a breve.",
-    );
-  }, []);
-
   const keyExtractor = useCallback((item: Invoice) => item.id, []);
 
   const getItemLayout = useCallback(
@@ -172,10 +152,8 @@ export default function InvoicesScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: Invoice }) => (
-      <InvoiceRow item={item} onPress={handleInvoicePress} />
-    ),
-    [handleInvoicePress]
+    ({ item }: { item: Invoice }) => <InvoiceRow item={item} />,
+    []
   );
 
   const ListHeader = (
@@ -257,10 +235,6 @@ export default function InvoicesScreen() {
             <Text style={styles.headerBrand}>CleanHome</Text>
           </View>
         </View>
-        <Pressable style={styles.downloadBtn} onPress={handleExport}>
-          <Ionicons name="download-outline" size={18} color={Colors.secondary} />
-          <Text style={styles.downloadBtnText}>Esporta</Text>
-        </Pressable>
       </View>
 
       {/* ── List ── */}

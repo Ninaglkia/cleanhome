@@ -164,6 +164,33 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "forbidden" }, 403);
     }
 
+    // Block enforcement (App Store guideline 1.2): if either party has blocked
+    // the other, messaging in this conversation is disabled. IDs come from auth
+    // and the bookings row (both UUIDs), so the filter string is injection-safe.
+    const otherId =
+      booking.client_id === user.id ? booking.cleaner_id : booking.client_id;
+    if (otherId) {
+      const { data: blockRow } = await adminClient
+        .from("user_blocks")
+        .select("id")
+        .or(
+          `and(blocker_id.eq.${user.id},blocked_id.eq.${otherId}),and(blocker_id.eq.${otherId},blocked_id.eq.${user.id})`,
+        )
+        .limit(1)
+        .maybeSingle();
+      if (blockRow) {
+        return jsonResponse(
+          {
+            blocked: true,
+            violation_type: "user_blocked",
+            message:
+              "Non puoi inviare messaggi in questa conversazione: tu o l'altra persona avete bloccato il contatto.",
+          },
+          422,
+        );
+      }
+    }
+
     const detections = detectViolations(content);
 
     if (detections.length > 0) {

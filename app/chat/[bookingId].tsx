@@ -19,12 +19,16 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import {
+  blockUser,
   fetchBooking,
   fetchMessages,
   fetchProfile,
+  hasBlockedUser,
   MessageBlockedError,
+  reportContent,
   sendMessage,
   subscribeToMessages,
+  unblockUser,
 } from "../../lib/api";
 import {
   NotificationMessages,
@@ -226,6 +230,10 @@ export default function ChatScreen() {
   // of the old hard-coded "Concierge CleanHome" placeholder.
   const [counterpartyName, setCounterpartyName] = useState<string>("");
   const [counterpartyAvatar, setCounterpartyAvatar] = useState<string | null>(null);
+  // The other person's user id + whether the current user has blocked them.
+  // Drive the header menu (Report / Block) and hide a blocked user's content.
+  const [counterpartyId, setCounterpartyId] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -255,6 +263,13 @@ export default function ChatScreen() {
           const otherId =
             bk.client_id === user.id ? bk.cleaner_id : bk.client_id;
           if (otherId) {
+            if (mounted) setCounterpartyId(otherId);
+            // Reflect any existing block so the input shows the right state.
+            hasBlockedUser(otherId)
+              .then((blocked) => {
+                if (mounted) setIsBlocked(blocked);
+              })
+              .catch(() => {});
             try {
               const otherProfile = await fetchProfile(otherId);
               if (mounted && otherProfile) {
@@ -326,6 +341,13 @@ export default function ChatScreen() {
     });
   }, [messages, user?.id]);
 
+  // When the counterparty is blocked, hide their messages — the user keeps
+  // their own history but no longer sees content from the blocked person.
+  const visibleListItems = useMemo<ListItemData[]>(
+    () => (isBlocked ? listItems.filter((it) => it.isMe) : listItems),
+    [isBlocked, listItems]
+  );
+
   const handleSend = useCallback(async () => {
     if (!text.trim() || !user || !bookingId) return;
     const content = text.trim();
@@ -371,6 +393,76 @@ export default function ChatScreen() {
   const handleQuickReply = useCallback((reply: string) => {
     setText(reply);
   }, []);
+
+  // ── Safety: report / block (App Store guideline 1.2) ──
+  const handleReport = useCallback(() => {
+    const submit = (reason: string) => {
+      reportContent({
+        reportedUserId: counterpartyId ?? undefined,
+        bookingId,
+        reason,
+      })
+        .then(() =>
+          Alert.alert(
+            "Segnalazione inviata",
+            "Grazie. Il nostro team la esaminerà entro 24 ore e prenderà i provvedimenti necessari."
+          )
+        )
+        .catch(() =>
+          Alert.alert("Errore", "Impossibile inviare la segnalazione. Riprova.")
+        );
+    };
+    Alert.alert("Segnala conversazione", "Perché vuoi segnalarla?", [
+      { text: "Contenuti offensivi", onPress: () => submit("offensive") },
+      { text: "Spam o truffa", onPress: () => submit("spam") },
+      { text: "Molestie", onPress: () => submit("harassment") },
+      { text: "Annulla", style: "cancel" },
+    ]);
+  }, [counterpartyId, bookingId]);
+
+  const handleUnblock = useCallback(() => {
+    if (!counterpartyId) return;
+    unblockUser(counterpartyId)
+      .then(() => setIsBlocked(false))
+      .catch(() => Alert.alert("Errore", "Impossibile sbloccare. Riprova."));
+  }, [counterpartyId]);
+
+  const handleConfirmBlock = useCallback(() => {
+    if (!counterpartyId) return;
+    const name = counterpartyName || "questo utente";
+    Alert.alert(
+      `Bloccare ${name}?`,
+      "Non riceverai più i suoi messaggi e non potrai scriverle. Potrai sbloccarla quando vuoi.",
+      [
+        { text: "Annulla", style: "cancel" },
+        {
+          text: "Blocca",
+          style: "destructive",
+          onPress: () => {
+            blockUser(counterpartyId)
+              .then(() => setIsBlocked(true))
+              .catch(() =>
+                Alert.alert("Errore", "Impossibile bloccare. Riprova.")
+              );
+          },
+        },
+      ]
+    );
+  }, [counterpartyId, counterpartyName]);
+
+  const handleOpenMenu = useCallback(() => {
+    Alert.alert("Opzioni", undefined, [
+      { text: "Segnala conversazione", onPress: handleReport },
+      isBlocked
+        ? { text: "Sblocca utente", onPress: handleUnblock }
+        : {
+            text: "Blocca utente",
+            style: "destructive",
+            onPress: handleConfirmBlock,
+          },
+      { text: "Annulla", style: "cancel" },
+    ]);
+  }, [isBlocked, handleReport, handleUnblock, handleConfirmBlock]);
 
   const keyExtractor = useCallback(
     (item: ListItemData) => item.message.id,
@@ -434,10 +526,19 @@ export default function ChatScreen() {
           </Text>
         </View>
 
-        {/* Right side kept empty for now — the old call/menu buttons were
-            non-functional placeholders that confused users. Re-add real
-            actions (dispute, report, mute) once the backend wires are in. */}
-        <View style={{ width: 40 }} />
+        {/* Conversation options: report / block (App Store guideline 1.2) */}
+        <Pressable
+          onPress={handleOpenMenu}
+          accessibilityLabel="Opzioni conversazione"
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.headerIconBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color={Colors.text} />
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -450,7 +551,7 @@ export default function ChatScreen() {
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={Colors.secondary} />
           </View>
-        ) : listItems.length === 0 ? (
+        ) : visibleListItems.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>
               <Ionicons name="chatbubble-ellipses-outline" size={36} color={Colors.textTertiary} />
@@ -474,7 +575,7 @@ export default function ChatScreen() {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={listItems}
+            data={visibleListItems}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
@@ -488,7 +589,16 @@ export default function ChatScreen() {
           />
         )}
 
-        {/* ── Input area ── */}
+        {/* ── Input area (replaced by a banner when the user is blocked) ── */}
+        {isBlocked ? (
+          <View style={styles.blockedBanner}>
+            <Ionicons name="ban-outline" size={18} color={Colors.textTertiary} />
+            <Text style={styles.blockedBannerText}>Hai bloccato questo utente.</Text>
+            <Pressable onPress={handleUnblock} hitSlop={8}>
+              <Text style={styles.blockedBannerAction}>Sblocca</Text>
+            </Pressable>
+          </View>
+        ) : (
         <View style={styles.inputArea}>
           {/* Quick reply chips */}
           <ScrollView
@@ -554,6 +664,7 @@ export default function ChatScreen() {
             <Text style={styles.trustText}>SICURO E PRIVATO · CLEANHOME</Text>
           </View>
         </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -787,5 +898,29 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+  },
+
+  // Blocked banner (shown instead of the input when the user is blocked)
+  blockedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.base,
+    paddingBottom: Platform.OS === "ios" ? 28 : Spacing.base,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  blockedBannerText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: "500",
+  },
+  blockedBannerAction: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.secondary,
   },
 });
