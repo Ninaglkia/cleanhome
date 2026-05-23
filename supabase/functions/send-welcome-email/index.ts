@@ -19,6 +19,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const FROM = "CleanHome <info@cleanhomeapp.com>";
 const APP_NAME = "CleanHome";
+const LOGO_URL = "https://www.cleanhomeapp.com/icon.png";
+const APP_URL = "https://cleanhomeapp.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,42 +38,71 @@ function json(body: unknown, status: number) {
 
 function firstName(full?: string | null): string {
   const n = (full ?? "").trim().split(/\s+/)[0];
-  return n && n.length > 0 ? n : "ciao";
+  return n && n.length > 0 ? n : "";
+}
+
+function featureRow(emoji: string, title: string, desc: string): string {
+  return `<tr><td style="padding:10px 0;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+      <td valign="top" width="52">
+        <div style="width:44px;height:44px;background-color:#e8fdf7;border-radius:13px;text-align:center;"><span style="font-size:20px;line-height:44px;">${emoji}</span></div>
+      </td>
+      <td valign="top" style="padding-left:14px;">
+        <p style="margin:0;color:#0f1f1d;font-size:15px;font-weight:700;line-height:20px;">${title}</p>
+        <p style="margin:3px 0 0;color:#7a918c;font-size:13px;line-height:19px;">${desc}</p>
+      </td>
+    </tr></table>
+  </td></tr>`;
 }
 
 function welcomeHtml(name: string): string {
-  const greeting = name === "ciao" ? "Ciao 👋" : `Ciao ${name} 👋`;
+  const greeting = name ? `Ciao ${name} 👋` : "Ciao 👋";
   return `<!DOCTYPE html>
 <html lang="it">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Benvenuto su ${APP_NAME}</title></head>
-<body style="margin:0;padding:0;background-color:#f7faf9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f7faf9;padding:40px 20px;">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Benvenuto su ${APP_NAME}</title></head>
+<body style="margin:0;padding:0;background-color:#eef3f1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Il tuo account è attivo. Prenota una pulizia professionale in pochi tocchi.</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#eef3f1;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(2,36,32,0.08);">
-        <tr><td style="background:linear-gradient(135deg,#022420 0%,#006b55 100%);padding:48px 40px;text-align:center;">
-          <div style="display:inline-block;width:64px;height:64px;background-color:rgba(130,244,209,0.15);border-radius:18px;line-height:64px;margin-bottom:16px;font-size:30px;">🏠</div>
-          <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">${APP_NAME}</h1>
-          <p style="margin:8px 0 0 0;color:#82f4d1;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">L'eccellenza nella cura domestica</p>
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:100%;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(2,36,32,0.10);">
+        <tr><td bgcolor="#022420" style="background-color:#022420;background-image:linear-gradient(135deg,#022420 0%,#0a3f35 55%,#006b55 100%);padding:52px 40px 46px;text-align:center;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"><tr><td align="center">
+            <img src="${LOGO_URL}" width="86" height="86" alt="${APP_NAME}" style="display:block;border-radius:22px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 6px 18px rgba(0,0,0,0.25);">
+          </td></tr></table>
+          <h1 style="margin:18px 0 0 0;color:#ffffff;font-size:27px;font-weight:800;letter-spacing:-0.4px;">${APP_NAME}</h1>
+          <p style="margin:7px 0 0 0;color:#82f4d1;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">L'eccellenza nella cura domestica</p>
         </td></tr>
-        <tr><td style="padding:40px;">
-          <h2 style="margin:0 0 16px 0;color:#0f1f1d;font-size:24px;font-weight:800;letter-spacing:-0.3px;">${greeting}</h2>
-          <p style="margin:0 0 16px 0;color:#4a6660;font-size:16px;line-height:24px;">
-            Benvenuto su ${APP_NAME}! Il tuo account è attivo. Da oggi prenotare un servizio di pulizia professionale è semplice: scegli la tua casa, indica cosa ti serve e ricevi un professionista verificato vicino a te.
+        <tr><td style="padding:40px 40px 8px;">
+          <h2 style="margin:0 0 12px 0;color:#0f1f1d;font-size:25px;font-weight:800;letter-spacing:-0.3px;">${greeting}</h2>
+          <p style="margin:0;color:#54716b;font-size:16px;line-height:25px;">
+            Benvenuto su <strong style="color:#0f1f1d;">${APP_NAME}</strong>. Il tuo account è attivo: da oggi prenotare una pulizia professionale è questione di pochi tocchi.
           </p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 28px 0;">
-            <tr><td style="padding:6px 0;color:#0f1f1d;font-size:15px;line-height:22px;">✅ &nbsp;Professionisti verificati e assicurati</td></tr>
-            <tr><td style="padding:6px 0;color:#0f1f1d;font-size:15px;line-height:22px;">💳 &nbsp;Pagamenti sicuri, solo dentro l'app</td></tr>
-            <tr><td style="padding:6px 0;color:#0f1f1d;font-size:15px;line-height:22px;">💬 &nbsp;Chat diretta per coordinare tutto</td></tr>
+        </td></tr>
+        <tr><td style="padding:24px 40px 8px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            ${featureRow("🛡️", "Professionisti verificati", "Identità controllata e copertura assicurativa su ogni servizio.")}
+            ${featureRow("💳", "Pagamenti sicuri", "Paghi solo dentro l'app, in modo protetto. Nessun contante.")}
+            ${featureRow("💬", "Chat diretta", "Coordini orario e dettagli col professionista, in tempo reale.")}
           </table>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto;">
-            <tr><td style="background-color:#006b55;border-radius:14px;">
-              <a href="https://cleanhomeapp.com" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;letter-spacing:0.3px;">Apri CleanHome</a>
-            </td></tr>
-          </table>
-          <p style="margin:32px 0 0 0;color:#8aaca6;font-size:12px;line-height:18px;text-align:center;">
-            Hai ricevuto questa email perché è stato creato un account ${APP_NAME} con questo indirizzo.<br>
-            Hai bisogno di aiuto? Scrivici a <a href="mailto:info@cleanhomeapp.com" style="color:#006b55;">info@cleanhomeapp.com</a>
+        </td></tr>
+        <tr><td style="padding:24px 40px 8px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+            <td align="center" bgcolor="#006b55" style="background-color:#006b55;border-radius:14px;">
+              <a href="${APP_URL}" style="display:block;padding:17px 24px;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;letter-spacing:0.2px;">Apri ${APP_NAME} →</a>
+            </td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:24px 40px 0;">
+          <div style="height:1px;background-color:#eaf0ee;line-height:1px;font-size:1px;">&nbsp;</div>
+          <p style="margin:22px 0 0;color:#9bb0ab;font-size:13px;line-height:20px;text-align:center;">
+            Hai bisogno di aiuto? Scrivici a <a href="mailto:info@cleanhomeapp.com" style="color:#006b55;font-weight:600;text-decoration:none;">info@cleanhomeapp.com</a>
+          </p>
+        </td></tr>
+        <tr><td style="padding:28px 40px 36px;text-align:center;">
+          <p style="margin:0;color:#0f1f1d;font-size:14px;font-weight:800;letter-spacing:-0.2px;">${APP_NAME}</p>
+          <p style="margin:8px 0 0;color:#b3c4c0;font-size:11px;line-height:17px;">
+            Hai ricevuto questa email perché è stato creato un account con questo indirizzo.<br>
+            © 2026 ${APP_NAME} · Tutti i diritti riservati
           </p>
         </td></tr>
       </table>
