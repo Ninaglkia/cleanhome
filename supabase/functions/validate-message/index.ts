@@ -170,15 +170,17 @@ Deno.serve(async (req) => {
     const otherId =
       booking.client_id === user.id ? booking.cleaner_id : booking.client_id;
     if (otherId) {
-      const { data: blockRow } = await adminClient
+      // NB: this filter can match up to two rows (A→B and B→A). Use a plain
+      // array result, never .maybeSingle() — with two rows .maybeSingle() would
+      // return a PGRST116 error and null data, silently bypassing the block.
+      const { data: blockRows } = await adminClient
         .from("user_blocks")
         .select("id")
         .or(
           `and(blocker_id.eq.${user.id},blocked_id.eq.${otherId}),and(blocker_id.eq.${otherId},blocked_id.eq.${user.id})`,
         )
-        .limit(1)
-        .maybeSingle();
-      if (blockRow) {
+        .limit(1);
+      if (blockRows && blockRows.length > 0) {
         return jsonResponse(
           {
             blocked: true,

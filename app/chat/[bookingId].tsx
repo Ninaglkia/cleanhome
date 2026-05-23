@@ -551,6 +551,17 @@ export default function ChatScreen() {
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={Colors.secondary} />
           </View>
+        ) : isBlocked ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="ban-outline" size={36} color={Colors.textTertiary} />
+            </View>
+            <Text style={styles.emptyTitle}>Utente bloccato</Text>
+            <Text style={styles.emptySubtitle}>
+              I messaggi di questa persona sono nascosti. Puoi sbloccarla qui
+              sotto.
+            </Text>
+          </View>
         ) : visibleListItems.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>

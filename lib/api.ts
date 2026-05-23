@@ -826,6 +826,7 @@ async function requireUserId(): Promise<string> {
 /** Block another user. Idempotent — re-blocking the same user is a no-op. */
 export async function blockUser(blockedUserId: string): Promise<void> {
   const me = await requireUserId();
+  if (me === blockedUserId) throw new Error("Non puoi bloccare te stesso.");
   const { error } = await supabase
     .from("user_blocks")
     .upsert(
