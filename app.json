@@ -313,18 +313,6 @@
             "BROWSABLE",
             "DEFAULT"
           ]
-        },
-        {
-          "action": "VIEW",
-          "data": [
-            {
-              "scheme": "cleanhome"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
         }
       ]
     },
@@ -361,7 +349,10 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.255465018931-703lire871dh8t90vu0e7cooo7vp4tfm"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
