@@ -18,7 +18,6 @@
       "bundleIdentifier": "com.cleanhome.app",
       "buildNumber": "2",
       "usesAppleSignIn": true,
-      "googleServicesFile": "./GoogleService-Info.plist",
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
