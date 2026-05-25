@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301895846914",
+    "project_id": "cleanhome-99dc6",
+    "storage_bucket": "cleanhome-99dc6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301895846914:android:f6503691fb81efe3d8eb1b",
+        "android_client_info": {
+          "package_name": "com.cleanhome.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkDqQji2phTnfcICduD1-LfPzfrIvhBXY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

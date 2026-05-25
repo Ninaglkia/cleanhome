@@ -68,6 +68,8 @@ stitch-export2/
 build/
 supabase/.temp/
 
-# Firebase / Google Services config (contains API keys)
-google-services.json
+# Firebase / Google Services config
+# google-services.json is committed: Firebase Android config values are client
+# identifiers (not secrets — restricted by package name + signing SHA-1) and are
+# bundled into every APK anyway. EAS builds from git, so it must be tracked.
 GoogleService-Info.plist
