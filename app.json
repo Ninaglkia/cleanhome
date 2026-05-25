@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleanhome.app",
-      "buildNumber": "2",
+      "buildNumber": "7",
       "usesAppleSignIn": true,
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
