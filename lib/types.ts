@@ -173,11 +173,14 @@ export interface Review {
 // (€/sqm vs €/covers vs €/desks) and which fields the creation wizard
 // asks for in step 3.
 export type PropertyType =
-  | "apartment"
-  | "house"      // casa indipendente / villa
+  | "apartment"  // appartamento / Airbnb / casa vacanza
+  | "house"      // casa indipendente
+  | "villa"      // villa con esterni
+  // Legacy values — no longer offered in the picker but kept so existing rows
+  // and the exhaustive switches keep type-checking.
   | "office"
   | "restaurant"
-  | "bnb"        // B&B / Airbnb
+  | "bnb"
   | "shop"
   | "other";
 
@@ -195,6 +198,7 @@ export type CleaningFrequency =
 export type PropertyTypeDetails =
   | { kind: "apartment"; typology: string; bedrooms?: number; bathrooms?: number }
   | { kind: "house"; floors: number; has_garden: boolean }
+  | { kind: "villa"; floors: number; has_garden: boolean }
   | { kind: "office"; desks: number }
   | { kind: "restaurant"; covers: number; has_kitchen: boolean }
   | { kind: "bnb"; bedrooms: number; bathrooms: number }

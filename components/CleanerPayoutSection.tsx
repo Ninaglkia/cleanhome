@@ -89,7 +89,14 @@ export function CleanerPayoutSection({ cleanerId }: CleanerPayoutSectionProps) {
       // background) doesn't cause a silent 401. If no session is
       // available at all, surface a clear message asking to log in
       // again instead of the generic "Edge Function returned a non-2xx".
-      const { data: sessionData } = await supabase.auth.getSession();
+      let { data: sessionData } = await supabase.auth.getSession();
+      // If the stored token is expired (e.g. app just came back from the
+      // background), explicitly refresh before giving up — getSession alone
+      // won't recover a session whose access token already lapsed.
+      if (!sessionData.session) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        sessionData = refreshed;
+      }
       if (!sessionData.session) {
         Alert.alert(
           "Sessione scaduta",

@@ -80,13 +80,9 @@ const PROPERTY_TYPES: {
   sub: string;
   tint: string;
 }[] = [
-  { id: "apartment",  icon: "business-outline",     label: "Appartamento",            sub: "In condominio",           tint: "#006b55" },
-  { id: "house",      icon: "home-outline",         label: "Casa indipendente / Villa", sub: "Singola con esterni",   tint: "#0d7d6c" },
-  { id: "office",     icon: "briefcase-outline",    label: "Ufficio / Studio",        sub: "Spazio di lavoro",        tint: "#3a7bd5" },
-  { id: "restaurant", icon: "restaurant-outline",   label: "Ristorante / Bar",        sub: "Locale di ristoro",       tint: "#e85d4f" },
-  { id: "bnb",        icon: "bed-outline",          label: "B&B / Airbnb",            sub: "Casa vacanze",            tint: "#b85ca0" },
-  { id: "shop",       icon: "storefront-outline",   label: "Negozio",                 sub: "Vetrina commerciale",     tint: "#d97a3a" },
-  { id: "other",      icon: "ellipsis-horizontal-circle-outline", label: "Altro",     sub: "Tipologia non in lista",  tint: "#6e7c80" },
+  { id: "apartment",  icon: "business-outline",     label: "Appartamento",            sub: "Airbnb o casa vacanza",   tint: "#006b55" },
+  { id: "house",      icon: "home-outline",         label: "Casa indipendente",       sub: "Singola, su più piani",   tint: "#0d7d6c" },
+  { id: "villa",      icon: "leaf-outline",         label: "Villa",                   sub: "Con giardino ed esterni", tint: "#1f8a5b" },
 ];
 
 const FREQUENCIES: {
@@ -327,6 +323,7 @@ function HeroStep3({ propertyType }: { propertyType: PropertyType | null }) {
       case "bnb":        return "bed-outline";
       case "shop":       return "storefront-outline";
       case "house":      return "home-outline";
+      case "villa":      return "leaf-outline";
       case "other":      return "shapes-outline";
       default:           return "business-outline";
     }
@@ -339,6 +336,7 @@ function HeroStep3({ propertyType }: { propertyType: PropertyType | null }) {
       case "bnb":        return "#b85ca0";
       case "shop":       return "#d97a3a";
       case "house":      return "#0d7d6c";
+      case "villa":      return "#1f8a5b";
       default:           return "#006b55";
     }
   };
@@ -1151,7 +1149,7 @@ function Step3Details({
     );
   }
 
-  if (propertyType === "house") {
+  if (propertyType === "house" || propertyType === "villa") {
     return (
       <>
         <FieldLabel>Superficie (mq)</FieldLabel>
@@ -2393,6 +2391,7 @@ function missingHintForStep(step: number, propertyType: PropertyType | null): st
       switch (propertyType) {
         case "apartment":  return `Scegli tipologia e mq (min ${MIN_SQM})`;
         case "house":      return `Superficie minima ${MIN_SQM} m²`;
+        case "villa":      return `Superficie minima ${MIN_SQM} m²`;
         case "office":     return `Superficie minima ${MIN_SQM} m²`;
         case "restaurant": return `Superficie minima ${MIN_SQM} m²`;
         case "bnb":        return "Imposta camere e bagni";
@@ -2411,6 +2410,7 @@ function titleForType(t: PropertyType | null): string {
   switch (t) {
     case "apartment":  return "Dettagli appartamento";
     case "house":      return "Dettagli casa";
+    case "villa":      return "Dettagli villa";
     case "office":     return "Dettagli ufficio";
     case "restaurant": return "Dettagli ristorante";
     case "bnb":        return "Dettagli B&B";
@@ -2435,6 +2435,7 @@ function isStep3Valid(t: PropertyType | null, d: DraftDetails): boolean {
   switch (t) {
     case "apartment":  return !!d.typology && sqmOk;
     case "house":      return sqmOk;
+    case "villa":      return sqmOk;
     case "office":     return sqmOk;
     case "restaurant": return sqmOk;
     case "bnb":        return Number(d.bedrooms ?? 0) >= 1 && Number(d.bathrooms ?? 0) >= 1;
@@ -2469,6 +2470,12 @@ function buildPersistedDetails(t: PropertyType, d: DraftDetails): PropertyTypeDe
     case "house":
       return {
         kind: "house",
+        floors: Number(d.floors ?? 1),
+        has_garden: !!d.has_garden,
+      };
+    case "villa":
+      return {
+        kind: "villa",
         floors: Number(d.floors ?? 1),
         has_garden: !!d.has_garden,
       };
