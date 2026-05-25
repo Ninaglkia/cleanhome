@@ -80,9 +80,8 @@ const PROPERTY_TYPES: {
   sub: string;
   tint: string;
 }[] = [
-  { id: "apartment",  icon: "business-outline",     label: "Appartamento",            sub: "Airbnb o casa vacanza",   tint: "#006b55" },
-  { id: "house",      icon: "home-outline",         label: "Casa indipendente",       sub: "Singola, su più piani",   tint: "#0d7d6c" },
-  { id: "villa",      icon: "leaf-outline",         label: "Villa",                   sub: "Con giardino ed esterni", tint: "#1f8a5b" },
+  { id: "apartment",  icon: "business-outline",     label: "Appartamento",              sub: "Airbnb o casa vacanza",  tint: "#006b55" },
+  { id: "house",      icon: "home-outline",         label: "Casa indipendente / Villa", sub: "Singola con esterni",    tint: "#0d7d6c" },
 ];
 
 const FREQUENCIES: {
