@@ -115,11 +115,12 @@ export function useProfileStats(
 
       setBookingsCount(bCount ?? 0);
 
-      // Saved properties: COUNT(client_properties) WHERE user_id=uid
+      // Saved properties: COUNT(client_properties) WHERE client_id=uid
+      // (the column is client_id, not user_id — the old query 400'd every time)
       const { count: pCount } = await supabase
         .from("client_properties")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", uid);
+        .eq("client_id", uid);
 
       setPropertiesCount(pCount ?? 0);
     } catch {

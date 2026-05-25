@@ -614,7 +614,12 @@ export default function NewPropertyWizard() {
       });
       router.back();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Impossibile creare la casa.";
+      // Supabase/PostgREST errors are plain objects with a `.message`, not Error
+      // instances — `err instanceof Error` was false, so the real cause was
+      // always swallowed behind the generic fallback. Surface the real message.
+      const msg =
+        (err as { message?: string } | null)?.message ??
+        "Impossibile creare la casa. Riprova.";
       Alert.alert("Errore", msg);
     } finally {
       setSaving(false);

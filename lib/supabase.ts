@@ -1,6 +1,6 @@
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -123,3 +123,20 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     heartbeatIntervalMs: 30000,
   },
 });
+
+// React Native: Supabase's token auto-refresh runs on a JS timer that the OS
+// throttles/pauses while the app is backgrounded. Without tying it to AppState,
+// the access token silently expires after ~1h in the background and is never
+// refreshed — authenticated writes then fail with 401 (RLS rejects them) while
+// reads still return 200 with empty results, so the UI keeps showing cached
+// data and the bug is invisible until a save fails. This is the official
+// Supabase RN pattern: refresh while foregrounded, pause while backgrounded.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}

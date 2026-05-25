@@ -150,19 +150,6 @@ export default function PropertiesListScreen() {
           )}
         </ScrollView>
       )}
-
-      {/* ── Floating Action Button — only when list has items ── */}
-      {items.length > 0 && !loading && (
-        <View style={styles.fab}>
-          <Pressable
-            onPress={handleAdd}
-            accessibilityLabel="Aggiungi una nuova casa"
-            android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Ionicons name="add" size={26} color="#fff" pointerEvents="none" />
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -457,20 +444,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: "#fff",
-  },
-
-  // --- FAB ---
-  fab: {
-    position: "absolute",
-    bottom: 28,
-    right: 20,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#d97706",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    ...Shadows.lg,
   },
 });
