@@ -44,7 +44,6 @@ assets/*.bak.*
 assets/*.backup
 assets/cleanhome-icon-v*.png
 assets/onboarding-sofa.png
-assets/lottie/
 
 # Demo / sandbox screens (not production)
 app/demo/
