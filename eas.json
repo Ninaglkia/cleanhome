@@ -29,7 +29,7 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
-        "resourceClass": "m-large"
+        "resourceClass": "m-medium"
       },
       "android": {
         "buildType": "app-bundle"
