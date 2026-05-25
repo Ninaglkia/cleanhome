@@ -111,3 +111,11 @@ $$;
 DROP TRIGGER IF EXISTS notify_on_new_message ON public.messages;
 CREATE TRIGGER notify_on_new_message AFTER INSERT ON public.messages
   FOR EACH ROW EXECUTE FUNCTION public.notify_on_new_message();
+
+-- 8. Harden: these run only via triggers / service role, never via the public
+-- RPC endpoint. Without this, anon/authenticated could call create_notification
+-- and spam arbitrary users with fake notifications.
+REVOKE EXECUTE ON FUNCTION public.create_notification(UUID, TEXT, TEXT, TEXT, TEXT, JSONB) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.notify_on_booking_change() FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.notify_on_new_review()   FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.notify_on_new_message()  FROM anon, authenticated, PUBLIC;
