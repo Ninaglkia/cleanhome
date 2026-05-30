@@ -121,7 +121,12 @@ serve(async (req) => {
     }
 
     // Preconditions
-    if (booking.status !== "accepted") {
+    // Accept both "accepted" and "work_done": the cleaner UI sets status to
+    // "work_done" via markWorkDone (lib/api.ts), so requiring only "accepted"
+    // here permanently blocked every escrow payout. The atomic claim below
+    // gates on client_confirmed_at/payout_blocked (not status), so either
+    // pre-state is safe and the final state is forced to "completed".
+    if (booking.status !== "accepted" && booking.status !== "work_done") {
       return json({ error: `Booking is ${booking.status}` }, 409);
     }
     if (!booking.work_done_at) {

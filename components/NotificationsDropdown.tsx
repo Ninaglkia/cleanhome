@@ -47,15 +47,31 @@ export interface NotificationsDropdownProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// The notifications table stores granular type strings (booking_accepted,
+// new_booking_request, message_new, booking_payout_released, …), so map them
+// to a coarse category before picking an icon — and always return a default
+// so the icon renders for every real notification type.
+function category(t: string): "booking" | "message" | "system" {
+  if (t.startsWith("message")) return "message";
+  if (
+    t.startsWith("booking") ||
+    t.startsWith("new_booking") ||
+    t.startsWith("payment") ||
+    t.startsWith("review")
+  )
+    return "booking";
+  return "system";
+}
+
 function getTypeIcon(
   type: NotificationType
 ): React.ComponentProps<typeof Ionicons>["name"] {
-  switch (type) {
+  switch (category(type)) {
     case "booking":
       return "calendar-outline";
     case "message":
       return "chatbubble-outline";
-    case "system":
+    default:
       return "shield-checkmark-outline";
   }
 }

@@ -9,7 +9,7 @@ import {
   Alert,
   StatusBar,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { fetchCleaner, fetchCleanerActiveListing, fetchReviewsForCleaner } from "../../lib/api";
@@ -32,6 +32,7 @@ function formatReviewDate(iso: string): string {
 export default function CleanerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [cleaner, setCleaner] = useState<CleanerProfile | null>(null);
   const [listing, setListing] = useState<CleanerListing | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -653,7 +654,7 @@ export default function CleanerDetailScreen() {
           backgroundColor: Colors.surface,
           paddingHorizontal: 20,
           paddingTop: 16,
-          paddingBottom: 36,
+          paddingBottom: Math.max(insets.bottom, 16),
           shadowColor: Colors.primary,
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.08,

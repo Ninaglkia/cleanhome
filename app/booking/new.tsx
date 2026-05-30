@@ -79,6 +79,10 @@ const SERVICE_NAME = "Pulizia ordinaria";
 // sees a raw error string, a JSON blob, or English Stripe codes.
 function friendlyPaymentError(raw: string): string {
   if (__DEV__) console.log("[payment error]", raw);
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.error === "string") raw = parsed.error;
+  } catch { /* not JSON — use raw as-is */ }
   const m = (raw || "").toLowerCase();
   // Keep the already-friendly Italian messages we throw ourselves.
   if (/indirizzo richiesto|casa non trovata|impossibile avviare il pagamento/.test(m)) {
@@ -500,7 +504,9 @@ export default function NewBookingScreen() {
   }, [cleanerId]);
 
   // Pricing now driven by square meters (sqm), not hours.
-  // Formula: max(€50, sqm × €1.30). Server re-validates.
+  // Formula: max(€50, sqm × €1.30). The server does NOT recompute from sqm:
+  // it only bounds-checks base_price to [50, 10000] and otherwise trusts the
+  // client-supplied value.
   // Hours shown are only an estimate for the cleaner (~25 mq/h).
   const breakdown = useMemo(() => calculatePrice(sqm), [sqm]);
 
@@ -512,8 +518,8 @@ export default function NewBookingScreen() {
     [selectedExtras]
   );
   const basePrice = breakdown.basePrice + extrasTotal;
-  const clientFee = Math.round(basePrice * 0.09 * 100) / 100;
-  const cleanerFee = Math.round(basePrice * 0.09 * 100) / 100;
+  const clientFee = Math.round(basePrice * FEE_RATE * 100) / 100;
+  const cleanerFee = Math.round(basePrice * FEE_RATE * 100) / 100;
   const totalPrice = basePrice + clientFee;
   const cleanerReceives = basePrice - cleanerFee;
   const estimatedHours = Math.max(1.5, Math.round((sqm / 25) * 2) / 2);

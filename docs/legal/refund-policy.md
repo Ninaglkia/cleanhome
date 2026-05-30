@@ -75,7 +75,7 @@ La presente Politica costituisce parte integrante dei [Termini di Servizio](./te
 - **"Annulla prenotazione"** per cancellazioni nei termini di cui all'art. 2;
 - **"Apri contestazione"** per le ipotesi dell'art. 4 (lavoro mal eseguito o incompleto).
 
-6.2 In caso di impossibilità tecnica all'utilizzo dell'App, le richieste possono essere inviate via email a info@cleanhome.app, indicando: ID Prenotazione, data del Servizio, oggetto della richiesta e motivazione.
+6.2 In caso di impossibilità tecnica all'utilizzo dell'App, le richieste possono essere inviate via email a info@cleanhomeapp.com, indicando: ID Prenotazione, data del Servizio, oggetto della richiesta e motivazione.
 
 ## 7. Diritto di recesso del consumatore (Codice del Consumo)
 
@@ -95,7 +95,7 @@ La presente Politica costituisce parte integrante dei [Termini di Servizio](./te
 
 Per qualsiasi richiesta o chiarimento sulla presente Politica:
 
-- Email: info@cleanhome.app
+- Email: info@cleanhomeapp.com
 - Indirizzo postale: Via Sicilia 97, 09170 Oristano (OR)
 
 ---

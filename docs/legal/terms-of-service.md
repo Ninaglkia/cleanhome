@@ -191,7 +191,7 @@ Il Cliente si impegna a:
 
 Per qualsiasi comunicazione relativa ai presenti Termini:
 
-- Email: info@cleanhome.app
+- Email: info@cleanhomeapp.com
 - Indirizzo postale: Via Sicilia 97, 09170 Oristano (OR)
 
 ---

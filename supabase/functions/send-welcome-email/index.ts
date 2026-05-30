@@ -179,7 +179,8 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const detail = await res.text();
-      return json({ sent: false, reason: "provider_error", detail }, 502);
+      console.error("[send-welcome-email] Resend error", res.status, detail);
+      return json({ sent: false, reason: "provider_error" }, 502);
     }
 
     // Mark as sent so we never email the same user twice.

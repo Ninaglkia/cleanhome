@@ -121,7 +121,6 @@ export default function RootLayout() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const router = useRouter();
 
   const refreshProfile = useCallback(async () => {
@@ -403,7 +402,6 @@ export default function RootLayout() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const anyResult = result as any;
       if (anyResult?.type === "cancelled") {
-        setIsAuthenticating(false);
         return;
       }
       const idToken: string | undefined =
@@ -415,7 +413,6 @@ export default function RootLayout() {
       });
       if (error) throw error;
     } catch (e) {
-      setIsAuthenticating(false);
       if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) return;
       const message = e instanceof Error ? e.message : "Errore imprevisto";
       Alert.alert("Errore Google", message);
@@ -434,14 +431,12 @@ export default function RootLayout() {
       });
       if (error) throw error;
       if (!data?.url) {
-        setIsAuthenticating(false);
         return;
       }
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl, {
         preferEphemeralSession: false,
       });
       if (result.type !== "success" || !result.url) {
-        setIsAuthenticating(false);
         return;
       }
       const url = new URL(result.url);
@@ -463,14 +458,12 @@ export default function RootLayout() {
         if (sErr) throw sErr;
       }
     } catch (e) {
-      setIsAuthenticating(false);
       const message = e instanceof Error ? e.message : "Errore imprevisto";
       Alert.alert("Errore Google", message);
     }
   };
 
   const signInWithGoogle = async () => {
-    setIsAuthenticating(true);
     const mod = loadGoogleSignin();
     if (mod) {
       await signInWithGoogleNative(mod);

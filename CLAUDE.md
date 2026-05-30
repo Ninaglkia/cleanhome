@@ -124,7 +124,7 @@ supabase/             functions/ (Edge), migrations/
 - Styling: NativeWind only. No inline StyleSheet (except Reanimated style props).
 - Tokens: `lib/theme.ts`. Never hardcoded colors.
 - Routing: expo-router file-based.
-- Payments: Stripe Payment Intents, manual capture for booking holds.
+- Payments: Stripe Payment Intents, escrow model (immediate auto-capture to platform balance, transfer to cleaner on client confirmation or 48h auto-confirm cron).
 
 **Key files:**
 - `app/listing/index.tsx` — main listing editor (large, refactor pending)

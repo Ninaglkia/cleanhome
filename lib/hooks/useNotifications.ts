@@ -4,7 +4,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type NotificationType = "booking" | "message" | "system";
+export type NotificationType = string;
 
 export interface AppNotification {
   id: string;

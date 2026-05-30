@@ -38,7 +38,6 @@ import Animated, {
   FadeInDown,
   FadeOut,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -50,8 +49,6 @@ import Animated, {
 import Svg, {
   Circle,
   Defs,
-  Ellipse,
-  G,
   Line,
   Path,
   Polygon,
@@ -258,39 +255,6 @@ function HeroCalCell({ index, even }: { index: number; even: boolean }) {
     backgroundColor: even ? "#00c896" : "#006b55",
   }));
   return <Animated.View style={[heroStyles.calCell, animStyle]} />;
-}
-
-function HeroStep2() {
-  const cells = [0, 1, 2, 3, 4, 5, 6, 7];
-  return (
-    <View style={heroStyles.container}>
-      <Svg width={110} height={96} viewBox="0 0 110 96">
-        <Defs>
-          <RadialGradient id="calBg" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#00c896" stopOpacity="0.12" />
-            <Stop offset="100%" stopColor="#006b55" stopOpacity="0.03" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx="55" cy="48" r="46" fill="url(#calBg)" />
-        {/* Calendar body */}
-        <Rect x="14" y="20" width="82" height="62" rx="8" fill="#ffffff" stroke="#d4e4e0" strokeWidth="1.5" />
-        {/* Header */}
-        <Rect x="14" y="20" width="82" height="20" rx="8" fill="#006b55" />
-        <Rect x="14" y="32" width="82" height="8" rx="0" fill="#006b55" />
-        {/* Calendar pins */}
-        <Rect x="29" y="14" width="5" height="12" rx="2.5" fill="#022420" opacity={0.7} />
-        <Rect x="76" y="14" width="5" height="12" rx="2.5" fill="#022420" opacity={0.7} />
-        {/* Month label */}
-        <Rect x="36" y="26" width="38" height="7" rx="3" fill="#00c896" opacity={0.6} />
-      </Svg>
-      {/* Animated day cells laid on top */}
-      <View style={heroStyles.calCells} pointerEvents="none">
-        {cells.map((c, i) => (
-          <HeroCalCell key={c} index={i} even={i % 2 === 0} />
-        ))}
-      </View>
-    </View>
-  );
 }
 
 // Step 3: Morphing shape that changes per property type
@@ -506,7 +470,7 @@ export default function NewPropertyWizard() {
   const [propertyType, setPropertyType] = useState<PropertyType | null>(null);
 
   // Frequency is no longer asked in the wizard — default to monthly.
-  const [frequency, setFrequency] = useState<CleaningFrequency | null>(FREQUENCIES[0].id);
+  const [frequency] = useState<CleaningFrequency | null>(FREQUENCIES[0].id);
 
   // Step 3
   const [details, setDetails] = useState<DraftDetails>({});
@@ -1034,45 +998,6 @@ function TypeCard({
             <Ionicons name="checkmark" size={12} color="#fff" />
           </Animated.View>
         )}
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-function FreqCard({
-  selected, onPress, label, sub, badge, delay,
-}: {
-  selected: boolean;
-  onPress: () => void;
-  label: string;
-  sub: string;
-  badge: string;
-  delay: number;
-}) {
-  const scale = useSharedValue(1);
-  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <Animated.View
-      entering={FadeInDown.duration(300).delay(delay)}
-      style={aStyle}
-    >
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.97, SPRING_SNAPPY); }}
-        onPressOut={() => { scale.value = withSpring(1.0, SPRING_BOUNCY); }}
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        accessibilityLabel={`${label}, ${sub}, ${badge}`}
-        style={[styles.freqCard, selected && styles.freqCardOn]}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.freqLabel, selected && { color: Colors.primary }]}>{label}</Text>
-          <Text style={styles.freqSub}>{sub}</Text>
-        </View>
-        <View style={[styles.freqBadge, selected && styles.freqBadgeOn]}>
-          <Text style={[styles.freqBadgeTxt, selected && { color: "#fff" }]}>{badge}</Text>
-        </View>
       </Pressable>
     </Animated.View>
   );
@@ -2639,21 +2564,6 @@ const styles = StyleSheet.create({
   },
 
   // Step 2 frequency cards
-  freqCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
   freqCardOn: {
     borderColor: Colors.secondary,
     borderWidth: 2,

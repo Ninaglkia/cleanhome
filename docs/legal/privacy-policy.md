@@ -18,7 +18,7 @@ Il Titolare del trattamento dei dati personali è:
 - **Denominazione:** Nino Mariano Lai (ditta individuale)
 - **Sede legale:** Via Sicilia 97, 09170 Oristano (OR)
 - **P.IVA / Codice Fiscale:** LAINMR92M16Z112D
-- **Email di contatto utenti:** info@cleanhome.app
+- **Email di contatto utenti:** info@cleanhomeapp.com
 - **Email del Responsabile della protezione dei dati (DPO):** non nominato
 
 L'utente può rivolgersi ai recapiti sopra indicati per esercitare i propri diritti o richiedere chiarimenti relativi al trattamento dei propri dati.
@@ -118,7 +118,7 @@ I dati possono essere comunicati ai seguenti soggetti, in qualità di Responsabi
 - Consulenti fiscali, legali e contabili, vincolati da obblighi di riservatezza
 - Autorità giudiziarie o amministrative, su richiesta legittima
 
-L'elenco aggiornato dei Responsabili del trattamento può essere richiesto scrivendo all'indirizzo info@cleanhome.app.
+L'elenco aggiornato dei Responsabili del trattamento può essere richiesto scrivendo all'indirizzo info@cleanhomeapp.com.
 
 ## 7. Trasferimento dei dati extra-UE
 
@@ -128,7 +128,7 @@ Alcuni Responsabili hanno sede o effettuano trattamenti negli Stati Uniti d'Amer
 - **Google LLC (USA):** adesione al **Data Privacy Framework UE-USA** (DPF)
 - **Expo / 650 Industries (USA):** Standard Contractual Clauses (SCC)
 
-Una copia delle garanzie applicabili può essere richiesta scrivendo a info@cleanhome.app.
+Una copia delle garanzie applicabili può essere richiesta scrivendo a info@cleanhomeapp.com.
 
 ## 8. Diritti dell'interessato
 
@@ -143,7 +143,7 @@ In ogni momento l'utente può esercitare, ai sensi degli artt. 15-22 GDPR, i seg
 - **Revoca del consenso** in qualunque momento, senza pregiudicare la liceità dei trattamenti già effettuati
 - **Reclamo** all'Autorità Garante per la protezione dei dati personali (www.garanteprivacy.it)
 
-Per esercitare tali diritti è sufficiente inviare una richiesta a info@cleanhome.app o, se nominato, al DPO all'indirizzo non nominato. La risposta sarà fornita entro **30 giorni** dalla ricezione, prorogabili di ulteriori 60 giorni in caso di richieste complesse.
+Per esercitare tali diritti è sufficiente inviare una richiesta a info@cleanhomeapp.com o, se nominato, al DPO all'indirizzo non nominato. La risposta sarà fornita entro **30 giorni** dalla ricezione, prorogabili di ulteriori 60 giorni in caso di richieste complesse.
 
 ## 9. Cookie e tecnologie di tracciamento
 
@@ -151,7 +151,7 @@ L'App mobile CleanHome **non utilizza cookie**. L'eventuale sito web associato (
 
 ## 10. Minori
 
-Il servizio CleanHome non è destinato a soggetti di età inferiore ai **18 anni**. CleanHome non raccoglie consapevolmente dati di minori. Qualora un genitore o tutore dovesse riscontrare la registrazione di un minore, è invitato a segnalarlo immediatamente a info@cleanhome.app per la tempestiva cancellazione dell'account.
+Il servizio CleanHome non è destinato a soggetti di età inferiore ai **18 anni**. CleanHome non raccoglie consapevolmente dati di minori. Qualora un genitore o tutore dovesse riscontrare la registrazione di un minore, è invitato a segnalarlo immediatamente a info@cleanhomeapp.com per la tempestiva cancellazione dell'account.
 
 ## 11. Modifiche alla presente Informativa
 
@@ -161,7 +161,7 @@ CleanHome si riserva il diritto di aggiornare la presente Informativa per riflet
 
 Per qualsiasi domanda relativa al trattamento dei dati personali:
 
-- Email generale: info@cleanhome.app
+- Email generale: info@cleanhomeapp.com
 - Email DPO (se nominato): non nominato
 - Indirizzo postale: Via Sicilia 97, 09170 Oristano (OR)
 

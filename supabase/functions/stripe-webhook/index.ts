@@ -2,7 +2,7 @@
 // Edge Function: stripe-webhook  (v2 — multi-dispatch)
 // ----------------------------------------------------------------------------
 // Handles Stripe events. Key change vs v1:
-//   payment_intent.amount_capturable_updated for dispatch_mode != 'legacy':
+//   payment_intent.succeeded for dispatch_mode != 'legacy':
 //     - Creates booking with cleaner_id=NULL, status='open'
 //     - Inserts N booking_offers (one per cleaner in metadata[cleaner_ids])
 //     - Notifies each cleaner via insertNotification
@@ -378,10 +378,9 @@ serve(async (req: Request) => {
         break;
       }
 
-      // ── Payment authorized (manual capture) ──────────────────────
+      // ── Payment captured (escrow, auto-capture) ──────────────────
       // KEY CHANGE: multi-dispatch creates booking with cleaner_id=NULL, status='open'
       // and inserts N booking_offers, one per cleaner in metadata.
-      case "payment_intent.amount_capturable_updated":
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
         const md = (pi.metadata || {}) as Record<string, string>;
@@ -443,6 +442,9 @@ serve(async (req: Request) => {
 
         if (insertErr || !newBooking) {
           console.error("[webhook booking insert]", insertErr?.message);
+          // Roll back the dedup row so Stripe's retry isn't short-circuited —
+          // otherwise this PAID event would be permanently dropped.
+          await supabase.from("stripe_events").delete().eq("id", event.id);
           return new Response("Internal server error", { status: 500 });
         }
 
@@ -558,6 +560,8 @@ serve(async (req: Request) => {
     });
   } catch (err: any) {
     console.error("[stripe-webhook] handler error:", err?.message ?? err);
+    // Roll back the dedup row so Stripe's retry isn't short-circuited.
+    await supabase.from("stripe_events").delete().eq("id", event.id);
     return new Response("Internal server error", { status: 500 });
   }
 });

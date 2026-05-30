@@ -36,12 +36,11 @@ import Animated, {
 import {
   fetchClientProperties,
   searchCleaners,
-  searchCleanersNearPoint,
   searchListingsNearPoint,
 } from "../../lib/api";
 import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
-import { Colors, Shadows, SpringConfig } from "../../lib/theme";
+import { Colors, SpringConfig } from "../../lib/theme";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 import { NotificationBell } from "../../components/NotificationBell";
@@ -51,7 +50,7 @@ import { NotificationBell } from "../../components/NotificationBell";
 // avoiding the 1-3s flash on Rome before GPS resolves.
 const LAST_KNOWN_REGION_KEY = "cleanhome.last_known_region";
 
-const { width: SCREEN_WIDTH, width: SW, height: SH } = Dimensions.get("window");
+const { width: SW, height: SH } = Dimensions.get("window");
 
 // Card dimensions — 260px wide with 16px gap, peek of next card visible
 const CARD_WIDTH = 260;
@@ -85,7 +84,7 @@ const C = {
 // ─── Price Marker ────────────────────────────────────────────────────────────
 
 interface PriceMarkerProps {
-  price: number;
+  price: number | null;
   selected: boolean;
   onPress: () => void;
 }
@@ -141,7 +140,7 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
               letterSpacing: 0.2,
             }}
           >
-            €{price}/hr
+            {price != null ? `€${price}/ora` : "Tariffa su richiesta"}
           </Text>
           {selected && (
             <View
@@ -162,7 +161,6 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
 // ─── Cleaner Map Card ─────────────────────────────────────────────────────────
 // Stitch spec: bg-surface-container-lowest (#fff) rounded-lg p-4
 // photo 112x112 rounded-md, star rating, name font-headline, rate, "View Profile" button
-// PREFERRED badge on avatar — bg-secondary (#006b55) text-white rounded-full
 
 interface MapCleanerCardProps {
   cleaner: CleanerProfile;
@@ -191,9 +189,6 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-
-  // Show PREFERRED badge on every 3rd cleaner (index-agnostic: use rating >= 4.8 as proxy)
-  const isPreferred = cleaner.avg_rating >= 4.8;
 
   return (
     <TouchableOpacity
@@ -250,33 +245,6 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
                     }}
                   >
                     {initials}
-                  </Text>
-                </View>
-              )}
-              {/* PREFERRED badge */}
-              {isPreferred && (
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: -10,
-                    right: -10,
-                    backgroundColor: C.secondary,
-                    borderRadius: 9999,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderWidth: 2,
-                    borderColor: "#ffffff",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "#ffffff",
-                      fontSize: 8,
-                      fontWeight: "800",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    PREFERRED
                   </Text>
                 </View>
               )}
@@ -480,7 +448,7 @@ function PropertyMarker({ isDefault }: { isDefault: boolean }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
@@ -983,13 +951,6 @@ export default function HomeScreen() {
   // Card carousel sits above the tab bar
   const CAROUSEL_BOTTOM = TAB_BAR_HEIGHT + 8;
 
-  const avatarInitials = profile?.full_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "ME";
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1014,7 +975,7 @@ export default function HomeScreen() {
             tracksViewChanges={false}
           >
             <PriceMarker
-              price={cleaner.hourly_rate ?? 15}
+              price={cleaner.hourly_rate ?? null}
               selected={selectedIndex === index}
               onPress={() => handleMarkerPress(index)}
             />

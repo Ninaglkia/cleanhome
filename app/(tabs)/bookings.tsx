@@ -2,13 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
-  FlatList,
   Pressable,
   ActivityIndicator,
   StatusBar,
   StyleSheet,
   Alert,
-  Dimensions,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,7 +24,6 @@ import Animated, {
   Easing,
   useAnimatedScrollHandler,
   interpolate,
-  runOnJS,
 } from "react-native-reanimated";
 import LottieView from "lottie-react-native";
 import { useAuth } from "../../lib/auth";
@@ -81,7 +78,6 @@ const CLIENT_THEME = {
 
 const ITEM_HEIGHT = 220;
 const SEPARATOR_HEIGHT = 16;
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const FILTERS = [
   { key: "all", label: "Tutte" },
@@ -448,7 +444,7 @@ function EmptyState({ isClient, onCTA, filterKey, primaryColor }: EmptyStateProp
             accessibilityLabel="Cerca professionisti per prenotare un servizio"
             primaryColor={primaryColor}
           />
-          <Text style={styles.emptyHint}>Migliaia di professionisti verificati in Italia</Text>
+          <Text style={styles.emptyHint}>Professionisti verificati nella tua zona</Text>
         </View>
       ) : null}
     </Animated.View>
@@ -644,6 +640,7 @@ export default function BookingsScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const isCleaner = profile?.active_role === "cleaner";
   const isClientView = !isCleaner;
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
@@ -706,10 +703,13 @@ export default function BookingsScreen() {
   const loadBookings = useCallback(async () => {
     if (!user || !profile) return;
     try {
+      setHasError(false);
       const data = await fetchBookings(user.id, profile.active_role);
       setBookings(data);
     } catch {
-      setBookings([]);
+      // Keep stale bookings visible — surface a retryable error instead of a
+      // misleading "zero bookings" empty state on network failure.
+      setHasError(true);
     } finally {
       setLoading(false);
     }
@@ -880,6 +880,32 @@ export default function BookingsScreen() {
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={theme.secondary} />
             <Text style={styles.loadingText}>Caricamento prenotazioni…</Text>
+          </View>
+        ) : hasError && filteredBookings.length === 0 ? (
+          // Full-screen error only when there's nothing cached to show.
+          // If we already have bookings, we keep the list visible and let
+          // pull-to-refresh act as the retry path (stale data > blank screen).
+          <View style={styles.errorState}>
+            <View style={styles.errorIconWrap}>
+              <Ionicons name="cloud-offline-outline" size={36} color={C.outline} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: theme.primary }]}>Errore di rete</Text>
+            <Text style={styles.emptySubtitle}>
+              Impossibile caricare le prenotazioni. Controlla la connessione e riprova.
+            </Text>
+            <Pressable
+              onPress={loadBookings}
+              accessibilityRole="button"
+              accessibilityLabel="Riprova caricamento prenotazioni"
+              style={({ pressed }) => [
+                styles.retryBtn,
+                { backgroundColor: theme.secondary },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Ionicons name="refresh" size={16} color="#fff" />
+              <Text style={styles.retryBtnText}>Riprova</Text>
+            </Pressable>
           </View>
         ) : filteredBookings.length === 0 ? (
           <EmptyState
@@ -1112,6 +1138,39 @@ const styles = StyleSheet.create({
     color: C.outline,
     textAlign: "center",
     letterSpacing: 0.1,
+  },
+
+  // ── Error state ─────────────────────────────────────────────────────────────
+  errorState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 36,
+    paddingBottom: 32,
+    gap: 8,
+  },
+  errorIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: C.surfaceLow,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 9999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
   },
 
   // ── Card ──────────────────────────────────────────────────────────────────────

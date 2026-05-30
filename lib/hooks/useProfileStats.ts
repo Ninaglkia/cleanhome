@@ -51,13 +51,13 @@ export function useProfileStats(
   const fetchCleanerStats = useCallback(async (uid: string) => {
     setIsLoading(true);
     try {
-      // Earnings this month: SUM(total_price) * 0.91 WHERE cleaner_id=uid AND status='completed' AND completed_at >= start_of_month
+      // Earnings this month: SUM(total_price) * 0.91 WHERE cleaner_id=uid AND status='completed' AND client_confirmed_at >= start_of_month
       const { data: earningsData } = await supabase
         .from("bookings")
         .select("total_price")
         .eq("cleaner_id", uid)
         .eq("status", "completed")
-        .gte("completed_at", startOfMonth());
+        .gte("client_confirmed_at", startOfMonth());
 
       const rawEarnings =
         earningsData?.reduce((acc, row) => acc + (row.total_price ?? 0), 0) ?? 0;
@@ -72,9 +72,9 @@ export function useProfileStats(
 
       setJobs(jobCount ?? 0);
 
-      // Rating from profiles table
+      // Rating from cleaner_profiles table
       const { data: profileData } = await supabase
-        .from("profiles")
+        .from("cleaner_profiles")
         .select("avg_rating, review_count")
         .eq("id", uid)
         .single();

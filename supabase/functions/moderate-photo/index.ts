@@ -99,7 +99,7 @@ async function runGoogleVisionModeration(imageUrl: string): Promise<ModerationRe
   }
 
   const data = await res.json();
-  const safeSearch = data?.responses?.[0]?.safeSearch ?? null;
+  const safeSearch = data?.responses?.[0]?.safeSearchAnnotation ?? null;
   if (!safeSearch) {
     return { flagged: false, reason: "no_safesearch_response" };
   }

@@ -45,6 +45,7 @@ export default function BookingDetailScreen() {
   const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
   const [photos, setPhotos] = useState<BookingPhoto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [showMarkDone, setShowMarkDone] = useState(false);
@@ -56,6 +57,7 @@ export default function BookingDetailScreen() {
   const loadData = useCallback(async () => {
     if (!id) return;
     try {
+      setLoadError(false);
       const b = await fetchBooking(id);
       if (!b) {
         Alert.alert("Errore", "Prenotazione non trovata", [
@@ -74,6 +76,7 @@ export default function BookingDetailScreen() {
       setClientProfile(client);
       setPhotos(allPhotos as BookingPhoto[]);
     } catch (err: unknown) {
+      setLoadError(true);
       if (__DEV__) {
         console.error("[BookingDetail]", err instanceof Error ? err.message : err);
       }
@@ -137,6 +140,38 @@ export default function BookingDetailScreen() {
 
   const cleanerPhotos = photos.filter((p) => p.type === "after_cleaner");
   const disputePhotos = photos.filter((p) => p.type === "dispute_client");
+
+  if (!loading && !booking && loadError) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Dettagli prenotazione</Text>
+          <View style={{ width: 26 }} />
+        </View>
+        <View style={styles.errorBody}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.textTertiary} />
+          <Text style={styles.errorText}>
+            Impossibile caricare la prenotazione. Controlla la connessione.
+          </Text>
+          <Pressable
+            onPress={() => {
+              setLoading(true);
+              loadData();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Riprova caricamento prenotazione"
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="refresh" size={16} color="#fff" />
+            <Text style={styles.retryBtnText}>Riprova</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading || !booking) {
     return (
@@ -480,6 +515,34 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  errorText: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full ?? 999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginTop: Spacing.sm,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
   },
   header: {
     flexDirection: "row",

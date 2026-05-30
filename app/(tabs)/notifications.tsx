@@ -8,7 +8,6 @@ import {
   StatusBar,
   StyleSheet,
   RefreshControl,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -53,15 +52,27 @@ const FILTERS: { key: NotificationFilter; label: string }[] = [
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 
+function category(t: string): "booking" | "message" | "system" {
+  if (t.startsWith("message")) return "message";
+  if (
+    t.startsWith("booking") ||
+    t.startsWith("new_booking") ||
+    t.startsWith("payment") ||
+    t.startsWith("review")
+  )
+    return "booking";
+  return "system";
+}
+
 function getTypeIcon(
   type: NotificationType
 ): React.ComponentProps<typeof Ionicons>["name"] {
-  switch (type) {
+  switch (category(type)) {
     case "booking":
       return "calendar-outline";
     case "message":
       return "chatbubble-outline";
-    case "system":
+    default:
       return "shield-checkmark-outline";
   }
 }
@@ -248,7 +259,7 @@ export default function NotificationsScreen() {
       system: "system",
     };
     const t = typeMap[activeFilter];
-    return t ? notifications.filter((n) => n.type === t) : notifications;
+    return t ? notifications.filter((n) => category(n.type) === t) : notifications;
   }, [notifications, activeFilter]);
 
   const unreadCount = useMemo(

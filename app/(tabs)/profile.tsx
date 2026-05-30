@@ -547,6 +547,14 @@ function CleanerView({
             iconBgColor={C.surfaceLow}
             cardStyle
           />
+          <MenuRow
+            icon="document-text-outline"
+            label="Termini e Condizioni"
+            sublabel="Termini di servizio e condizioni d'uso"
+            onPress={onLegal}
+            iconBgColor={C.surfaceLow}
+            cardStyle
+          />
         </View>
       </View>
 
@@ -590,14 +598,11 @@ interface ClientViewProps {
   onPreviewClose: () => void;
   onEditProfile: () => void;
   onBankData: () => void;
-  onDocuments: () => void;
   onPrivacy: () => void;
-  onBookings: () => void;
   onProperties: () => void;
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
-  onViewListing: () => void;
   // Coach mark refs — measureInWindow gives screen-absolute coords for the Modal overlay
   avatarSectionRef?: React.RefObject<View | null>;
   editProfileRef?: React.RefObject<View | null>;
@@ -616,14 +621,11 @@ function ClientView({
   onPreviewClose,
   onEditProfile,
   onBankData,
-  onDocuments,
   onProperties,
   onPrivacy,
-  onBookings,
   onSwitchRole,
   onSignOut,
   onDeleteAccount,
-  onViewListing,
   avatarSectionRef,
   editProfileRef,
   propertiesRef,
@@ -1044,10 +1046,6 @@ export default function ProfileScreen() {
     router.push("/profile/edit");
   }, [router]);
 
-  const handlePayments = useCallback(() => {
-    router.push("/payments");
-  }, [router]);
-
   const handleDocuments = useCallback(() => {
     router.push("/documents");
   }, [router]);
@@ -1063,10 +1061,6 @@ export default function ProfileScreen() {
   // Used by ClientView "Metodo di Pagamento" row
   const handleBankData = useCallback(() => {
     router.push("/payments");
-  }, [router]);
-
-  const handleViewListing = useCallback(() => {
-    router.push("/cleaner/profile-view");
   }, [router]);
 
   const handleListing = useCallback(() => {
@@ -1151,14 +1145,11 @@ export default function ProfileScreen() {
               onPreviewClose={() => setPreviewVisible(false)}
               onEditProfile={handleEditProfile}
               onBankData={handleBankData}
-              onDocuments={handleDocuments}
               onPrivacy={handlePrivacy}
-              onBookings={() => router.push("/(tabs)/bookings")}
               onProperties={() => router.push("/properties")}
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
-              onViewListing={handleViewListing}
               avatarSectionRef={avatarSectionRef}
               editProfileRef={editProfileRef}
               propertiesRef={propertiesRef}

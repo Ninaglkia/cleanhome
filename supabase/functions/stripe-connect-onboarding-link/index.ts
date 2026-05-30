@@ -175,16 +175,7 @@ serve(async (req: Request) => {
   } catch (err: any) {
     const msg = err?.message ?? String(err);
     console.error("[stripe-connect-onboarding-link]", msg);
-    // Surface the real Stripe / runtime error message to the client so
-    // we stop chasing ghosts behind a generic "Riprova più tardi". The
-    // user-facing copy is still readable thanks to the prefix.
-    return json(
-      {
-        error: `Verifica fallita: ${msg}`,
-        detail: msg,
-      },
-      500
-    );
+    return json({ error: "Impossibile avviare la verifica. Riprova più tardi." }, 500);
   }
 });
 
