@@ -29,6 +29,7 @@ import {
   countAvailableCleaners,
 } from "../../lib/api";
 import type { ClientProperty, ListingSearchResult } from "../../lib/types";
+import { Button } from "../../components/ui/Button";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,27 @@ const SIZE_PRESETS = [
 // standard cleaning. Backend still wants service_type so we keep this as a
 // constant and send it in the submit body.
 const SERVICE_NAME = "Pulizia ordinaria";
+
+// Map raw payment errors (Stripe SDK messages, Edge Function HTTP bodies) to
+// friendly Italian text. The raw detail is logged only in dev — the user never
+// sees a raw error string, a JSON blob, or English Stripe codes.
+function friendlyPaymentError(raw: string): string {
+  if (__DEV__) console.log("[payment error]", raw);
+  const m = (raw || "").toLowerCase();
+  // Keep the already-friendly Italian messages we throw ourselves.
+  if (/indirizzo richiesto|casa non trovata|impossibile avviare il pagamento/.test(m)) {
+    return raw;
+  }
+  if (/network|timeout|connection|failed to fetch|offline|internet/.test(m))
+    return "Connessione assente o instabile. Controlla la rete e riprova.";
+  if (/insufficient/.test(m)) return "Fondi insufficienti sulla carta.";
+  if (/expired/.test(m)) return "La carta è scaduta. Prova con un'altra carta.";
+  if (/cvc|security code|incorrect_number|invalid_number|incorrect|invalid/.test(m))
+    return "Dati della carta non corretti. Controlla numero, scadenza e CVC.";
+  if (/declined|do_not_honor|card_declined|generic_decline|decline/.test(m))
+    return "La carta è stata rifiutata. Prova con un'altra carta o un altro metodo.";
+  return "Non è stato possibile completare il pagamento. Riprova tra poco o scrivi a info@cleanhomeapp.com.";
+}
 
 // Optional add-ons the client can stack on top of the base cleaning.
 // Multi-select; each adds a flat fee to the base price (still subject to the
@@ -730,7 +752,7 @@ export default function NewBookingScreen() {
       const { error: presentErr } = await presentPaymentSheet();
       if (presentErr) {
         if (presentErr.code !== "Canceled") {
-          Alert.alert("Pagamento non riuscito", presentErr.message);
+          Alert.alert("Pagamento non riuscito", friendlyPaymentError(presentErr.message));
         }
         return; // User cancelled — no booking created
       }
@@ -763,7 +785,7 @@ export default function NewBookingScreen() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Impossibile creare la prenotazione";
-      Alert.alert("Errore", message);
+      Alert.alert("Errore", friendlyPaymentError(message));
     } finally {
       setLoading(false);
     }
@@ -1573,25 +1595,20 @@ export default function NewBookingScreen() {
 
         {/* ── CTA ── */}
         <View style={s.ctaWrap}>
-          <TouchableOpacity
+          <Button
+            label={ctaLabel}
             onPress={handleContinue}
-            disabled={!canProceed() || loading}
-            activeOpacity={0.85}
-            style={[s.ctaBtn, (!canProceed() || loading) && s.ctaBtnDisabled]}
-          >
-            {loading ? (
-              <ActivityIndicator color={Colors.textOnDark} />
-            ) : (
-              <>
-                <Text style={s.ctaBtnText}>{ctaLabel}</Text>
-                <Ionicons
-                  name={step === totalDisplaySteps - 1 ? "card-outline" : "arrow-forward"}
-                  size={18}
-                  color={Colors.textOnDark}
-                />
-              </>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+            disabled={!canProceed()}
+            size="lg"
+            variant="primary"
+            icon={step === totalDisplaySteps - 1 ? "card-outline" : "arrow-forward"}
+            iconPosition="right"
+            style={Shadows.md}
+            accessibilityHint={
+              step === totalDisplaySteps - 1 ? "Procede al pagamento" : undefined
+            }
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
