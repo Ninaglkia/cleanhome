@@ -108,6 +108,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
 
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     COUNTRIES[0]
@@ -226,23 +227,28 @@ export default function RegisterScreen() {
   }, [router]);
 
   const handleGoogleSignIn = useCallback(async () => {
+    setSocialLoading("google");
     try {
       await signInWithGoogle();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Accesso con Google fallito";
       Alert.alert("Errore", message);
+    } finally {
+      setSocialLoading(null);
     }
   }, [signInWithGoogle]);
 
   const handleAppleSignIn = useCallback(async () => {
-    if (Platform.OS !== "ios") return;
+    setSocialLoading("apple");
     try {
       await signInWithApple();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Accesso con Apple fallito";
       Alert.alert("Errore", message);
+    } finally {
+      setSocialLoading(null);
     }
   }, [signInWithApple]);
 
@@ -500,32 +506,45 @@ export default function RegisterScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* ── Social buttons: 2-column grid ──────────────────────────── */}
+            {/* ── Social buttons ──────────────────────────────────────────── */}
             <View style={styles.socialGrid}>
               {/* Google */}
               <View style={styles.googleOuter}>
-                <Pressable onPress={handleGoogleSignIn} style={styles.socialTap}>
-                  <GoogleLogo size={20} />
-                  <Text style={styles.googleText}>Google</Text>
+                <Pressable
+                  onPress={handleGoogleSignIn}
+                  disabled={!!socialLoading}
+                  style={styles.socialTap}
+                >
+                  {socialLoading === "google" ? (
+                    <ActivityIndicator size="small" color={C.onSurface} />
+                  ) : (
+                    <>
+                      <GoogleLogo size={20} />
+                      <Text style={styles.googleText}>Google</Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
 
-              {/* Apple */}
-              <View
-                style={[
-                  styles.appleOuter,
-                  Platform.OS !== "ios" && styles.socialDisabled,
-                ]}
-              >
-                <Pressable
-                  onPress={handleAppleSignIn}
-                  disabled={Platform.OS !== "ios"}
-                  style={styles.socialTap}
-                >
-                  <AppleLogo size={20} color="#ffffff" />
-                  <Text style={styles.appleText}>Continua con Apple</Text>
-                </Pressable>
-              </View>
+              {/* Apple — solo iOS */}
+              {Platform.OS === "ios" && (
+                <View style={styles.appleOuter}>
+                  <Pressable
+                    onPress={handleAppleSignIn}
+                    disabled={!!socialLoading}
+                    style={styles.socialTap}
+                  >
+                    {socialLoading === "apple" ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <AppleLogo size={20} color="#ffffff" />
+                        <Text style={styles.appleText}>Continua con Apple</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {/* ── Login link ─────────────────────────────────────────────── */}

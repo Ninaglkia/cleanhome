@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { View, Text, Pressable, StatusBar } from "react-native";
+import { View, Text, Pressable, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,9 +12,16 @@ export default function PrivacyScreen() {
   const router = useRouter();
 
   const handleOpen = useCallback(async () => {
-    await WebBrowser.openBrowserAsync(PRIVACY_URL, {
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-    });
+    try {
+      await WebBrowser.openBrowserAsync(PRIVACY_URL, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+      });
+    } catch {
+      Alert.alert(
+        "Impossibile aprire la pagina",
+        "Controlla la connessione o visita cleanhomeapp.com"
+      );
+    }
   }, []);
 
   return (

@@ -41,6 +41,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
 
   // Always return to security.tsx (slide 2 of onboarding) instead of going
   // all the way back to features.tsx (slide 1) — better UX since security
@@ -92,20 +93,26 @@ export default function LoginScreen() {
   }, [email, password, signInWithEmail, router]);
 
   const handleGoogleSignIn = useCallback(async () => {
+    setSocialLoading("google");
     try {
       await signInWithGoogle();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Errore con Google";
       Alert.alert("Errore", message);
+    } finally {
+      setSocialLoading(null);
     }
   }, [signInWithGoogle]);
 
   const handleAppleSignIn = useCallback(async () => {
+    setSocialLoading("apple");
     try {
       await signInWithApple();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Errore con Apple";
       Alert.alert("Errore", message);
+    } finally {
+      setSocialLoading(null);
     }
   }, [signInWithApple]);
 
@@ -145,7 +152,13 @@ export default function LoginScreen() {
         >
           {/* Brand bar (centered, back button absolute) */}
           <View style={styles.topBar}>
-            <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={10}>
+            <Pressable
+              onPress={handleBack}
+              style={styles.backBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Torna indietro"
+            >
               <Ionicons name="arrow-back" size={20} color={C.primary} />
             </Pressable>
             <View style={styles.brandCenter}>
@@ -179,7 +192,12 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={styles.passwordLabelRow}>
               <Text style={styles.fieldLabel}>PASSWORD</Text>
-              <Pressable hitSlop={8} onPress={handleForgotPassword}>
+              <Pressable
+                hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                onPress={handleForgotPassword}
+                accessibilityRole="button"
+                accessibilityLabel="Reimposta la password"
+              >
                 <Text style={styles.forgotLink}>PASSWORD DIMENTICATA?</Text>
               </Pressable>
             </View>
@@ -261,29 +279,47 @@ export default function LoginScreen() {
 
             {/* Google — View wrapper */}
             <View style={styles.googleOuter}>
-              <Pressable onPress={handleGoogleSignIn} style={styles.socialTap}>
+              <Pressable
+                onPress={handleGoogleSignIn}
+                disabled={!!socialLoading}
+                style={styles.socialTap}
+              >
                 {/* Inner View wraps the row content — fixes iOS Pressable+flex-row layout bug
                     when Pressable has flexDirection: "row" with multiple direct children */}
                 <View style={styles.socialInner}>
-                  <GoogleLogo size={20} />
-                  <Text style={styles.googleText}>Accedi con Google</Text>
+                  {socialLoading === "google" ? (
+                    <ActivityIndicator size="small" color="#333333" />
+                  ) : (
+                    <>
+                      <GoogleLogo size={20} />
+                      <Text style={styles.googleText}>Accedi con Google</Text>
+                    </>
+                  )}
                 </View>
               </Pressable>
             </View>
 
-            {/* Apple — View wrapper */}
-            <View style={styles.appleOuter}>
-              <Pressable
-                onPress={Platform.OS === "ios" ? handleAppleSignIn : undefined}
-                disabled={Platform.OS !== "ios"}
-                style={styles.socialTap}
-              >
-                <View style={styles.socialInner}>
-                  <AppleLogo size={20} color="#ffffff" />
-                  <Text style={styles.appleText}>Accedi con Apple</Text>
-                </View>
-              </Pressable>
-            </View>
+            {/* Apple — solo iOS */}
+            {Platform.OS === "ios" && (
+              <View style={styles.appleOuter}>
+                <Pressable
+                  onPress={handleAppleSignIn}
+                  disabled={!!socialLoading}
+                  style={styles.socialTap}
+                >
+                  <View style={styles.socialInner}>
+                    {socialLoading === "apple" ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <AppleLogo size={20} color="#ffffff" />
+                        <Text style={styles.appleText}>Accedi con Apple</Text>
+                      </>
+                    )}
+                  </View>
+                </Pressable>
+              </View>
+            )}
 
             {/* Register link */}
             <View style={styles.registerRow}>
@@ -295,7 +331,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.copyright}>
-            © 2025 CleanHome. Tutti i diritti riservati.
+            {`© ${new Date().getFullYear()} CleanHome. Tutti i diritti riservati.`}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

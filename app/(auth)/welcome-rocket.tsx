@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions, Pressable, AppState, type AppStateStatus } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
@@ -50,6 +50,8 @@ export default function WelcomeRocketScreen() {
   const router = useRouter();
   const { profile, user } = useAuth();
   const lottieRef = useRef<LottieView>(null);
+  // Tracks whether the exit timer has already fired so AppState can re-trigger
+  const modalShownRef = useRef(false);
 
   // Whether the welcome modal is shown (after the rocket fades out)
   const [showModal, setShowModal] = useState(false);
@@ -87,6 +89,7 @@ export default function WelcomeRocketScreen() {
   }, []);
 
   const handleShowModal = useCallback(() => {
+    modalShownRef.current = true;
     setShowModal(true);
   }, []);
 
@@ -106,6 +109,18 @@ export default function WelcomeRocketScreen() {
     await markFirstLogin();
     navigateToHome();
   }, [navigateToHome, markFirstLogin]);
+
+  // AppState guard: if app returns to foreground before the modal appeared,
+  // force-show it immediately so the user is never stuck on the splash.
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active" && !modalShownRef.current) {
+        handleShowModal();
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => sub.remove();
+  }, [handleShowModal]);
 
   useEffect(() => {
     // NOTE: first_login_done is intentionally NOT set here on mount —
@@ -180,6 +195,18 @@ export default function WelcomeRocketScreen() {
     <>
       {/* ── Rocket splash (fades out after ~2s) ── */}
       <Animated.View style={[styles.root, screenStyle]} pointerEvents={showModal ? "none" : "auto"}>
+        {/* Pulsante "Salta" — sempre visibile per non bloccare l'utente */}
+        {!showModal && (
+          <Pressable
+            onPress={handleSkipTour}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Salta"
+            accessibilityRole="button"
+            style={styles.skipBtn}
+          >
+            <Text style={styles.skipText}>Salta</Text>
+          </Pressable>
+        )}
         {/* Lottie astronaut — centred, fills most of the screen */}
         <Animated.View style={[styles.lottieWrap, contentStyle]}>
           <LottieView
@@ -223,6 +250,22 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
     alignItems: "center",
     justifyContent: "center",
+  },
+  skipBtn: {
+    position: "absolute",
+    top: 56,
+    right: 24,
+    zIndex: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  skipText: {
+    color: WHITE,
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   lottieWrap: {
     width: SW * 0.72,
