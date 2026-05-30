@@ -776,10 +776,10 @@ export default function BookingsScreen() {
                     b.id === bookingId ? { ...b, status: "completed" } : b
                   )
                 );
-              } catch (e: any) {
+              } catch (e: unknown) {
                 Alert.alert(
                   "Errore",
-                  e?.message ?? "Impossibile confermare il lavoro. Riprova tra qualche secondo."
+                  e instanceof Error ? e.message : "Impossibile confermare il lavoro. Riprova tra qualche secondo."
                 );
               } finally {
                 confirmingRef.current.delete(bookingId);

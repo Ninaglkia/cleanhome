@@ -529,7 +529,7 @@ export default function CleanerHomeScreen() {
       ).length,
       completate: bookings.filter((b) => b.status === "completed").length,
     }),
-    [bookings]
+    [bookings, pendingOffers]
   );
 
   // Legacy single-cleaner accept (still uses stripe-booking-action with action="accept")

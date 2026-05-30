@@ -73,9 +73,9 @@ export default function BookingDetailScreen() {
       setCleanerProfile(cleaner);
       setClientProfile(client);
       setPhotos(allPhotos as BookingPhoto[]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) {
-        console.error("[BookingDetail]", err?.message ?? err);
+        console.error("[BookingDetail]", err instanceof Error ? err.message : err);
       }
     } finally {
       setLoading(false);
@@ -119,8 +119,8 @@ export default function BookingDetailScreen() {
               await confirmBookingCompletion(booking.id);
               await loadData();
               Alert.alert("Servizio confermato", "Il pagamento è stato rilasciato al cleaner.");
-            } catch (err: any) {
-              Alert.alert("Errore", err?.message ?? "Riprova più tardi");
+            } catch (err: unknown) {
+              Alert.alert("Errore", err instanceof Error ? err.message : "Riprova più tardi");
             } finally {
               setConfirming(false);
             }
@@ -178,11 +178,21 @@ export default function BookingDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Torna indietro"
+        >
           <Ionicons name="chevron-back" size={26} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Dettagli prenotazione</Text>
-        <Pressable onPress={() => router.push(`/chat/${booking.id}` as never)} hitSlop={12}>
+        <Pressable
+          onPress={() => router.push(`/chat/${booking.id}` as never)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Apri chat"
+        >
           <Ionicons name="chatbubbles-outline" size={24} color={Colors.text} />
         </Pressable>
       </View>

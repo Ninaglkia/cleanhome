@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Linking } from "react-native";
 import {
   View,
@@ -150,6 +150,16 @@ export default function SupportScreen() {
   const router = useRouter();
   const [searchText, setSearchText] = useState("");
 
+  const filteredTopics = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return TOPICS;
+    return TOPICS.filter(
+      (t) =>
+        t.label.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q)
+    );
+  }, [searchText]);
+
   const handleTopicPress = useCallback(
     (id: string) => {
       router.push(`/support/faq/${id}` as never);
@@ -285,14 +295,22 @@ export default function SupportScreen() {
               title="Domande frequenti"
             />
             <View style={styles.topicsCard}>
-              {TOPICS.map((topic, index) => (
-                <View key={topic.id}>
-                  <TopicRow item={topic} onPress={handleTopicPress} />
-                  {index < TOPICS.length - 1 && (
-                    <View style={styles.divider} />
-                  )}
+              {filteredTopics.length === 0 ? (
+                <View style={{ paddingVertical: 32, alignItems: "center" }}>
+                  <Text style={{ fontSize: 14, color: Colors.textSecondary }}>
+                    Nessun risultato per "{searchText}"
+                  </Text>
                 </View>
-              ))}
+              ) : (
+                filteredTopics.map((topic, index) => (
+                  <View key={topic.id}>
+                    <TopicRow item={topic} onPress={handleTopicPress} />
+                    {index < filteredTopics.length - 1 && (
+                      <View style={styles.divider} />
+                    )}
+                  </View>
+                ))
+              )}
             </View>
           </View>
 

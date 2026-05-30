@@ -60,8 +60,9 @@ export default function SupportChatScreen() {
         } else {
           setMessages(msgs);
         }
-      } catch (err: any) {
-        Alert.alert("Errore", err?.message ?? "Impossibile caricare la chat");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Impossibile caricare la chat";
+        Alert.alert("Errore", msg);
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -14,10 +14,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,14 +34,18 @@ export default function PropertiesListScreen() {
   const [items, setItems] = useState<ClientProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
+    setLoadError(null);
     try {
       const data = await fetchClientProperties(user.id);
       setItems(data);
     } catch (err) {
       if (__DEV__) console.error("[properties] load error", err);
+      const msg = err instanceof Error ? err.message : "Impossibile caricare le case. Riprova.";
+      setLoadError(msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,6 +106,19 @@ export default function PropertiesListScreen() {
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={Colors.secondary} />
         </View>
+      ) : loadError ? (
+        <View style={styles.loaderWrap}>
+          <Ionicons name="alert-circle-outline" size={40} color={Colors.error} />
+          <Text style={styles.errorText}>{loadError}</Text>
+          <Pressable
+            onPress={() => { setLoading(true); load(); }}
+            accessibilityLabel="Riprova a caricare le case"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.retryBtnText}>Riprova</Text>
+          </Pressable>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -134,10 +151,11 @@ export default function PropertiesListScreen() {
                   onPress={() => handleEdit(item.id)}
                 />
               ))}
-              <TouchableOpacity
+              <Pressable
                 onPress={handleAdd}
-                activeOpacity={0.85}
-                style={styles.addAnotherBtn}
+                accessibilityLabel="Aggiungi un'altra casa"
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.addAnotherBtn, pressed && { opacity: 0.8 }]}
               >
                 <Ionicons
                   name="add-circle"
@@ -145,7 +163,7 @@ export default function PropertiesListScreen() {
                   color="#fff"
                 />
                 <Text style={styles.addAnotherText}>Aggiungi un'altra casa</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
         </ScrollView>
@@ -236,14 +254,15 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         Aggiungi la tua prima casa per prenotare pulizie in un attimo. È perfetto
         se hai più di una proprietà da gestire.
       </Text>
-      <TouchableOpacity
+      <Pressable
         onPress={onAdd}
-        activeOpacity={0.85}
-        style={styles.ctaBtn}
+        accessibilityLabel="Aggiungi la prima casa"
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.ctaBtn, pressed && { opacity: 0.8 }]}
       >
         <Ionicons name="add" size={18} color="#fff" />
         <Text style={styles.ctaBtnText}>Aggiungi la prima casa</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
@@ -273,7 +292,16 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
 
-  loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.base, gap: Spacing.md },
+  errorText: { fontSize: 14, color: Colors.error, textAlign: "center", lineHeight: 20 },
+  retryBtn: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 12,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.secondary,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
 
   scroll: {
     paddingHorizontal: Spacing.base,

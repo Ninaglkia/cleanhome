@@ -33,7 +33,6 @@ const OUTLINE_VARIANT = "#c1c8c5";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const PHOTO_HEIGHT = 340;
-const GALLERY_THUMB = (SCREEN_WIDTH - 20 * 2 - 12 * 2) / 3;
 
 // ─── Star row ─────────────────────────────────────────────────────────────────
 
@@ -84,23 +83,6 @@ function ServiceRow({ name, price, duration }: ServiceRowProps) {
         <Text style={styles.serviceDuration}>{duration}</Text>
       </View>
       <Text style={styles.servicePrice}>{price}</Text>
-    </View>
-  );
-}
-
-// ─── Gallery thumbnail ────────────────────────────────────────────────────────
-
-interface GalleryThumbProps {
-  index: number;
-}
-
-function GalleryThumb({ index }: GalleryThumbProps) {
-  const bgColors = ["#f0f4f3", "#ede0d4", "#f0e6da", "#fdf3ec", "#f5e6d8", "#ede0d4"];
-  const bg = bgColors[index % bgColors.length];
-
-  return (
-    <View style={[styles.galleryThumb, { backgroundColor: bg }]}>
-      <Ionicons name="image-outline" size={24} color="#006b55" />
     </View>
   );
 }
@@ -275,11 +257,13 @@ export default function CleanerProfileViewScreen() {
 
           {/* Identity block — overlaid on photo */}
           <View style={styles.heroIdentity}>
-            {/* Online badge */}
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineBadgeText}>Disponibile</Text>
-            </View>
+            {/* Availability badge — only shown when the cleaner is actually available */}
+            {cleaner?.is_available && (
+              <View style={styles.onlineBadge}>
+                <View style={styles.onlineDot} />
+                <Text style={styles.onlineBadgeText}>Disponibile</Text>
+              </View>
+            )}
 
             <Text style={styles.heroName}>{displayName}</Text>
 
@@ -314,20 +298,8 @@ export default function CleanerProfileViewScreen() {
           </View>
         </View>
 
-        {/* ── Gallery section ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Portfolio of Perfection</Text>
-            <Pressable style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-              <Text style={styles.sectionLink}>Vedi tutto</Text>
-            </Pressable>
-          </View>
-          <View style={styles.galleryGrid}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <GalleryThumb key={i} index={i} />
-            ))}
-          </View>
-        </View>
+        {/* Gallery section removed — CleanerProfile has no gallery_urls field yet.
+            Re-add once the backend exposes uploaded work photos. */}
 
         {/* ── Services ── */}
         <View style={styles.section}>
@@ -342,22 +314,26 @@ export default function CleanerProfileViewScreen() {
           </View>
         </View>
 
-        {/* ── Trust badges ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Verifiche</Text>
-          <View style={styles.trustRow}>
-            {[
-              { icon: "shield-checkmark-outline" as const, label: "Identità verificata" },
-              { icon: "document-text-outline" as const, label: "Documenti OK" },
-              { icon: "star-outline" as const, label: "Top Cleaner" },
-            ].map((badge) => (
-              <View key={badge.label} style={styles.trustBadge}>
-                <Ionicons name={badge.icon} size={20} color={Colors.secondary} />
-                <Text style={styles.trustBadgeText}>{badge.label}</Text>
-              </View>
-            ))}
+        {/* ── Trust badges — conditional on real data from CleanerProfile ── */}
+        {(cleaner?.stripe_identity_verified_at != null || (cleaner?.avg_rating ?? 0) >= 4.5) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Verifiche</Text>
+            <View style={styles.trustRow}>
+              {cleaner?.stripe_identity_verified_at != null && (
+                <View key="identity" style={styles.trustBadge}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color={Colors.secondary} />
+                  <Text style={styles.trustBadgeText}>Identità verificata</Text>
+                </View>
+              )}
+              {(cleaner?.avg_rating ?? 0) >= 4.5 && (
+                <View key="top" style={styles.trustBadge}>
+                  <Ionicons name="star" size={20} color={Colors.secondary} />
+                  <Text style={styles.trustBadgeText}>Top Cleaner</Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* ── Reviews preview ── */}
         <Pressable
@@ -612,20 +588,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#022420",
-  },
-
-  // ── Gallery ───────────────────────────────────────────────────────────────────
-  galleryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  galleryThumb: {
-    width: GALLERY_THUMB,
-    height: GALLERY_THUMB,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   // ── Services ──────────────────────────────────────────────────────────────────

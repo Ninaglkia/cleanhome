@@ -108,6 +108,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
 
   const [selectedCountry, setSelectedCountry] = useState<Country>(
@@ -138,20 +139,27 @@ export default function RegisterScreen() {
   }, []);
 
   const handleRegister = useCallback(async () => {
+    // Double-tap guard: prevent concurrent submissions before setLoading fires
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim().toLowerCase();
 
     if (trimmedName.length < 2) {
+      submittingRef.current = false;
       Alert.alert("Errore", "Inserisci il tuo nome completo (min. 2 caratteri)");
       return;
     }
     // RFC 5322 simplified — good enough to catch typos client-side
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!EMAIL_RE.test(trimmedEmail)) {
+      submittingRef.current = false;
       Alert.alert("Email non valida", "Controlla l'indirizzo email inserito");
       return;
     }
     if (password.length < 8) {
+      submittingRef.current = false;
       Alert.alert(
         "Password troppo corta",
         "Usa almeno 8 caratteri per proteggere il tuo account"
@@ -161,6 +169,7 @@ export default function RegisterScreen() {
     // Require at least one letter and one digit — simple but effective
     // check that prevents the worst passwords without being annoying.
     if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      submittingRef.current = false;
       Alert.alert(
         "Password debole",
         "La password deve contenere almeno una lettera e un numero"
@@ -187,7 +196,7 @@ export default function RegisterScreen() {
         "Registrazione completata",
         "Ti abbiamo inviato un'email di conferma. Apri il link nella tua casella per attivare l'account."
       );
-      router.back();
+      router.replace("/(auth)/login");
     } catch (err: unknown) {
       const rawMessage =
         err instanceof Error ? err.message : "Registrazione fallita";
@@ -195,20 +204,20 @@ export default function RegisterScreen() {
       // "user already exists" as a 200 with empty identities — the auth
       // layer rethrows it as EMAIL_ALREADY_REGISTERED so we can show
       // the right message instead of a fake success state.
-      if (rawMessage === "EMAIL_ALREADY_REGISTERED") {
+      if (
+        rawMessage === "EMAIL_ALREADY_REGISTERED" ||
+        /already.*registered|already.*exists/i.test(rawMessage)
+      ) {
         Alert.alert(
           "Email già registrata",
-          "Esiste già un account con questa email. Accedi dalla schermata di login o usa l'opzione \"Password dimenticata?\"."
-        );
-      } else if (/already.*registered|already.*exists/i.test(rawMessage)) {
-        Alert.alert(
-          "Email già registrata",
-          "Esiste già un account con questa email. Accedi dalla schermata di login."
+          "Esiste già un account con questa email. Accedi dalla schermata di login o usa l'opzione \"Password dimenticata?\".",
+          [{ text: "Vai al login", onPress: () => router.replace("/(auth)/login") }]
         );
       } else {
         Alert.alert("Errore", rawMessage);
       }
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }, [
@@ -223,7 +232,9 @@ export default function RegisterScreen() {
   ]);
 
   const handleBack = useCallback(() => {
-    router.back();
+    // Use replace so the back button always works regardless of whether
+    // the register screen was pushed or replaced onto the stack.
+    router.replace("/(auth)/login");
   }, [router]);
 
   const handleGoogleSignIn = useCallback(async () => {
@@ -322,6 +333,8 @@ export default function RegisterScreen() {
               onPress={handleBack}
               hitSlop={12}
               style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Chiudi registrazione"
             >
               <Ionicons name="close" size={24} color={C.primary} />
             </Pressable>
@@ -427,6 +440,8 @@ export default function RegisterScreen() {
                 <Pressable
                   onPress={handleOpenCountryPicker}
                   style={styles.prefixBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Prefisso ${selectedCountry.name} ${selectedCountry.prefix}`}
                 >
                   <Text style={styles.prefixFlag}>{selectedCountry.flag}</Text>
                   <Text style={styles.prefixCode}>

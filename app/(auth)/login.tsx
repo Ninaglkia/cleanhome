@@ -40,6 +40,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [socialLoading, setSocialLoading] = useState<"google" | "apple" | null>(null);
 
@@ -117,6 +118,7 @@ export default function LoginScreen() {
   }, [signInWithApple]);
 
   const handleForgotPassword = useCallback(async () => {
+    if (forgotLoading) return;
     if (!email.trim()) {
       Alert.alert(
         "Email richiesta",
@@ -124,19 +126,28 @@ export default function LoginScreen() {
       );
       return;
     }
+    setForgotLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      const redirectTo = "cleanhome://auth/callback";
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo,
+      });
       if (error) throw error;
       Alert.alert(
         "Email inviata",
-        "Controlla la tua casella di posta: ti abbiamo inviato le istruzioni per reimpostare la password."
+        "Se esiste un account con questa email, riceverai le istruzioni per reimpostare la password. Controlla anche la cartella spam."
       );
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Impossibile inviare l'email";
+      const raw = err instanceof Error ? err.message : "";
+      // Surface a friendly message — Supabase can return rate-limit errors
+      const message = raw.toLowerCase().includes("rate")
+        ? "Hai richiesto il reset troppe volte. Attendi qualche minuto e riprova."
+        : "Impossibile inviare l'email. Controlla la connessione e riprova.";
       Alert.alert("Errore", message);
+    } finally {
+      setForgotLoading(false);
     }
-  }, [email]);
+  }, [email, forgotLoading]);
 
   return (
     <>
@@ -195,10 +206,16 @@ export default function LoginScreen() {
               <Pressable
                 hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                 onPress={handleForgotPassword}
+                disabled={forgotLoading}
                 accessibilityRole="button"
                 accessibilityLabel="Reimposta la password"
+                accessibilityState={{ busy: forgotLoading }}
               >
-                <Text style={styles.forgotLink}>PASSWORD DIMENTICATA?</Text>
+                {forgotLoading ? (
+                  <ActivityIndicator size="small" color={C.secondary} />
+                ) : (
+                  <Text style={styles.forgotLink}>PASSWORD DIMENTICATA?</Text>
+                )}
               </Pressable>
             </View>
             <View style={styles.passwordWrap}>

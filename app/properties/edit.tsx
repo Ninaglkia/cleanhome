@@ -609,6 +609,8 @@ export default function PropertyEditScreen() {
           <Pressable
             onPress={handleClose}
             hitSlop={12}
+            accessibilityLabel="Chiudi"
+            accessibilityRole="button"
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.6 }]}
           >
             <Ionicons name="close" size={24} color={Colors.text} />

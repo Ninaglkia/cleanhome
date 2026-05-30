@@ -1649,11 +1649,6 @@ export function MapPicker({
     onPick(center, previewAddress);
   };
 
-  // Mount MapView only while the modal is open. RN Modal keeps children
-  // mounted with visible=false unless we gate them ourselves; an idle
-  // MapView in the background still consumes location/GPU.
-  if (!visible) return null;
-
   // True when the user is actively typing in the search bar
   const isSearchActive = searchQuery.length > 0;
 
@@ -1688,6 +1683,12 @@ export function MapPicker({
   // Topbar total height = safeTop + content (44px)
   const topbarHeight = safeTop + 44;
   const screenHeight = Dimensions.get("window").height;
+
+  // Mount MapView only while the modal is open. RN Modal keeps children
+  // mounted with visible=false unless we gate them ourselves; an idle
+  // MapView in the background still consumes location/GPU.
+  // NOTE: must come AFTER all hook calls to avoid Rules of Hooks violation.
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
@@ -2372,6 +2373,12 @@ function missingHintForStep(step: number, propertyType: PropertyType | null): st
 
 // ─────────────────────────── Helpers ───────────────────────────
 
+// Minimum sqm to consider the input plausible. Defined here so
+// missingHintForStep (which runs before the component) can reference it
+// without a Hermes TDZ crash.
+const MIN_SQM = 30;
+const MAX_SQM = 2000;
+
 function titleForType(t: PropertyType | null): string {
   switch (t) {
     case "apartment":  return "Dettagli appartamento";
@@ -2386,11 +2393,8 @@ function titleForType(t: PropertyType | null): string {
   }
 }
 
-// Minimum sqm to consider the input plausible. 1-12 m² values are obvious
-// garbage; a real Italian monolocale starts around 25-30 m² so we set the
-// floor at 30 to filter junk while still accepting tiny studios.
-const MIN_SQM = 30;
-const MAX_SQM = 2000;
+// MIN_SQM / MAX_SQM are now declared before missingHintForStep above
+// to avoid Hermes TDZ. Kept as comments here for grep discoverability.
 
 function isStep3Valid(t: PropertyType | null, d: DraftDetails): boolean {
   if (!t) return false;

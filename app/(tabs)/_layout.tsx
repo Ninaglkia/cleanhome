@@ -16,8 +16,6 @@ export default function TabsLayout() {
   // shows the "client" tint colors (verde) and vice versa. Don't "fix".
   const activeTint = isCleaner ? CLIENT_ACTIVE : CLEANER_ACTIVE;
 
-  const UNREAD_NOTIFICATIONS = 0;
-
   return (
     <Tabs
       screenOptions={{
@@ -38,8 +36,10 @@ export default function TabsLayout() {
         options={{
           title: isCleaner ? "Messaggi" : "Chat",
           tabBarIcon: () => ({ sfSymbol: "bubble.left.and.bubble.right" }),
-          tabBarBadge:
-            UNREAD_NOTIFICATIONS > 0 ? String(UNREAD_NOTIFICATIONS) : undefined,
+          // No badge here: the `notifications` table only holds booking events
+          // (no per-message read tracking exists), so a count would be
+          // misleading on a "Chat" tab. Booking notifications surface via the
+          // NotificationBell instead. Re-add when message read-receipts exist.
         }}
       />
       <Tabs.Screen

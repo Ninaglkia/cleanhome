@@ -34,6 +34,7 @@ import {
 import { subscribeToBooking } from "../../../lib/api";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
+import { Colors } from "../../../lib/theme";
 
 interface BookingTrackingData {
   id: string;
@@ -221,7 +222,7 @@ export default function LiveBookingTracking() {
             accessibilityLabel="Torna indietro"
             accessibilityRole="button"
           >
-            <Ionicons name="chevron-back" size={22} color="#022420" />
+            <Ionicons name="chevron-back" size={22} color={Colors.text} />
           </TouchableOpacity>
           <View style={styles.topBarTitle}>
             <Text style={styles.topBarTitleText}>Caricamento...</Text>
@@ -346,8 +347,10 @@ export default function LiveBookingTracking() {
           onPress={() => router.back()}
           style={styles.backBtn}
           activeOpacity={0.7}
+          accessibilityLabel="Torna indietro"
+          accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={22} color="#022420" />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <View style={styles.topBarTitle}>
           <Text style={styles.topBarTitleText}>

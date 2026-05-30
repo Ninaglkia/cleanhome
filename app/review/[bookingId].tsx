@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -77,7 +77,7 @@ export default function ReviewScreen() {
     })();
   }, [bookingId, router]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!user || !booking) return;
     if (rating === 0) {
       Alert.alert("Valutazione mancante", "Seleziona da 1 a 5 stelle");
@@ -130,7 +130,7 @@ export default function ReviewScreen() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [user, booking, rating, comment, router]);
 
   if (loading) {
     return (

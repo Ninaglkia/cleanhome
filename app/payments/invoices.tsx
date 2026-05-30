@@ -8,6 +8,7 @@ import {
   StatusBar,
   StyleSheet,
   RefreshControl,
+  ActivityIndicator,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -109,14 +110,19 @@ export default function InvoicesScreen() {
   const { user, profile } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadInvoices = useCallback(async () => {
     if (!user || !profile) return;
+    setLoadError(null);
     try {
       const bookings = await fetchBookings(user.id, profile.active_role);
       setInvoices(bookings.map(bookingToInvoice));
     } catch {
-      setInvoices([]);
+      setLoadError("Impossibile caricare le fatture. Controlla la connessione.");
+    } finally {
+      setLoading(false);
     }
   }, [user, profile]);
 
@@ -163,7 +169,7 @@ export default function InvoicesScreen() {
         <Text style={styles.labelOverline}>FATTURAZIONE E FATTURE</Text>
         <Text style={styles.pageTitle}>Le tue fatture</Text>
         <Text style={styles.pageSubtitle}>
-          Tieni traccia di tutti i pagamenti e scarica le ricevute in qualsiasi momento.
+          Tieni traccia di tutti i pagamenti delle tue prenotazioni.
         </Text>
       </View>
 
@@ -189,17 +195,7 @@ export default function InvoicesScreen() {
         </View>
       </View>
 
-      {/* ── Membership badge ── */}
-      <View style={styles.membershipBadge}>
-        <Ionicons name="diamond" size={20} color={Colors.textOnDarkSecondary} />
-        <View>
-          <Text style={styles.membershipTitle}>Premium Curator</Text>
-          <Text style={styles.membershipSub}>Accesso prioritario e fatture illimitate</Text>
-        </View>
-        <View style={styles.membershipCheck}>
-          <Ionicons name="checkmark" size={14} color={Colors.textOnDark} />
-        </View>
-      </View>
+      {/* Premium Curator badge removed — not a real tier, was always shown hardcoded */}
 
       {/* ── Section header ── */}
       <View style={styles.recentHeader}>
@@ -208,6 +204,48 @@ export default function InvoicesScreen() {
       </View>
     </>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={Colors.secondary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 }}>
+          <Ionicons name="wifi-outline" size={40} color={Colors.textTertiary} />
+          <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text, textAlign: "center" }}>
+            Errore di caricamento
+          </Text>
+          <Text style={{ fontSize: 14, color: Colors.textSecondary, textAlign: "center" }}>
+            {loadError}
+          </Text>
+          <Pressable
+            onPress={() => { if (loading) return; setLoading(true); loadInvoices(); }}
+            accessibilityLabel="Riprova"
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              backgroundColor: Colors.secondary,
+              borderRadius: 12,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Riprova</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -225,7 +263,7 @@ export default function InvoicesScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.breadcrumb}>Supporto</Text>
+          <Text style={styles.breadcrumb}>Pagamenti</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Image
               // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -405,38 +443,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Membership badge
-  membershipBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.xl,
-    padding: Spacing.base,
-    marginBottom: Spacing.xl,
-    ...Shadows.md,
-  },
-  membershipTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.textOnDark,
-    marginBottom: 2,
-    fontFamily: "PlusJakartaSans-Bold",
-  },
-  membershipSub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.7)",
-  },
-  membershipCheck: {
-    marginLeft: "auto",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
   },

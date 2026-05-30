@@ -798,6 +798,8 @@ export default function NewBookingScreen() {
   ]);
 
   const handleContinue = useCallback(() => {
+    // Prevent double-tap during any async operation
+    if (loading) return;
     // 4 steps in dispatch flow (no preselected cleaner), 3 otherwise.
     const stepsCount = !cleanerId ? 4 : 3;
     if (step < stepsCount - 1) {
@@ -805,7 +807,7 @@ export default function NewBookingScreen() {
     } else {
       handleSubmit();
     }
-  }, [step, cleanerId, handleSubmit]);
+  }, [step, cleanerId, handleSubmit, loading]);
 
   // ── Step 0: Date & Time ───────────────────────────────────────────────────────
   const renderDateStep = () => (

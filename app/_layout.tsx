@@ -361,7 +361,7 @@ export default function RootLayout() {
     // deep link instead of the default web URL — otherwise tapping the
     // link opens a blank Safari page.
     const emailRedirectTo = Linking.createURL("auth/callback");
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -374,13 +374,23 @@ export default function RootLayout() {
       },
     });
     if (error) throw error;
-    // Note: when "Confirm email" is ON, Supabase returns 200 with empty
-    // identities[] BOTH for repeat signups (anti-enumeration) AND for
-    // genuinely new users (the identity row isn't materialized until
-    // the email is confirmed). So we can't tell them apart here without
-    // false positives. The register screen's success copy must therefore
-    // mention BOTH cases ("if you don't get the email, try logging in
-    // because the account may already exist") — see register.tsx.
+
+    // Detect duplicate email registration.
+    //
+    // When "Confirm email" is ON, Supabase masks existing accounts by
+    // returning 200 with a user object whose `identities` array is empty
+    // instead of returning an error (anti-enumeration by design).
+    //
+    // Case A — unconfirmed duplicate: data.user exists, identities is [].
+    // Case B — confirmed duplicate: data.user exists, identities is [].
+    //   (Supabase treats both identically from the API response.)
+    //
+    // We detect both by checking identities.length === 0. This is safe
+    // because a genuinely new user's identity row is created synchronously
+    // on signup — identities is never empty for a brand-new account.
+    if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+      throw new Error("EMAIL_ALREADY_REGISTERED");
+    }
   };
 
   const signInWithGoogleNative = async (

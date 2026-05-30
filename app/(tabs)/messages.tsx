@@ -99,9 +99,11 @@ export default function MessagesScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const loadConversations = useCallback(async () => {
     if (!user || !profile) return;
+    setHasError(false);
     try {
       const data = await fetchBookings(user.id, profile.active_role);
       setBookings(
@@ -110,7 +112,8 @@ export default function MessagesScreen() {
         )
       );
     } catch {
-      setBookings([]);
+      setHasError(true);
+      // Keep stale bookings so the list stays visible on transient errors
     } finally {
       setLoading(false);
     }
@@ -184,6 +187,28 @@ export default function MessagesScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={C.secondary} />
+        </View>
+      ) : hasError && bookings.length === 0 ? (
+        // Full-screen error only when there's nothing cached to show.
+        // If we already have conversations, we keep the list visible and
+        // let pull-to-refresh act as the retry path (stale data > blank screen).
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="cloud-offline-outline" size={36} color={C.outline} />
+          </View>
+          <Text style={styles.emptyTitle}>Errore di rete</Text>
+          <Text style={styles.emptySubtitle}>
+            Impossibile caricare i messaggi. Controlla la connessione e riprova.
+          </Text>
+          <Pressable
+            onPress={loadConversations}
+            accessibilityRole="button"
+            accessibilityLabel="Riprova caricamento messaggi"
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="refresh" size={16} color={C.surface} />
+            <Text style={styles.retryBtnText}>Riprova</Text>
+          </Pressable>
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyState}>
@@ -375,5 +400,20 @@ const styles = StyleSheet.create({
     color: C.onSurfaceVariant,
     textAlign: "center",
     lineHeight: 21,
+  },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.secondary,
+    borderRadius: 9999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.surface,
   },
 });

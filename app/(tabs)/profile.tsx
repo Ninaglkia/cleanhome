@@ -477,8 +477,8 @@ function CleanerView({
         <AnimatedToggle
           value={true}
           onValueChange={() => onSwitchRole()}
-          activeColor="#D4A574"
-          inactiveColor="#4fc4a3"
+          activeColor="#4fc4a3"
+          inactiveColor="#D4A574"
         />
       </View>
 
@@ -682,8 +682,8 @@ function ClientView({
         <AnimatedToggle
           value={false}
           onValueChange={() => onSwitchRole()}
-          activeColor="#D4A574"
-          inactiveColor="#4fc4a3"
+          activeColor="#4fc4a3"
+          inactiveColor="#D4A574"
         />
       </View>
 

@@ -230,9 +230,11 @@ export default function WaitingScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [offers, setOffers] = useState<BookingOffer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const bookingChannelRef = useRef<RealtimeChannel | null>(null);
   const offersChannelRef = useRef<RealtimeChannel | null>(null);
+  const isMountedRef = useRef(true);
 
   // Deadline = created_at + 24h (backend sets cleaner_deadline)
   const deadline = booking?.cleaner_deadline ?? null;
@@ -240,16 +242,26 @@ export default function WaitingScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
+    setLoadError(null);
     try {
       const result = await fetchBookingWithOffers(id);
       setBooking(result.booking);
       setOffers(result.offers);
-    } catch {
-      // leave loading state, show empty
+    } catch (err: unknown) {
+      setLoadError(
+        err instanceof Error ? err.message : "Impossibile caricare la prenotazione"
+      );
     } finally {
       setIsLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -261,7 +273,9 @@ export default function WaitingScreen() {
 
     bookingChannelRef.current = subscribeToBooking(id, (updatedBooking) => {
       setBooking(updatedBooking);
-      if (updatedBooking.status === "accepted") {
+      // Guard against navigating after unmount — a realtime event can arrive
+      // during/after channel teardown when the user has already left.
+      if (updatedBooking.status === "accepted" && isMountedRef.current) {
         router.replace(`/booking/${id}/tracking` as never);
       }
     });
@@ -282,8 +296,50 @@ export default function WaitingScreen() {
     };
   }, [id, router]);
 
+  // Show error state if load failed
+  if (!isLoading && loadError) {
+    return (
+      <SafeAreaView style={s.root} edges={["top"]}>
+        <StatusBar barStyle="dark-content" />
+        <View style={s.expiredContainer}>
+          <Ionicons name="wifi-outline" size={64} color={Colors.textTertiary} />
+          <Text style={s.expiredTitle}>Errore di rete</Text>
+          <Text style={s.expiredSub}>{loadError}</Text>
+          <View style={s.retryBtn}>
+            <Pressable
+              onPress={load}
+              accessibilityRole="button"
+              accessibilityLabel="Riprova caricamento"
+              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+              style={({ pressed }) => ({
+                paddingVertical: 16,
+                paddingHorizontal: 36,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={s.retryBtnText}>Riprova</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => router.replace("/(tabs)/bookings" as never)}
+            accessibilityRole="button"
+            accessibilityLabel="Vai alle prenotazioni"
+            style={{ marginTop: Spacing.md }}
+          >
+            <Text style={{ color: Colors.secondary, fontSize: 14, fontWeight: "600" }}>
+              Vai alle prenotazioni
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Guard: don't show expired state while booking is still loading or null —
+  // countdown.isExpired starts false and booking?.status is undefined initially,
+  // which would briefly show the "nessun cleaner" screen before data arrives.
   const isExpiredWithNoWinner =
-    countdown.isExpired && booking?.status !== "accepted";
+    !isLoading && booking !== null && countdown.isExpired && booking.status !== "accepted";
 
   if (isExpiredWithNoWinner) {
     return (

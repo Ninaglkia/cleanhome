@@ -215,7 +215,7 @@ export default function MyListingsScreen() {
 
     const hasFree = listings.some((l) => l.is_first_listing);
 
-    // ─── First listing is free ─────────────────────────────────
+    // ─── First listing is free (only if no free listing exists yet) ───
     if (!hasFree) {
       setCreating(true);
       try {
@@ -231,6 +231,9 @@ export default function MyListingsScreen() {
       }
       return;
     }
+
+    // ─── Guard against double-tap while a listing creation is in progress ─
+    if (creating) return;
 
     // ─── Additional listing — Stripe subscription flow ─────────
     setCreating(true);
