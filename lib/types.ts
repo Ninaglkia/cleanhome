@@ -197,8 +197,8 @@ export type CleaningFrequency =
 // type uses a different shape — see PropertyTypeDetails below.
 export type PropertyTypeDetails =
   | { kind: "apartment"; typology: string; bedrooms?: number; bathrooms?: number }
-  | { kind: "house"; floors: number; has_garden: boolean }
-  | { kind: "villa"; floors: number; has_garden: boolean }
+  | { kind: "house"; floors?: number; has_garden?: boolean; typology?: string; bathrooms?: number }
+  | { kind: "villa"; floors?: number; has_garden?: boolean; typology?: string; bathrooms?: number }
   | { kind: "office"; desks: number }
   | { kind: "restaurant"; covers: number; has_kitchen: boolean }
   | { kind: "bnb"; bedrooms: number; bathrooms: number }

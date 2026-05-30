@@ -97,13 +97,13 @@ const FREQUENCIES: {
 ];
 
 const APARTMENT_TYPOLOGIES = [
-  { id: "monolocale",   label: "Monolocale",   sub: "1 ambiente"   },
-  { id: "bilocale",     label: "Bilocale",     sub: "1 camera"     },
-  { id: "trilocale",    label: "Trilocale",    sub: "2 camere"     },
-  { id: "quadrilocale", label: "Quadrilocale", sub: "3 camere"     },
-  { id: "5locali",      label: "5 locali",     sub: "Grande"       },
-  { id: "6locali",      label: "6 locali",     sub: "Molto grande" },
-  { id: "7locali",      label: "7+ locali",    sub: "Villa/attico" },
+  { id: "monolocale",   label: "Monolocale",   sub: "1 ambiente" },
+  { id: "bilocale",     label: "Bilocale",     sub: "2 camere"   },
+  { id: "trilocale",    label: "Trilocale",    sub: "3 camere"   },
+  { id: "quadrilocale", label: "Quadrilocale", sub: "4 camere"   },
+  { id: "5locali",      label: "5 locali",     sub: "5 camere"   },
+  { id: "6locali",      label: "6 locali",     sub: "6 camere"   },
+  { id: "7locali",      label: "7+ locali",    sub: "7+ camere"  },
 ];
 
 const TYPOLOGY_TO_ROOMS: Record<string, number> = {
@@ -111,7 +111,12 @@ const TYPOLOGY_TO_ROOMS: Record<string, number> = {
   "5locali": 5, "6locali": 6, "7locali": 7,
 };
 
-const TOTAL_STEPS = 4;
+const TYPOLOGY_TO_SQM: Record<string, number> = {
+  monolocale: 45, bilocale: 55, trilocale: 80, quadrilocale: 100,
+  "5locali": 130, "6locali": 160, "7locali": 200,
+};
+
+const TOTAL_STEPS = 3;
 const NAME_MAX = 60;
 const ADDRESS_MAX = 255;
 
@@ -494,14 +499,14 @@ export default function NewPropertyWizard() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [saving, setSaving] = useState(false);
 
   // Step 1
   const [propertyType, setPropertyType] = useState<PropertyType | null>(null);
 
-  // Step 2
-  const [frequency, setFrequency] = useState<CleaningFrequency | null>(null);
+  // Frequency is no longer asked in the wizard — default to monthly.
+  const [frequency, setFrequency] = useState<CleaningFrequency | null>(FREQUENCIES[0].id);
 
   // Step 3
   const [details, setDetails] = useState<DraftDetails>({});
@@ -523,11 +528,10 @@ export default function NewPropertyWizard() {
   const canAdvance = useMemo(() => {
     switch (step) {
       case 1: return !!propertyType;
-      case 2: return !!frequency;
-      case 3: return isStep3Valid(propertyType, details);
-      case 4: return name.trim().length > 0 && !!addressLatLng;
+      case 2: return isStep3Valid(propertyType, details);
+      case 3: return name.trim().length > 0 && !!addressLatLng;
     }
-  }, [step, propertyType, frequency, details, name, addressLatLng]);
+  }, [step, propertyType, details, name, addressLatLng]);
 
   // ── Address autocomplete ─────────────────────────────────
   const onAddressChange = useCallback((text: string) => {
@@ -659,7 +663,7 @@ export default function NewPropertyWizard() {
             >
               <HeroStep1 />
               <StepHeading
-                kicker="Step 1 di 4"
+                kicker="Step 1 di 3"
                 title="Cosa vuoi far pulire?"
                 subtitle="Scegli il tipo di proprietà — useremo i pulitori specializzati per questo ambiente"
               />
@@ -694,37 +698,9 @@ export default function NewPropertyWizard() {
               entering={FadeInDown.duration(260).springify()}
               exiting={FadeOut.duration(160)}
             >
-              <HeroStep2 />
-              <StepHeading
-                kicker="Step 2 di 4"
-                title="Ogni quanto vuoi pulire?"
-                subtitle="Più frequenza = prezzo per sessione più conveniente. Puoi cambiarla in qualsiasi momento"
-              />
-              <View style={{ gap: 12 }}>
-                {FREQUENCIES.map((f, i) => (
-                  <FreqCard
-                    key={f.id}
-                    delay={i * 60}
-                    selected={frequency === f.id}
-                    onPress={() => setFrequency(f.id)}
-                    label={f.label}
-                    sub={f.sub}
-                    badge={f.perMonth}
-                  />
-                ))}
-              </View>
-            </Animated.View>
-          )}
-
-          {step === 3 && (
-            <Animated.View
-              key="step-3"
-              entering={FadeInDown.duration(260).springify()}
-              exiting={FadeOut.duration(160)}
-            >
               <HeroStep3 propertyType={propertyType} />
               <StepHeading
-                kicker="Step 3 di 4"
+                kicker="Step 2 di 3"
                 title={titleForType(propertyType)}
                 subtitle="Aiuta il pulitore a stimare il lavoro"
               />
@@ -736,15 +712,15 @@ export default function NewPropertyWizard() {
             </Animated.View>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <Animated.View
-              key="step-4"
+              key="step-3"
               entering={FadeInDown.duration(260).springify()}
               exiting={FadeOut.duration(160)}
             >
               <HeroStep4 validated={!!addressLatLng} />
               <StepHeading
-                kicker="Step 4 di 4"
+                kicker="Step 3 di 3"
                 title="Dove si trova?"
                 subtitle="Indirizzo + un nome per riconoscerla nella lista"
               />
@@ -763,7 +739,31 @@ export default function NewPropertyWizard() {
                 />
               </View>
 
-              <FieldLabel style={{ marginTop: 18 }}>Indirizzo</FieldLabel>
+              {/* Primary action: pick position on the map */}
+              <Pressable
+                onPress={() => setMapPickerOpen(true)}
+                style={({ pressed }) => [
+                  styles.mapPickerCTA,
+                  pressed && { opacity: 0.87 },
+                ]}
+              >
+                <View style={styles.mapPickerCTAIconWrap}>
+                  <Ionicons name="map" size={22} color="#ffffff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.mapPickerCTATitle}>Scegli sulla mappa</Text>
+                  <Text style={styles.mapPickerCTASub}>Tocca per posizionare il pin</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              </Pressable>
+
+              {/* Secondary: manual address input */}
+              <View style={styles.mapDivider}>
+                <View style={styles.mapDividerLine} />
+                <Text style={styles.mapDividerTxt}>oppure inserisci l'indirizzo</Text>
+                <View style={styles.mapDividerLine} />
+              </View>
+
               <View style={[styles.inputWrap, addressLatLng ? styles.inputWrapValidated : null]}>
                 <Ionicons
                   name="location-outline"
@@ -822,26 +822,6 @@ export default function NewPropertyWizard() {
                   Seleziona un indirizzo dalla lista per continuare
                 </Text>
               )}
-
-              {/* Alternative input: pick the location on a map. Useful when
-                  the autocomplete doesn't return a precise enough match
-                  (e.g. country houses, new buildings, Airbnb units). */}
-              <View style={styles.mapDivider}>
-                <View style={styles.mapDividerLine} />
-                <Text style={styles.mapDividerTxt}>oppure</Text>
-                <View style={styles.mapDividerLine} />
-              </View>
-              <Pressable
-                onPress={() => setMapPickerOpen(true)}
-                style={({ pressed }) => [
-                  styles.mapPickerBtn,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <Ionicons name="map-outline" size={20} color={Colors.secondary} />
-                <Text style={styles.mapPickerTxt}>Scegli sulla mappa</Text>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-              </Pressable>
             </Animated.View>
           )}
         </ScrollView>
@@ -909,7 +889,7 @@ function SegmentedProgressBar({ step }: { step: number }) {
     <View style={styles.progressWrap}>
       {/* Step number row */}
       <View style={styles.progressNums}>
-        {[1,2,3,4].map((n) => (
+        {[1,2,3].map((n) => (
           <Animated.Text
             key={n}
             style={[
@@ -924,7 +904,7 @@ function SegmentedProgressBar({ step }: { step: number }) {
       </View>
       {/* Segment track */}
       <View style={styles.progressSegments}>
-        {[1,2,3,4].map((n) => (
+        {[1,2,3].map((n) => (
           <ProgressSegment key={n} index={n} step={step} />
         ))}
       </View>
@@ -1118,7 +1098,7 @@ function Step3Details({
     setDetails((d) => ({ ...d, [k]: v }));
   const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
-  if (propertyType === "apartment") {
+  if (propertyType === "apartment" || propertyType === "house" || propertyType === "villa") {
     return (
       <>
         <FieldLabel>Tipologia</FieldLabel>
@@ -1142,21 +1122,8 @@ function Step3Details({
             );
           })}
         </View>
-        <FieldLabel style={{ marginTop: 18 }}>Superficie (mq)</FieldLabel>
-        <SqmInput value={String(details.sqm ?? "")} onChange={(v) => set("sqm", onlyDigits(v))} />
-      </>
-    );
-  }
-
-  if (propertyType === "house" || propertyType === "villa") {
-    return (
-      <>
-        <FieldLabel>Superficie (mq)</FieldLabel>
-        <SqmInput value={String(details.sqm ?? "")} onChange={(v) => set("sqm", onlyDigits(v))} />
-        <FieldLabel style={{ marginTop: 18 }}>N° piani</FieldLabel>
-        <Stepper value={Number(details.floors ?? 1)} onChange={(n) => set("floors", n)} min={1} max={5} />
-        <FieldLabel style={{ marginTop: 18 }}>Giardino</FieldLabel>
-        <YesNoToggle value={!!details.has_garden} onChange={(v) => set("has_garden", v)} />
+        <FieldLabel style={{ marginTop: 18 }}>N° bagni</FieldLabel>
+        <Stepper value={Number(details.bathrooms ?? 1)} onChange={(n) => set("bathrooms", n)} min={1} max={10} />
       </>
     );
   }
@@ -2265,10 +2232,11 @@ export function MapPicker({
               position: "absolute",
               left: 16,
               right: 16,
-              bottom: 24,
+              bottom: Math.max(insets.bottom, 16) + 8,
               backgroundColor: "#ffffff",
               borderRadius: 20,
               padding: 20,
+              paddingBottom: 20,
               shadowColor: "#062a23",
               shadowOffset: { width: 0, height: 20 },
               shadowOpacity: 0.25,
@@ -2385,12 +2353,11 @@ function formatReverseGeocode(r: Location.LocationGeocodedAddress | undefined): 
 function missingHintForStep(step: number, propertyType: PropertyType | null): string {
   switch (step) {
     case 1: return "Scegli il tipo di proprietà";
-    case 2: return "Scegli ogni quanto vuoi pulire";
-    case 3:
+    case 2:
       switch (propertyType) {
-        case "apartment":  return `Scegli tipologia e mq (min ${MIN_SQM})`;
-        case "house":      return `Superficie minima ${MIN_SQM} m²`;
-        case "villa":      return `Superficie minima ${MIN_SQM} m²`;
+        case "apartment":  return "Scegli la tipologia";
+        case "house":      return "Scegli la tipologia";
+        case "villa":      return "Scegli la tipologia";
         case "office":     return `Superficie minima ${MIN_SQM} m²`;
         case "restaurant": return `Superficie minima ${MIN_SQM} m²`;
         case "bnb":        return "Imposta camere e bagni";
@@ -2398,7 +2365,7 @@ function missingHintForStep(step: number, propertyType: PropertyType | null): st
         case "other":      return `Compila descrizione e mq (min ${MIN_SQM})`;
         default:           return "Compila i dettagli";
       }
-    case 4: return "Inserisci nome e seleziona un indirizzo dalla lista";
+    case 3: return "Inserisci nome e seleziona un indirizzo dalla lista";
     default: return "Compila tutti i campi richiesti";
   }
 }
@@ -2428,13 +2395,11 @@ const MAX_SQM = 2000;
 function isStep3Valid(t: PropertyType | null, d: DraftDetails): boolean {
   if (!t) return false;
   const sqmOk = Number(d.sqm ?? 0) >= MIN_SQM && Number(d.sqm ?? 0) <= MAX_SQM;
-  // Stepper-backed fields default to a non-zero value so they can't be the
-  // only validation trigger — we require sqm ≥ MIN_SQM for every type that
-  // shows it, plus an explicit choice (typology / description) on top.
+  // apartment/house/villa no longer use sqm input — typology selection is enough
   switch (t) {
-    case "apartment":  return !!d.typology && sqmOk;
-    case "house":      return sqmOk;
-    case "villa":      return sqmOk;
+    case "apartment":  return !!d.typology;
+    case "house":      return !!d.typology;
+    case "villa":      return !!d.typology;
     case "office":     return sqmOk;
     case "restaurant": return sqmOk;
     case "bnb":        return Number(d.bedrooms ?? 0) >= 1 && Number(d.bathrooms ?? 0) >= 1;
@@ -2444,7 +2409,10 @@ function isStep3Valid(t: PropertyType | null, d: DraftDetails): boolean {
 }
 
 function deriveNumRooms(t: PropertyType | null, d: DraftDetails): number {
-  if (t === "apartment" && typeof d.typology === "string") {
+  if (
+    (t === "apartment" || t === "house" || t === "villa") &&
+    typeof d.typology === "string"
+  ) {
     return TYPOLOGY_TO_ROOMS[d.typology] ?? 1;
   }
   if (t === "bnb") return Number(d.bedrooms ?? 1);
@@ -2452,6 +2420,9 @@ function deriveNumRooms(t: PropertyType | null, d: DraftDetails): number {
 }
 
 function deriveSqm(t: PropertyType | null, d: DraftDetails): number | null {
+  if (t === "apartment" || t === "house" || t === "villa") {
+    return TYPOLOGY_TO_SQM[String(d.typology ?? "")] ?? null;
+  }
   if (t === "bnb") return null;
   const n = Number(d.sqm ?? 0);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -2463,20 +2434,21 @@ function buildPersistedDetails(t: PropertyType, d: DraftDetails): PropertyTypeDe
       return {
         kind: "apartment",
         typology: String(d.typology ?? ""),
-        bedrooms: undefined,
-        bathrooms: undefined,
+        bathrooms: Number(d.bathrooms ?? 1),
       };
     case "house":
       return {
         kind: "house",
-        floors: Number(d.floors ?? 1),
-        has_garden: !!d.has_garden,
+        typology: String(d.typology ?? ""),
+        bathrooms: Number(d.bathrooms ?? 1),
       };
     case "villa":
       return {
         kind: "villa",
         floors: Number(d.floors ?? 1),
         has_garden: !!d.has_garden,
+        typology: String(d.typology ?? ""),
+        bathrooms: Number(d.bathrooms ?? 1),
       };
     case "office":
       return { kind: "office", desks: 0 };
@@ -2611,12 +2583,15 @@ const styles = StyleSheet.create({
   typeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "stretch",
     gap: 12,
   },
   typeCardWrap: {
     width: "48%",
+    flex: 1,
   },
   typeCard: {
+    flex: 1,
     backgroundColor: Colors.surface,
     borderWidth: 1.5,
     borderColor: Colors.borderLight,
@@ -3050,6 +3025,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: Colors.text,
+  },
+  mapPickerCTA: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.primary,
+  },
+  mapPickerCTAIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapPickerCTATitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 2,
+  },
+  mapPickerCTASub: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.75)",
   },
 
   // Map picker modal

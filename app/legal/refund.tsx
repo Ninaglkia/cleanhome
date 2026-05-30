@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { Colors } from "../../lib/theme";
+import { Button } from "../../components/ui/Button";
 
 const REFUND_URL = "https://www.cleanhomeapp.com/refund";
 
@@ -121,42 +122,14 @@ export default function RefundScreen() {
           disponibili sul sito ufficiale, sempre aggiornate.
         </Text>
 
-        <View
-          style={{
-            width: "100%",
-            backgroundColor: "#022420",
-            borderRadius: 16,
-            shadowColor: "#022420",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
-            shadowRadius: 12,
-            elevation: 4,
-            overflow: "hidden",
-          }}
-        >
-          <Pressable
-            onPress={handleOpen}
-            android_ripple={{ color: "rgba(255,255,255,0.15)" }}
-            style={({ pressed }) => ({
-              paddingVertical: 16,
-              paddingHorizontal: 32,
-              alignItems: "center",
-              opacity: pressed ? 0.85 : 1,
-            })}
-            accessibilityRole="button"
-            accessibilityLabel="Apri Politica di Rimborso sul sito ufficiale"
-          >
-            <Text
-              style={{
-                color: "#ffffff",
-                fontWeight: "700",
-                fontSize: 16,
-              }}
-            >
-              Apri Politica di Rimborso
-            </Text>
-          </Pressable>
-        </View>
+        <Button
+          label="Apri Politica di Rimborso"
+          onPress={handleOpen}
+          variant="dark"
+          icon="open-outline"
+          iconPosition="right"
+          accessibilityLabel="Apri Politica di Rimborso sul sito ufficiale"
+        />
 
         <Text
           style={{

@@ -680,7 +680,7 @@ function ClientView({
       <View style={[compactToggleStyles.row, { backgroundColor: "#f5ebe0" }]}>
         <Text style={[compactToggleStyles.label, { color: C.cleanerPrimary }]}>Modalità Cliente</Text>
         <AnimatedToggle
-          value={true}
+          value={false}
           onValueChange={() => onSwitchRole()}
           activeColor="#D4A574"
           inactiveColor="#4fc4a3"
