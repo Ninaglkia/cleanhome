@@ -22,6 +22,7 @@ import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import {
   fetchClientProperties,
   searchListingsNearPoint,
@@ -647,6 +648,29 @@ export default function NewBookingScreen() {
         extras: selectedExtras,
       };
 
+      // Resolve the client's home coordinates ONCE and attach them to EVERY
+      // booking (not only auto-dispatch). They drive the live tracking map
+      // (house marker + ETA) and the dispatch radius. Prefer the saved
+      // property's coords; fall back to geocoding the typed address so manual
+      // addresses still get a location on the map.
+      let homeLat: number | null = prop?.latitude ?? null;
+      let homeLng: number | null = prop?.longitude ?? null;
+      if ((homeLat == null || homeLng == null) && address.trim()) {
+        try {
+          const geo = await Location.geocodeAsync(address.trim());
+          if (geo.length > 0) {
+            homeLat = geo[0].latitude;
+            homeLng = geo[0].longitude;
+          }
+        } catch {
+          // best-effort — tracking map falls back gracefully if coords missing
+        }
+      }
+      if (homeLat != null && homeLng != null) {
+        body.search_lat = homeLat;
+        body.search_lng = homeLng;
+      }
+
       if (cleanerId) {
         // Legacy single-cleaner flow (arrived from cleaner profile)
         body.cleaner_id = cleanerId;
@@ -657,11 +681,8 @@ export default function NewBookingScreen() {
         }
         if (preferredCleanerIds.length > 0) {
           body.preferred_cleaner_ids = preferredCleanerIds;
-        } else {
-          // Auto-dispatch: send property coords so backend finds nearest
-          if (prop?.latitude) body.search_lat = prop.latitude;
-          if (prop?.longitude) body.search_lng = prop.longitude;
         }
+        // Auto-dispatch (no preferred): backend uses search_lat/lng set above.
       }
 
       // 1) Call Edge Function to create PaymentIntent with destination

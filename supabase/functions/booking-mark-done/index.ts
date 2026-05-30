@@ -11,6 +11,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendPushToUser } from "../_shared/push-notification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -72,14 +73,28 @@ serve(async (req) => {
     if (updateErr) throw updateErr;
 
     // Notify client: 48h review window starts
+    const notifTitle = "Il tuo cleaner ha terminato il servizio";
+    const notifBody = "Conferma o segnala un problema entro 48 ore. Dopo questo termine il pagamento verrà rilasciato automaticamente.";
     await supabase.from("notifications").insert({
       user_id: booking.client_id,
       type: "booking_work_done",
-      title: "Il tuo cleaner ha terminato il servizio",
-      body: "Conferma o segnala un problema entro 48 ore. Dopo questo termine il pagamento verrà rilasciato automaticamente.",
+      title: notifTitle,
+      body: notifBody,
       link_path: `/booking/${booking_id}`,
       metadata: { booking_id },
     });
+
+    // Fire push to client (time-sensitive: they need to act within 48h)
+    try {
+      await sendPushToUser(supabase, {
+        recipientId: booking.client_id,
+        title: notifTitle,
+        body: notifBody,
+        data: { booking_id, screen: `/booking/${booking_id}` },
+      });
+    } catch (pushErr: any) {
+      console.warn("[booking-mark-done] push failed:", pushErr?.message);
+    }
 
     return json({ ok: true, work_done_at: now });
   } catch (err: any) {

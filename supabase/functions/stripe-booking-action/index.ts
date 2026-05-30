@@ -18,6 +18,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendPushToUser, sendPushToMany } from "../_shared/push-notification.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -180,14 +181,25 @@ serve(async (req) => {
         .eq("id", booking_id);
 
       // Notify cleaner winner
+      const cleanerWonTitle = "Hai accettato la prenotazione!";
+      const cleanerWonBody = "Il cliente è stato notificato. Preparati per il servizio.";
       await supabase.from("notifications").insert({
         user_id: user.id,
         type: "booking_accepted_by_self",
-        title: "Hai accettato la prenotazione!",
-        body: "Il cliente è stato notificato. Preparati per il servizio.",
+        title: cleanerWonTitle,
+        body: cleanerWonBody,
         link_path: `/booking/${booking_id}`,
         metadata: { booking_id },
       });
+      // Push to winning cleaner
+      try {
+        await sendPushToUser(supabase, {
+          recipientId: user.id,
+          title: cleanerWonTitle,
+          body: cleanerWonBody,
+          data: { booking_id, screen: `/booking/${booking_id}` },
+        });
+      } catch (e: any) { console.warn("[stripe-booking-action] push cleaner won:", e?.message); }
 
       // Notify client
       const { data: clientData } = await supabase
@@ -196,14 +208,25 @@ serve(async (req) => {
         .eq("id", booking_id)
         .single();
       if (clientData?.client_id) {
+        const clientTitle = "Prenotazione confermata!";
+        const clientBody = "Un professionista ha accettato la tua richiesta di pulizia.";
         await supabase.from("notifications").insert({
           user_id: clientData.client_id,
           type: "booking_accepted",
-          title: "Prenotazione confermata!",
-          body: "Un professionista ha accettato la tua richiesta di pulizia.",
+          title: clientTitle,
+          body: clientBody,
           link_path: `/booking/${booking_id}`,
           metadata: { booking_id },
         });
+        // Push to client (booking_accepted is time-sensitive)
+        try {
+          await sendPushToUser(supabase, {
+            recipientId: clientData.client_id,
+            title: clientTitle,
+            body: clientBody,
+            data: { booking_id, screen: `/booking/${booking_id}` },
+          });
+        } catch (e: any) { console.warn("[stripe-booking-action] push client accepted:", e?.message); }
       }
 
       // Notify losers (cleaner_ids that got their offer cancelled)
@@ -214,16 +237,28 @@ serve(async (req) => {
         .eq("status", "cancelled");
 
       if (cancelledOffers && cancelledOffers.length > 0) {
+        const loserTitle = "Richiesta non disponibile";
+        const loserBody = "Questa richiesta è stata presa da un altro professionista.";
         await supabase.from("notifications").insert(
           cancelledOffers.map((o: any) => ({
             user_id: o.cleaner_id,
             type: "booking_offer_cancelled",
-            title: "Richiesta non disponibile",
-            body: "Questa richiesta è stata presa da un altro professionista.",
+            title: loserTitle,
+            body: loserBody,
             link_path: null,
             metadata: { booking_id },
           }))
         );
+        // Push to all losing cleaners (fire-and-forget)
+        try {
+          await sendPushToMany(
+            supabase,
+            cancelledOffers.map((o: any) => o.cleaner_id),
+            loserTitle,
+            loserBody,
+            { booking_id }
+          );
+        } catch (e: any) { console.warn("[stripe-booking-action] push losers:", e?.message); }
       }
 
       return json({ ok: true, status: "accepted" });
@@ -261,14 +296,25 @@ serve(async (req) => {
         const { data: bkClient } = await supabase
           .from("bookings").select("client_id").eq("id", booking_id).single();
         if (bkClient?.client_id) {
+          const cancelTitle = "Nessun cleaner disponibile";
+          const cancelBody = "Riprova selezionando più cleaner o un orario diverso.";
           await supabase.from("notifications").insert({
             user_id: bkClient.client_id,
             type: "booking_auto_cancelled",
-            title: "Nessun cleaner disponibile",
-            body: "Riprova selezionando più cleaner o un orario diverso.",
+            title: cancelTitle,
+            body: cancelBody,
             link_path: null,
             metadata: { booking_id },
           });
+          // Push to client: they need to know their money was refunded
+          try {
+            await sendPushToUser(supabase, {
+              recipientId: bkClient.client_id,
+              title: cancelTitle,
+              body: cancelBody,
+              data: { booking_id },
+            });
+          } catch (e: any) { console.warn("[stripe-booking-action] push cancel client:", e?.message); }
         }
       }
 

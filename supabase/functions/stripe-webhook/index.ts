@@ -14,6 +14,8 @@
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendTransactionalEmail, escapeHtml } from "../_shared/transactional-email.ts";
+import { sendPushToUser, sendPushToMany } from "../_shared/push-notification.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
@@ -60,6 +62,21 @@ async function insertNotification(
   });
   if (error) {
     console.error("[insertNotification]", error.message);
+    return;
+  }
+
+  // Best-effort push delivery — never let push failure abort the webhook
+  try {
+    await sendPushToUser(supabase, {
+      recipientId: userId,
+      title,
+      body: body ?? "",
+      data: Object.fromEntries(
+        Object.entries(metadata).map(([k, v]) => [k, String(v)])
+      ),
+    });
+  } catch (pushErr: any) {
+    console.error("[insertNotification] push failed:", pushErr?.message);
   }
 }
 
@@ -468,6 +485,66 @@ serve(async (req: Request) => {
             );
           }
         }
+
+        // ── Email confirmation to the client (best-effort) ────────────────
+        // Fetch the client's email from auth.users via service role
+        try {
+          const { data: authUser } = await supabase.auth.admin.getUserById(md.client_id);
+          const clientEmail = authUser?.user?.email;
+          if (clientEmail) {
+            const totalEur = parseFloat(md.total_price || "0");
+            const bookingDate = md.date ?? "";
+            const timeSlot = md.time_slot ?? "";
+            const address = md.address ? escapeHtml(md.address) : null;
+            const serviceType = escapeHtml(md.service_type || "Pulizia");
+
+            const dateLine = bookingDate
+              ? `<tr>
+                  <td style="padding:6px 0;color:#7a918c;font-size:14px;">Data</td>
+                  <td style="padding:6px 0;color:#0f1f1d;font-size:14px;font-weight:600;text-align:right;">${escapeHtml(bookingDate)}${timeSlot ? " · " + escapeHtml(timeSlot) : ""}</td>
+                </tr>`
+              : "";
+            const addressLine = address
+              ? `<tr>
+                  <td style="padding:6px 0;color:#7a918c;font-size:14px;">Indirizzo</td>
+                  <td style="padding:6px 0;color:#0f1f1d;font-size:14px;font-weight:600;text-align:right;">${address}</td>
+                </tr>`
+              : "";
+
+            const bodyHtml = `
+              <p style="margin:0 0 20px;">Grazie per aver prenotato su <strong style="color:#0f1f1d;">CleanHome</strong>. Il pagamento è andato a buon fine e stiamo cercando il professionista più adatto per te.</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                style="background:#f4f9f7;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:6px 0;color:#7a918c;font-size:14px;">Servizio</td>
+                  <td style="padding:6px 0;color:#0f1f1d;font-size:14px;font-weight:600;text-align:right;">${serviceType}</td>
+                </tr>
+                ${dateLine}
+                ${addressLine}
+                <tr>
+                  <td style="height:1px;background:#dde8e5;" colspan="2"></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 0 6px;color:#0f1f1d;font-size:15px;font-weight:700;">Totale pagato</td>
+                  <td style="padding:10px 0 6px;color:#006b55;font-size:16px;font-weight:800;text-align:right;">€${totalEur.toFixed(2)}</td>
+                </tr>
+              </table>
+              <p style="margin:0;color:#7a918c;font-size:13px;line-height:20px;">Ti notificheremo appena un professionista accetta la tua richiesta.</p>`;
+
+            await sendTransactionalEmail({
+              to: clientEmail,
+              subject: "Prenotazione confermata — CleanHome",
+              heading: "La tua prenotazione è confermata!",
+              bodyHtml,
+              ctaText: "Vedi prenotazione",
+              ctaUrl: `https://cleanhomeapp.com`,
+            });
+          }
+        } catch (emailErr: any) {
+          // Never let email failure abort the webhook
+          console.error("[stripe-webhook] booking confirmation email failed:", emailErr?.message);
+        }
+
         break;
       }
 

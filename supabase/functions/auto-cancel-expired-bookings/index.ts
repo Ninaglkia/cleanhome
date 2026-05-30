@@ -15,6 +15,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendPushToUser, sendPushToMany } from "../_shared/push-notification.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -155,6 +156,14 @@ serve(async (req: Request) => {
               link_path: null,
               metadata: { booking_id: bk.id },
             });
+            try {
+              await sendPushToUser(supabase, {
+                recipientId: bk.client_id,
+                title: "Nessun cleaner disponibile",
+                body: "Ti abbiamo rimborsato l'intero importo.",
+                data: { booking_id: bk.id },
+              });
+            } catch (e: any) { console.warn("[auto-cancel] push refund:", e?.message); }
           }
           results.push({ booking_id: bk.id, action: "refund_no_cleaners", ok: true });
           continue;
@@ -193,6 +202,15 @@ serve(async (req: Request) => {
           metadata: { booking_id: bk.id, escalated: true },
         }));
         await supabase.from("notifications").insert(cleanerNotifs);
+        try {
+          await sendPushToMany(
+            supabase,
+            newCleanerIds,
+            "Nuova richiesta di pulizia",
+            `Guadagni netti: €${cleanerNet.toFixed(2)} — Accetta entro ${ESCALATION_DEADLINE_MIN} min`,
+            { booking_id: bk.id }
+          );
+        } catch (e: any) { console.warn("[auto-cancel] push new cleaners:", e?.message); }
 
         // Notify client — keep them informed
         if (bk.client_id) {
@@ -204,6 +222,14 @@ serve(async (req: Request) => {
             link_path: `/booking/${bk.id}`,
             metadata: { booking_id: bk.id },
           });
+          try {
+            await sendPushToUser(supabase, {
+              recipientId: bk.client_id,
+              title: "Stiamo allargando la ricerca",
+              body: `Cerchiamo in un'area più ampia. Ti aggiorniamo entro ${ESCALATION_DEADLINE_MIN} minuti.`,
+              data: { booking_id: bk.id },
+            });
+          } catch (e: any) { console.warn("[auto-cancel] push widening:", e?.message); }
         }
 
         results.push({
@@ -244,6 +270,14 @@ serve(async (req: Request) => {
           link_path: null,
           metadata: { booking_id: bk.id },
         });
+        try {
+          await sendPushToUser(supabase, {
+            recipientId: bk.client_id,
+            title: "Nessun cleaner disponibile",
+            body: "Ti abbiamo rimborsato l'intero importo.",
+            data: { booking_id: bk.id },
+          });
+        } catch (e: any) { console.warn("[auto-cancel] push refund:", e?.message); }
       }
 
       results.push({ booking_id: bk.id, action: "refunded", ok: true });

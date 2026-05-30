@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StatusBar,
   RefreshControl,
   StyleSheet,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,10 @@ import {
 } from "../../lib/notifications";
 import { Booking } from "../../lib/types";
 import { Colors } from "../../lib/theme";
+import {
+  startLocationBroadcast,
+  TrackingSession,
+} from "../../lib/realtime-tracking";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -57,9 +62,21 @@ interface JobCardProps {
   booking: Booking;
   onViewDetails: (id: string) => void;
   onMarkWorkDone?: (id: string) => void;
+  onStartTracking?: (id: string) => void;
+  onStopTracking?: (id: string) => void;
+  isBroadcasting: boolean;
+  isTrackingLoading: boolean;
 }
 
-function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
+function JobCard({
+  booking,
+  onViewDetails,
+  onMarkWorkDone,
+  onStartTracking,
+  onStopTracking,
+  isBroadcasting,
+  isTrackingLoading,
+}: JobCardProps) {
   const earnings = ((booking.base_price ?? 0) - (booking.cleaner_fee ?? 0)).toFixed(2);
   const hourlyRate = (booking.estimated_hours ?? 0) > 0
     ? ((booking.base_price ?? 0) / (booking.estimated_hours || 1)).toFixed(0)
@@ -115,6 +132,20 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
         </View>
       </View>
 
+      {/* Location broadcast banner (only for accepted jobs) */}
+      {canMarkDone && (
+        <View style={styles.trackingBanner}>
+          {isBroadcasting ? (
+            <>
+              <View style={styles.trackingActiveDot} />
+              <Text style={styles.trackingActiveLabel}>Condivisione posizione attiva</Text>
+            </>
+          ) : (
+            <Text style={styles.trackingIdleLabel}>Posizione non condivisa</Text>
+          )}
+        </View>
+      )}
+
       {isWaitingConfirm ? (
         <View
           style={[
@@ -133,40 +164,86 @@ function JobCard({ booking, onViewDetails, onMarkWorkDone }: JobCardProps) {
           </Text>
         </View>
       ) : canMarkDone && onMarkWorkDone ? (
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={[styles.viewDetailsBtn, { flex: 1 }]}>
+        <View style={{ gap: 8 }}>
+          {/* Location broadcast toggle */}
+          {!isBroadcasting ? (
             <Pressable
-              onPress={() => onMarkWorkDone(booking.id)}
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 12,
-                gap: 6,
-                opacity: pressed ? 0.8 : 1,
-              })}
+              accessibilityRole="button"
+              accessibilityLabel="Sono in viaggio — condividi posizione"
+              disabled={isTrackingLoading}
+              onPress={() => onStartTracking?.(booking.id)}
+              style={({ pressed }) => [
+                styles.travelBtn,
+                (pressed || isTrackingLoading) && { opacity: 0.7 },
+              ]}
             >
-              <Text style={styles.viewDetailsBtnText}>Segna completato</Text>
-              <Ionicons name="checkmark" size={14} color="#fff" />
+              {isTrackingLoading ? (
+                <ActivityIndicator size="small" color={Colors.secondary} />
+              ) : (
+                <>
+                  <Ionicons name="navigate" size={16} color={Colors.secondary} />
+                  <Text style={styles.travelBtnText}>Sono in viaggio</Text>
+                </>
+              )}
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Arrivato — ferma condivisione posizione"
+              disabled={isTrackingLoading}
+              onPress={() => onStopTracking?.(booking.id)}
+              style={({ pressed }) => [
+                styles.arrivedBtn,
+                (pressed || isTrackingLoading) && { opacity: 0.7 },
+              ]}
+            >
+              {isTrackingLoading ? (
+                <ActivityIndicator size="small" color={Colors.surface} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.surface} />
+                  <Text style={styles.arrivedBtnText}>Arrivato — ferma posizione</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+
+          {/* Mark done + chat row */}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={[styles.viewDetailsBtn, { flex: 1 }]}>
+              <Pressable
+                onPress={() => onMarkWorkDone(booking.id)}
+                android_ripple={{ color: "rgba(255,255,255,0.18)" }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 12,
+                  gap: 6,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Text style={styles.viewDetailsBtnText}>Segna completato</Text>
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              </Pressable>
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                {
+                  width: 44,
+                  borderRadius: 12,
+                  backgroundColor: Colors.backgroundAlt,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+              onPress={() => onViewDetails(booking.id)}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color={Colors.secondary} />
             </Pressable>
           </View>
-          <Pressable
-            style={({ pressed }) => [
-              {
-                width: 44,
-                borderRadius: 12,
-                backgroundColor: Colors.backgroundAlt,
-                alignItems: "center",
-                justifyContent: "center",
-              },
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={() => onViewDetails(booking.id)}
-          >
-            <Ionicons name="chatbubble-outline" size={16} color={Colors.secondary} />
-          </Pressable>
         </View>
       ) : (
         <View style={styles.viewDetailsBtn}>
@@ -226,6 +303,14 @@ export default function CleanerJobsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("active");
+
+  // ── Live location sharing (Deliveroo-style tracking) ──────────────────────
+  // A cleaner can be "en route" for more than one accepted job, so we keep a
+  // map of bookingId -> live TrackingSession. broadcastingIds drives the card
+  // UI; trackingLoadingId shows the spinner on the toggle being (de)activated.
+  const [broadcastingIds, setBroadcastingIds] = useState<Set<string>>(new Set());
+  const [trackingLoadingId, setTrackingLoadingId] = useState<string | null>(null);
+  const sessionsRef = useRef<Record<string, TrackingSession>>({});
 
   const loadBookings = useCallback(
     async (silent = false) => {
@@ -303,6 +388,88 @@ export default function CleanerJobsScreen() {
     },
     [bookings, profile?.full_name, loadBookings]
   );
+
+  // Start streaming the cleaner's GPS to the client on this booking's channel.
+  const handleStartTracking = useCallback(async (id: string) => {
+    if (sessionsRef.current[id]) return; // already live
+    setTrackingLoadingId(id);
+    try {
+      const session = await startLocationBroadcast(id);
+      sessionsRef.current[id] = session;
+      setBroadcastingIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const permissionDenied = /permess|negato/i.test(msg);
+      if (permissionDenied) {
+        Alert.alert(
+          "Posizione disattivata",
+          "Per far vedere al cliente il tuo arrivo in tempo reale, consenti l'accesso alla posizione nelle impostazioni.",
+          [
+            { text: "Annulla", style: "cancel" },
+            { text: "Apri impostazioni", onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Impossibile condividere la posizione",
+          "Controlla la connessione e riprova."
+        );
+      }
+    } finally {
+      setTrackingLoadingId(null);
+    }
+  }, []);
+
+  // Stop streaming (cleaner arrived) and drop the session.
+  const handleStopTracking = useCallback(async (id: string) => {
+    setTrackingLoadingId(id);
+    try {
+      await sessionsRef.current[id]?.stop();
+    } catch {
+      // ignore — drop it locally regardless
+    }
+    delete sessionsRef.current[id];
+    setBroadcastingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setTrackingLoadingId(null);
+  }, []);
+
+  // Stop broadcasting for any job that's no longer "accepted" (marked done,
+  // completed, cancelled) so we never leak a GPS watcher or keep streaming a
+  // location after the visit is over.
+  useEffect(() => {
+    const acceptedIds = new Set(
+      bookings.filter((b) => b.status === "accepted").map((b) => b.id)
+    );
+    Object.keys(sessionsRef.current).forEach((id) => {
+      if (!acceptedIds.has(id)) {
+        sessionsRef.current[id]?.stop().catch(() => {});
+        delete sessionsRef.current[id];
+        setBroadcastingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    });
+  }, [bookings]);
+
+  // Tear down every live broadcast when the screen unmounts.
+  useEffect(() => {
+    return () => {
+      Object.values(sessionsRef.current).forEach((s) => {
+        s.stop().catch(() => {});
+      });
+      sessionsRef.current = {};
+    };
+  }, []);
 
   const handleBrowseMarket = useCallback(() => {
     router.push("/(tabs)/cleaner-home");
@@ -457,6 +624,10 @@ export default function CleanerJobsScreen() {
                 booking={booking}
                 onViewDetails={handleViewDetails}
                 onMarkWorkDone={handleMarkWorkDone}
+                onStartTracking={handleStartTracking}
+                onStopTracking={handleStopTracking}
+                isBroadcasting={broadcastingIds.has(booking.id)}
+                isTrackingLoading={trackingLoadingId === booking.id}
               />
             ))
           )}
@@ -722,6 +893,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#fff",
+  },
+
+  // ── Live location sharing ─────────────────────────────────────────────────────
+  trackingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  trackingActiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.success,
+  },
+  trackingActiveLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.success,
+  },
+  trackingIdleLabel: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  travelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.accentLight,
+  },
+  travelBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.secondary,
+  },
+  arrivedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary,
+  },
+  arrivedBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.surface,
   },
 
   // ── Empty section ─────────────────────────────────────────────────────────────

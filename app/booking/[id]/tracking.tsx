@@ -31,6 +31,8 @@ import {
   estimateEtaMinutes,
   TrackingCoords,
 } from "../../../lib/realtime-tracking";
+import { subscribeToBooking } from "../../../lib/api";
+import { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
 
 interface BookingTrackingData {
@@ -54,6 +56,8 @@ export default function LiveBookingTracking() {
   const [routePoints, setRoutePoints] = useState<TrackingCoords[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [terminalStatus, setTerminalStatus] = useState<string | null>(null);
+  const locationChannelRef = useRef<RealtimeChannel | null>(null);
 
   const pulse = useSharedValue(1);
 
@@ -131,6 +135,29 @@ export default function LiveBookingTracking() {
         const next = [...prev, coords];
         return next.length > 200 ? next.slice(-200) : next;
       });
+    });
+    locationChannelRef.current = channel;
+    return () => {
+      channel.unsubscribe();
+      locationChannelRef.current = null;
+    };
+  }, [bookingId]);
+
+  // React to the booking leaving the "en route" phase: once the cleaner marks
+  // the job done (or it's completed/cancelled) we stop listening for location
+  // and show a terminal state instead of an empty, forever-waiting map.
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = subscribeToBooking(bookingId, (updated) => {
+      if (
+        updated.status === "work_done" ||
+        updated.status === "completed" ||
+        updated.status === "cancelled"
+      ) {
+        setTerminalStatus(updated.status);
+        locationChannelRef.current?.unsubscribe();
+        locationChannelRef.current = null;
+      }
     });
     return () => {
       channel.unsubscribe();
@@ -212,6 +239,35 @@ export default function LiveBookingTracking() {
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.resetBtn} onPress={() => router.back()}>
           <Text style={styles.resetBtnText}>Torna indietro</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (terminalStatus) {
+    const isCancelled = terminalStatus === "cancelled";
+    return (
+      <View style={[styles.root, styles.center]}>
+        <Ionicons
+          name={isCancelled ? "close-circle" : "checkmark-circle"}
+          size={64}
+          color={isCancelled ? "#b00020" : "#006b55"}
+        />
+        <Text style={styles.terminalTitle}>
+          {isCancelled
+            ? "Prenotazione annullata"
+            : "Il professionista è arrivato"}
+        </Text>
+        <Text style={styles.terminalSub}>
+          {isCancelled
+            ? "Questa prenotazione è stata annullata."
+            : "Il servizio è in corso. Puoi seguirne lo stato e confermarlo dai dettagli della prenotazione."}
+        </Text>
+        <TouchableOpacity
+          style={styles.resetBtn}
+          onPress={() => router.replace("/(tabs)/bookings")}
+        >
+          <Text style={styles.resetBtnText}>Vai alle prenotazioni</Text>
         </TouchableOpacity>
       </View>
     );
@@ -371,6 +427,20 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f6faf9" },
   center: { alignItems: "center", justifyContent: "center", gap: 16 },
   errorText: { color: "#022420", fontSize: 15, textAlign: "center", padding: 24 },
+  terminalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#022420",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  terminalSub: {
+    fontSize: 14,
+    color: "rgba(2,36,32,0.6)",
+    textAlign: "center",
+    paddingHorizontal: 32,
+    lineHeight: 20,
+  },
   topBar: {
     position: "absolute",
     top: 0,
