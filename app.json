@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleanhome.app",
-      "buildNumber": "7",
+      "buildNumber": "9",
       "usesAppleSignIn": true,
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -277,7 +277,7 @@
     },
     "android": {
       "package": "com.cleanhome.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#022420",
         "foregroundImage": "./assets/android-icon-foreground.png"
