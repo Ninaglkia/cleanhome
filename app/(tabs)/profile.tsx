@@ -567,7 +567,6 @@ function CleanerView({
           label="Esci dall'account"
           sublabel="Termina la sessione su questo dispositivo"
           onPress={onSignOut}
-          danger
           cardStyle
         />
 
@@ -671,7 +670,7 @@ function ClientView({
         </Pressable>
         <Text style={styles.heroName}>{fullName}</Text>
         <Text style={[styles.heroRole, { color: C.cleanerPrimary }]}>
-          CLIENTE PREMIUM
+          CLIENTE
         </Text>
       </View>
 
@@ -753,7 +752,6 @@ function ClientView({
           label="Esci dall'account"
           sublabel="Termina la sessione su questo dispositivo"
           onPress={onSignOut}
-          danger
           cardStyle
         />
 
@@ -1399,6 +1397,8 @@ const styles = StyleSheet.create({
   },
   // Card-style variant: ogni row è una card bianca indipendente
   menuRowCard: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: C.surface,
     borderRadius: 16,
     paddingHorizontal: 20,

@@ -41,6 +41,7 @@ import {
 import { CleanerProfile, ClientProperty } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Colors, SpringConfig } from "../../lib/theme";
+import { filterCleaners } from "../../lib/cleanerFilter";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 import { NotificationBell } from "../../components/NotificationBell";
@@ -444,6 +445,14 @@ function PropertyMarker({ isDefault }: { isDefault: boolean }) {
     </View>
   );
 }
+
+// ─── Filter chip presets — defined outside component to avoid re-allocation ───
+
+const PRICE_PRESETS: ReadonlyArray<{ label: string; min: number; max: number }> = [
+  { label: "≤ €25/ora", min: 0, max: 25 },
+  { label: "€25–30", min: 25, max: 30 },
+  { label: "≥ €30", min: 30, max: 9999 },
+];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -881,26 +890,49 @@ export default function HomeScreen() {
   // the Supabase RPC. An empty filter set is a no-op (returns all results).
   const hasActiveFilters = priceFilter != null || serviceFilters.length > 0;
 
-  const filteredCleaners = useMemo(() => {
-    if (!hasActiveFilters) return cleaners;
-    return cleaners.filter((c) => {
-      if (priceFilter) {
-        const rate = c.hourly_rate;
-        if (rate == null) return false;
-        if (rate < priceFilter.min || rate > priceFilter.max) return false;
-      }
-      if (serviceFilters.length > 0) {
-        const svc = c.services ?? [];
-        // Keep only cleaners offering every selected service.
-        if (!serviceFilters.every((s) => svc.includes(s))) return false;
-      }
-      return true;
-    });
-  }, [cleaners, priceFilter, serviceFilters, hasActiveFilters]);
+  const filteredCleaners = useMemo(
+    () => filterCleaners(cleaners, { priceFilter, serviceFilters }),
+    [cleaners, priceFilter, serviceFilters]
+  );
 
   const clearFilters = useCallback(() => {
     setPriceFilter(null);
     setServiceFilters([]);
+    setSelectedIndex(0);
+  }, []);
+
+  // ── Filter chip data ───────────────────────────────────────────────────────
+
+  // Derive available service labels dynamically from the current result set.
+  // Count occurrences to rank by frequency, then cap at 6 for readability.
+  const availableServices = useMemo<string[]>(() => {
+    const freq = new Map<string, number>();
+    for (const c of cleaners) {
+      for (const s of c.services ?? []) {
+        freq.set(s, (freq.get(s) ?? 0) + 1);
+      }
+    }
+    return Array.from(freq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([label]) => label);
+  }, [cleaners]);
+
+  // Handlers — price chips toggle: tap active → clear, tap inactive → set
+  const handlePriceChipPress = useCallback(
+    (preset: { min: number; max: number }) => {
+      setPriceFilter((prev) =>
+        prev?.min === preset.min && prev?.max === preset.max ? null : preset
+      );
+      setSelectedIndex(0);
+    },
+    []
+  );
+
+  const handleServiceChipPress = useCallback((service: string) => {
+    setServiceFilters((prev) =>
+      prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
+    );
     setSelectedIndex(0);
   }, []);
 
@@ -1497,6 +1529,170 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Filter chip bar ─────────────────────────────────────────────────
+          Slim horizontal row of pills floating below the property picker (or
+          below the search bar when no properties exist). Transparent background
+          keeps the map visible; chips are individually opaque.                 */}
+      {(availableServices.length > 0 || PRICE_PRESETS.length > 0) && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{
+            position: "absolute",
+            top: insets.top + (properties.length > 0 ? 136 : 72),
+            left: 0,
+            right: 0,
+            zIndex: 18,
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          {/* Price preset chips */}
+          {PRICE_PRESETS.map((preset) => {
+            const isActive =
+              priceFilter?.min === preset.min && priceFilter?.max === preset.max;
+            return (
+              <Pressable
+                key={preset.label}
+                onPress={() => handlePriceChipPress(preset)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`Prezzo: ${preset.label}`}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginRight: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 9999,
+                  backgroundColor: isActive ? C.secondary : "rgba(255,255,255,0.92)",
+                  borderWidth: 1.5,
+                  borderColor: isActive ? C.secondary : "rgba(2,36,32,0.12)",
+                  shadowColor: C.primary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isActive ? 0.18 : 0.07,
+                  shadowRadius: 6,
+                  elevation: isActive ? 4 : 2,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Ionicons
+                  name="pricetag-outline"
+                  size={11}
+                  color={isActive ? "#ffffff" : C.secondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: isActive ? "#ffffff" : C.onSurface,
+                    letterSpacing: 0.1,
+                  }}
+                >
+                  {preset.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+
+          {/* Separator dot — only if services exist */}
+          {availableServices.length > 0 && (
+            <View
+              style={{
+                width: 4,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: "rgba(2,36,32,0.18)",
+                alignSelf: "center",
+                marginRight: 8,
+              }}
+            />
+          )}
+
+          {/* Service chips */}
+          {availableServices.map((service) => {
+            const isActive = serviceFilters.includes(service);
+            return (
+              <Pressable
+                key={service}
+                onPress={() => handleServiceChipPress(service)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`Servizio: ${service}`}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginRight: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 9999,
+                  backgroundColor: isActive ? C.primaryContainer : "rgba(255,255,255,0.92)",
+                  borderWidth: 1.5,
+                  borderColor: isActive ? C.primaryContainer : "rgba(2,36,32,0.12)",
+                  shadowColor: C.primary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isActive ? 0.18 : 0.07,
+                  shadowRadius: 6,
+                  elevation: isActive ? 4 : 2,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                {isActive && (
+                  <Ionicons name="checkmark" size={11} color="#ffffff" style={{ marginRight: 4 }} />
+                )}
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: isActive ? "#ffffff" : C.onSurface,
+                    letterSpacing: 0.1,
+                  }}
+                >
+                  {service}
+                </Text>
+              </Pressable>
+            );
+          })}
+
+          {/* "Azzera" chip — only when at least one filter is active */}
+          {hasActiveFilters && (
+            <Pressable
+              onPress={clearFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Azzera filtri"
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: 9999,
+                backgroundColor: "rgba(220,38,38,0.10)",
+                borderWidth: 1.5,
+                borderColor: "rgba(220,38,38,0.30)",
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Ionicons name="close" size={12} color={Colors.error} style={{ marginRight: 4 }} />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "700",
+                  color: Colors.error,
+                  letterSpacing: 0.1,
+                }}
+              >
+                Azzera
+              </Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      )}
 
       {/* ── My location button ── */}
       <TouchableOpacity

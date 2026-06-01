@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../lib/auth";
+import { validateRegistration } from "../../lib/validation";
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleLogo } from "../../components/icons/GoogleLogo";
 import { AppleLogo } from "../../components/icons/AppleLogo";
@@ -146,34 +147,10 @@ export default function RegisterScreen() {
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim().toLowerCase();
 
-    if (trimmedName.length < 2) {
+    const validation = validateRegistration({ fullName, email, password });
+    if (!validation.valid) {
       submittingRef.current = false;
-      Alert.alert("Errore", "Inserisci il tuo nome completo (min. 2 caratteri)");
-      return;
-    }
-    // RFC 5322 simplified — good enough to catch typos client-side
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!EMAIL_RE.test(trimmedEmail)) {
-      submittingRef.current = false;
-      Alert.alert("Email non valida", "Controlla l'indirizzo email inserito");
-      return;
-    }
-    if (password.length < 8) {
-      submittingRef.current = false;
-      Alert.alert(
-        "Password troppo corta",
-        "Usa almeno 8 caratteri per proteggere il tuo account"
-      );
-      return;
-    }
-    // Require at least one letter and one digit — simple but effective
-    // check that prevents the worst passwords without being annoying.
-    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
-      submittingRef.current = false;
-      Alert.alert(
-        "Password debole",
-        "La password deve contenere almeno una lettera e un numero"
-      );
+      Alert.alert(validation.title, validation.message);
       return;
     }
     setLoading(true);
