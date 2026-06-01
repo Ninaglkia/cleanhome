@@ -189,10 +189,14 @@ supabase/             functions/ (Edge), migrations/
 - [ ] TestFlight: internal testers added
 - [ ] Test Information: contact email = `info@cleanhomeapp.com`, demo account credentials
 
+### Versioning policy
+- `version` (app.json) = user-facing semver, bump manually per release (1.0.0 → 1.0.1 …).
+- iOS `buildNumber` + Android `versionCode` are **per-platform** build counters, auto-bumped by EAS (`autoIncrement: true` in eas.json production profile). They do NOT need to match each other — each only needs to be higher than the last build uploaded to its store. Don't hand-edit them.
+
 ### 6.3 Open items (update at end of every session)
-- Last relevant commit: `0b24069` (fix mailto domain → info@cleanhomeapp.com)
-- Assistance footer: OK on /support and /payments
-- Next: → end-to-end audit of checkout flow
+- 2026-06-01: full production-readiness audit + fixes (commits `de45197`, `e758360`, `2e4f2d4`). booking_date column alignment, escrow payout precondition, error/loading/empty states, availability sync, app.json dedup, jest+pricing tests. tsc 0 / tests 7-7 / sims clean.
+- Pending PROD rollout (needs go): OTA + deploy 7 edge fns (incl. escrow) + apply migrations (cron work_done, notifications RLS dedup).
+- Open decisions: filter chip UI on home, cleaner availability toggle UX.
 
 ---
 
