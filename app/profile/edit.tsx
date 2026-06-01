@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
-import { updateProfileName } from "../../lib/api";
+import { updateProfileContact } from "../../lib/api";
 import { Colors } from "../../lib/theme";
 
 export default function EditProfileScreen() {
@@ -23,18 +23,32 @@ export default function EditProfileScreen() {
   const { user, profile, refreshProfile } = useAuth();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
+  const [phone, setPhone] = useState(profile?.phone ?? "");
   const [saving, setSaving] = useState(false);
 
   const trimmedName = fullName.trim();
-  const hasChanges =
-    trimmedName.length > 0 && trimmedName !== (profile?.full_name ?? "");
-  const isValid = trimmedName.length >= 2;
+  // Normalise to E.164 (strip formatting; prepend +39 if no country code).
+  const normalizedPhone = (() => {
+    const p = phone.trim().replace(/[\s().-]/g, "");
+    if (!p) return "";
+    if (p.startsWith("+")) return p;
+    return "+39" + p.replace(/^0+/, "");
+  })();
+  const phoneValid =
+    normalizedPhone === "" || /^\+\d{8,15}$/.test(normalizedPhone);
+  const nameChanged = trimmedName !== (profile?.full_name ?? "");
+  const phoneChanged = normalizedPhone !== (profile?.phone ?? "");
+  const hasChanges = (nameChanged || phoneChanged) && trimmedName.length > 0;
+  const isValid = trimmedName.length >= 2 && phoneValid;
 
   const handleSave = useCallback(async () => {
     if (!user || !hasChanges || !isValid) return;
     setSaving(true);
     try {
-      await updateProfileName(user.id, trimmedName);
+      await updateProfileContact(user.id, {
+        fullName: trimmedName,
+        phone: normalizedPhone,
+      });
       await refreshProfile();
       router.back();
     } catch {
@@ -42,7 +56,7 @@ export default function EditProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [user, hasChanges, isValid, trimmedName, refreshProfile, router]);
+  }, [user, hasChanges, isValid, trimmedName, normalizedPhone, refreshProfile, router]);
 
   const handleBack = useCallback(() => {
     if (hasChanges && !saving) {
@@ -163,6 +177,65 @@ export default function EditProfileScreen() {
               }}
             />
           </View>
+
+          {/* Telefono — usato per le notifiche SMS */}
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: Colors.textTertiary,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              marginTop: 24,
+              marginBottom: 10,
+            }}
+          >
+            Telefono
+          </Text>
+          <View
+            style={{
+              backgroundColor: Colors.surface,
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+            <Ionicons name="call-outline" size={18} color={Colors.textTertiary} />
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+39 333 1234567"
+              placeholderTextColor={Colors.textTertiary}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              maxLength={20}
+              style={{
+                flex: 1,
+                marginLeft: 10,
+                height: 52,
+                fontSize: 16,
+                color: Colors.text,
+              }}
+            />
+          </View>
+          <Text
+            style={{
+              fontSize: 12,
+              color: phoneValid ? Colors.textTertiary : Colors.error,
+              marginTop: 6,
+              marginLeft: 4,
+            }}
+          >
+            {phoneValid
+              ? "Usato per gli SMS di notifica (es. richiesta accettata)."
+              : "Numero non valido. Usa il formato +39 333 1234567."}
+          </Text>
 
           <Text
             style={{

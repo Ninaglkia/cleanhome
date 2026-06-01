@@ -1000,6 +1000,24 @@ export async function updateProfileName(
   if (error) throw error;
 }
 
+/**
+ * Update the user's display name and phone together. Phone is stored in E.164
+ * (e.g. +39…) — the SMS notification flow reads profiles.phone, so this is the
+ * only place OAuth (Google/Apple) users can add a number after signup.
+ * Pass phone: null to leave it untouched, or "" to clear it.
+ */
+export async function updateProfileContact(
+  userId: string,
+  input: { fullName: string; phone: string | null }
+): Promise<void> {
+  const patch: { full_name: string; phone?: string | null } = {
+    full_name: input.fullName.trim(),
+  };
+  if (input.phone !== null) patch.phone = input.phone.trim() || null;
+  const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
+  if (error) throw error;
+}
+
 // Permanently delete the current user's account via the
 // `delete-account` edge function. The function uses the service role
 // key to call auth.admin.deleteUser which cascades to every row that

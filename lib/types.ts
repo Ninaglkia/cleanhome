@@ -159,6 +159,8 @@ export interface UserProfile {
   avatar_url?: string;
   active_role: string;
   cleaner_onboarded: boolean;
+  /** E.164 phone (e.g. +39…). Used by SMS notifications; editable in profile. */
+  phone?: string | null;
 }
 
 export interface Review {
