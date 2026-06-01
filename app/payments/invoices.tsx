@@ -301,7 +301,8 @@ export default function InvoicesScreen() {
             <Ionicons name="document-outline" size={36} color={Colors.textTertiary} />
             <Text style={styles.emptyTitle}>Nessuna fattura</Text>
             <Text style={styles.emptySub}>
-              Le tue fatture appariranno qui dopo la prima prenotazione.
+              Non hai ancora fatture. Le fatture appariranno dopo il
+              completamento delle prenotazioni.
             </Text>
           </View>
         }

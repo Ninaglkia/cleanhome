@@ -10,6 +10,8 @@ import {
   Alert,
   Dimensions,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -406,6 +408,9 @@ export default function CleanerHomeScreen() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pendingOffers, setPendingOffers] = useState<BookingOffer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const offerChannelRef = useRef<RealtimeChannel | null>(null);
 
   // ── Coach marks ────────────────────────────────────────────────────────────
@@ -465,29 +470,41 @@ export default function CleanerHomeScreen() {
 
   const loadBookings = useCallback(async () => {
     if (!user) return;
-    try {
-      const data = await fetchBookings(user.id, "cleaner");
-      setBookings(data);
-    } catch {
-      setBookings([]);
-    }
+    const data = await fetchBookings(user.id, "cleaner");
+    setBookings(data);
   }, [user]);
 
   const loadOffers = useCallback(async () => {
     if (!user) return;
-    try {
-      const offers = await fetchPendingOffersForCleaner(user.id);
-      setPendingOffers(offers);
-    } catch {
-      setPendingOffers([]);
-    }
+    const offers = await fetchPendingOffersForCleaner(user.id);
+    setPendingOffers(offers);
   }, [user]);
+
+  // Combined loader — tracks first-mount loading + a retryable error state.
+  // On failure we keep any stale data visible and only surface the full-screen
+  // error view when there's nothing cached to show.
+  const load = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoadError(false);
+      await Promise.all([loadBookings(), loadOffers()]);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, loadBookings, loadOffers]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   useFocusEffect(
     useCallback(() => {
-      loadBookings();
-      loadOffers();
-    }, [loadBookings, loadOffers])
+      load();
+    }, [load])
   );
 
   // Realtime: quando un'offerta viene cancellata (altro cleaner ha vinto),
@@ -654,12 +671,62 @@ export default function CleanerHomeScreen() {
     []
   );
 
+  const hasData = bookings.length > 0 || pendingOffers.length > 0;
+
+  // First-mount loading: nothing cached yet.
+  if (isLoading && !hasData) {
+    return (
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={styles.loadingText}>Caricamento…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Network error with nothing cached to show — offer a retry path.
+  if (loadError && !hasData) {
+    return (
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.errorState}>
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="cloud-offline-outline" size={36} color={OUTLINE} />
+          </View>
+          <Text style={styles.errorTitle}>Errore di rete</Text>
+          <Text style={styles.errorSubtitle}>
+            Impossibile caricare i tuoi lavori. Riprova.
+          </Text>
+          <Pressable
+            onPress={load}
+            accessibilityRole="button"
+            accessibilityLabel="Riprova a caricare i tuoi lavori"
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="refresh" size={16} color="#fff" />
+            <Text style={styles.retryBtnText}>Riprova</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={PRIMARY}
+            colors={[PRIMARY]}
+          />
+        }
       >
         {/* ── Header ── */}
         <View style={styles.header}>
@@ -851,6 +918,64 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 0,
+  },
+
+  // ── Loading / error states ──────────────────────────────────────────────────
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: OUTLINE,
+    fontWeight: "500",
+  },
+  errorState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 36,
+    paddingBottom: 32,
+    gap: 8,
+  },
+  errorIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: SURFACE_LOW,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ON_SURFACE,
+    textAlign: "center",
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: ON_SURFACE_VARIANT,
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 260,
+  },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 9999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: PRIMARY,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
   },
   bottomSpacer: {
     height: 40,

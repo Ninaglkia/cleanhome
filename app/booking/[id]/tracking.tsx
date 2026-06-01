@@ -229,7 +229,7 @@ export default function LiveBookingTracking() {
           </View>
           <View style={{ width: 40 }} />
         </SafeAreaView>
-        <ActivityIndicator size="large" color="#006b55" />
+        <ActivityIndicator size="large" color={Colors.secondary} />
       </View>
     );
   }
@@ -252,7 +252,7 @@ export default function LiveBookingTracking() {
         <Ionicons
           name={isCancelled ? "close-circle" : "checkmark-circle"}
           size={64}
-          color={isCancelled ? "#b00020" : "#006b55"}
+          color={isCancelled ? "#b00020" : Colors.secondary}
         />
         <Text style={styles.terminalTitle}>
           {isCancelled
@@ -306,7 +306,7 @@ export default function LiveBookingTracking() {
         <Marker coordinate={clientHouse} anchor={{ x: 0.5, y: 1 }}>
           <View style={styles.houseMarker}>
             <View style={styles.houseBubble}>
-              <Ionicons name="home" size={20} color="#ffffff" />
+              <Ionicons name="home" size={20} color={Colors.textOnDark} />
             </View>
             <View style={styles.houseTail} />
           </View>
@@ -324,7 +324,7 @@ export default function LiveBookingTracking() {
             <View style={styles.cleanerMarker}>
               <Animated.View style={[styles.cleanerPulse, pulseStyle]} />
               <View style={styles.cleanerDot}>
-                <Ionicons name="car" size={14} color="#ffffff" />
+                <Ionicons name="car" size={14} color={Colors.textOnDark} />
               </View>
             </View>
           </Marker>
@@ -336,7 +336,7 @@ export default function LiveBookingTracking() {
               latitude: p.latitude,
               longitude: p.longitude,
             }))}
-            strokeColor="#006b55"
+            strokeColor={Colors.secondary}
             strokeWidth={4}
           />
         )}
@@ -366,7 +366,7 @@ export default function LiveBookingTracking() {
         <View style={styles.bottomCard}>
           {!cleanerPos ? (
             <View style={styles.waitingWrap}>
-              <ActivityIndicator size="small" color="#006b55" />
+              <ActivityIndicator size="small" color={Colors.secondary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.waitingTitle}>
                   In attesa della posizione...
@@ -386,7 +386,7 @@ export default function LiveBookingTracking() {
                   </Text>
                 </View>
                 <View style={styles.distanceBadge}>
-                  <Ionicons name="location" size={14} color="#006b55" />
+                  <Ionicons name="location" size={14} color={Colors.secondary} />
                   <Text style={styles.distanceText}>
                     {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
                   </Text>
@@ -415,7 +415,7 @@ export default function LiveBookingTracking() {
                     })
                   }
                 >
-                  <Ionicons name="chatbubble" size={18} color="#006b55" />
+                  <Ionicons name="chatbubble" size={18} color={Colors.secondary} />
                 </TouchableOpacity>
               </View>
             </>
@@ -429,11 +429,11 @@ export default function LiveBookingTracking() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f6faf9" },
   center: { alignItems: "center", justifyContent: "center", gap: 16 },
-  errorText: { color: "#022420", fontSize: 15, textAlign: "center", padding: 24 },
+  errorText: { color: Colors.primary, fontSize: 15, textAlign: "center", padding: 24 },
   terminalTitle: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#022420",
+    color: Colors.primary,
     textAlign: "center",
     marginTop: 4,
   },
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   topBarTitleText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#022420",
+    color: Colors.primary,
     backgroundColor: "rgba(255,255,255,0.95)",
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -483,11 +483,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#006b55",
+    backgroundColor: Colors.secondary,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#ffffff",
+    borderColor: Colors.surface,
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 10,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "#006b55",
+    borderTopColor: Colors.secondary,
     marginTop: -2,
   },
   cleanerMarker: {
@@ -520,11 +520,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#022420",
+    backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#ffffff",
+    borderColor: Colors.surface,
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   bottomCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: Colors.surface,
     marginHorizontal: 12,
     marginBottom: 12,
     borderRadius: 24,
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  waitingTitle: { fontSize: 15, fontWeight: "700", color: "#022420" },
+  waitingTitle: { fontSize: 15, fontWeight: "700", color: Colors.primary },
   waitingSub: {
     fontSize: 12,
     color: "rgba(2,36,32,0.6)",
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   etaValue: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#022420",
+    color: Colors.primary,
     letterSpacing: -0.5,
   },
   distanceBadge: {
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 100,
   },
-  distanceText: { fontSize: 13, fontWeight: "700", color: "#006b55" },
+  distanceText: { fontSize: 13, fontWeight: "700", color: Colors.secondary },
   cleanerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -596,12 +596,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#006b55",
+    backgroundColor: Colors.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
-  cleanerName: { fontSize: 16, fontWeight: "700", color: "#022420" },
+  avatarText: { color: Colors.textOnDark, fontSize: 18, fontWeight: "700" },
+  cleanerName: { fontSize: 16, fontWeight: "700", color: Colors.primary },
   ratingText: { fontSize: 12, color: "rgba(2,36,32,0.6)", marginTop: 2 },
   chatBtn: {
     width: 40,
@@ -612,10 +612,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resetBtn: {
-    backgroundColor: "#022420",
+    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 14,
   },
-  resetBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
+  resetBtnText: { color: Colors.textOnDark, fontSize: 15, fontWeight: "700" },
 });

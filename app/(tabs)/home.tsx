@@ -457,6 +457,14 @@ export default function HomeScreen() {
 
   const [cleaners, setCleaners] = useState<CleanerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  // True when the listing/cleaner search threw. Drives a small non-blocking
+  // error affordance over the carousel so a failed fetch is never silent.
+  const [loadError, setLoadError] = useState(false);
+  // Client-side filters applied on top of the geo-search results. Zone is
+  // already handled server-side by the PostGIS RPC, so only price + services
+  // filter here. `null` price range / empty services = no filter active.
+  const [priceFilter, setPriceFilter] = useState<{ min: number; max: number } | null>(null);
+  const [serviceFilters, setServiceFilters] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -678,6 +686,7 @@ export default function HomeScreen() {
   const loadCleanersAtPoint = useCallback(
     async (lat: number, lng: number) => {
       setLoading(true);
+      setLoadError(false);
       try {
         const rows = await searchListingsNearPoint(lat, lng);
         const adapted: CleanerProfile[] = rows.map((r) => ({
@@ -704,6 +713,7 @@ export default function HomeScreen() {
         setSelectedIndex(0);
       } catch {
         setCleaners([]);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
@@ -865,6 +875,35 @@ export default function HomeScreen() {
     [geocodeCityWithGoogle, loadCleanersAtPoint]
   );
 
+  // ── Client-side filters ────────────────────────────────────────────────────
+  // The geo query already constrains by zone; here we additionally filter the
+  // returned listings by the selected price range and services WITHOUT touching
+  // the Supabase RPC. An empty filter set is a no-op (returns all results).
+  const hasActiveFilters = priceFilter != null || serviceFilters.length > 0;
+
+  const filteredCleaners = useMemo(() => {
+    if (!hasActiveFilters) return cleaners;
+    return cleaners.filter((c) => {
+      if (priceFilter) {
+        const rate = c.hourly_rate;
+        if (rate == null) return false;
+        if (rate < priceFilter.min || rate > priceFilter.max) return false;
+      }
+      if (serviceFilters.length > 0) {
+        const svc = c.services ?? [];
+        // Keep only cleaners offering every selected service.
+        if (!serviceFilters.every((s) => svc.includes(s))) return false;
+      }
+      return true;
+    });
+  }, [cleaners, priceFilter, serviceFilters, hasActiveFilters]);
+
+  const clearFilters = useCallback(() => {
+    setPriceFilter(null);
+    setServiceFilters([]);
+    setSelectedIndex(0);
+  }, []);
+
   // ── Marker <-> Card sync ──────────────────────────────────────────────────
 
   // Place each cleaner marker at the center of their declared coverage
@@ -872,7 +911,7 @@ export default function HomeScreen() {
   // customer if a cleaner has no zone yet (legacy rows).
   const getCleanerPosition = useCallback(
     (index: number) => {
-      const cleaner = cleaners[index];
+      const cleaner = filteredCleaners[index];
       if (
         cleaner?.coverage_center_lat != null &&
         cleaner?.coverage_center_lng != null
@@ -889,7 +928,7 @@ export default function HomeScreen() {
         longitude: region.longitude + radius * Math.sin(angle),
       };
     },
-    [cleaners, region]
+    [filteredCleaners, region]
   );
 
   const scrollToIndex = (index: number) => {
@@ -920,7 +959,7 @@ export default function HomeScreen() {
     (event: { nativeEvent: { contentOffset: { x: number } } }) => {
       const offsetX = event.nativeEvent.contentOffset.x;
       const index = Math.round(offsetX / (CARD_WIDTH + CARD_GAP));
-      if (index !== selectedIndex && index >= 0 && index < cleaners.length) {
+      if (index !== selectedIndex && index >= 0 && index < filteredCleaners.length) {
         setSelectedIndex(index);
         // Animate map marker into view
         const pos = getCleanerPosition(index);
@@ -935,7 +974,7 @@ export default function HomeScreen() {
         );
       }
     },
-    [selectedIndex, cleaners.length, getCleanerPosition]
+    [selectedIndex, filteredCleaners.length, getCleanerPosition]
   );
 
   const handleCleanerPress = useCallback(
@@ -967,7 +1006,7 @@ export default function HomeScreen() {
         showsCompass={false}
         rotateEnabled={false}
       >
-        {cleaners.map((cleaner, index) => (
+        {filteredCleaners.map((cleaner, index) => (
           <Marker
             key={cleaner.id}
             coordinate={getCleanerPosition(index)}
@@ -1640,8 +1679,8 @@ export default function HomeScreen() {
                   textTransform: "uppercase",
                 }}
               >
-                {cleaners.length > 0
-                  ? `${cleaners.length} professionisti · aggiorna`
+                {filteredCleaners.length > 0
+                  ? `${filteredCleaners.length} professionisti · aggiorna`
                   : "Cerca in questa zona"}
               </Text>
             </TouchableOpacity>
@@ -1759,7 +1798,113 @@ export default function HomeScreen() {
               </View>
             )}
           />
-        ) : cleaners.length === 0 ? (
+        ) : loadError && filteredCleaners.length === 0 ? (
+          // ── Error affordance ── (non-blocking; map stays visible)
+          // Mirrors the lightweight ErrorBanner pattern from notifications.tsx:
+          // alert icon + message + a "Riprova" Pressable that re-runs the search.
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              marginHorizontal: 20,
+              backgroundColor: Colors.errorLight,
+              borderRadius: 14,
+              padding: 14,
+              borderLeftWidth: 3,
+              borderLeftColor: Colors.error,
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              elevation: 4,
+            }}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={18}
+              color={Colors.error}
+            />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13,
+                color: Colors.error,
+                lineHeight: 18,
+                fontWeight: "600",
+              }}
+              numberOfLines={2}
+            >
+              Impossibile caricare i professionisti. Riprova.
+            </Text>
+            <Pressable
+              onPress={() =>
+                loadCleanersAtPoint(region.latitude, region.longitude)
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Riprova"
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 9,
+                backgroundColor: Colors.error,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#ffffff" }}>
+                Riprova
+              </Text>
+            </Pressable>
+          </View>
+        ) : hasActiveFilters && filteredCleaners.length === 0 && cleaners.length > 0 ? (
+          // ── Filtered-to-empty hint ── (raw results exist, filters hid them)
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              marginHorizontal: 20,
+              backgroundColor: Colors.surface,
+              borderRadius: 14,
+              padding: 14,
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              elevation: 4,
+            }}
+          >
+            <Ionicons name="filter-outline" size={18} color={Colors.secondary} />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13,
+                color: Colors.text,
+                lineHeight: 18,
+                fontWeight: "600",
+              }}
+              numberOfLines={2}
+            >
+              Nessun professionista con questi filtri
+            </Text>
+            <Pressable
+              onPress={clearFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Azzera filtri"
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 9,
+                backgroundColor: Colors.primary,
+              }}
+            >
+              <Text
+                style={{ fontSize: 12, fontWeight: "700", color: Colors.accent }}
+              >
+                Azzera filtri
+              </Text>
+            </Pressable>
+          </View>
+        ) : filteredCleaners.length === 0 ? (
           // Empty state card
           <View
             style={{
@@ -1841,7 +1986,7 @@ export default function HomeScreen() {
           // because box-none only suppresses self-hit-testing, not children.
           <FlatList
             ref={flatListRef}
-            data={cleaners}
+            data={filteredCleaners}
             keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}

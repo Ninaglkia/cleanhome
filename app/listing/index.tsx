@@ -49,6 +49,7 @@ import {
   fetchListing,
   updateListing,
   uploadListingCover,
+  setCleanerAvailability,
   ListingCoverRejectedError,
 } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
@@ -1990,6 +1991,12 @@ export default function ListingScreen() {
       setIsActive(next);
       try {
         await updateListing(listingId, { is_active: next });
+        // Keep cleaner_profiles.is_available in sync so clients (who filter
+        // cleaners by is_available) immediately see this listing appear /
+        // disappear when the cleaner toggles it active/inactive.
+        if (user?.id) {
+          await setCleanerAvailability(user.id, next);
+        }
       } catch (err) {
         setIsActive(previous);
         Alert.alert(
@@ -1998,7 +2005,7 @@ export default function ListingScreen() {
         );
       }
     },
-    [listingId, isActive]
+    [listingId, isActive, user?.id]
   );
 
   // ── New listing: go back to the listings hub where the user can

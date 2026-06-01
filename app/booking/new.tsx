@@ -1365,7 +1365,7 @@ export default function NewBookingScreen() {
           <View style={s.emptyListings}>
             <Ionicons name="person-outline" size={28} color={Colors.textTertiary} />
             <Text style={s.emptyListingsText}>
-              Nessun professionista trovato nella tua zona.{"\n"}CleanHome cercherà automaticamente.
+              Nessun professionista nella tua zona al momento.{"\n"}Prova a scegliere un&apos;altra data o lascia decidere a CleanHome: cercheremo automaticamente nelle zone vicine.
             </Text>
           </View>
         )}
