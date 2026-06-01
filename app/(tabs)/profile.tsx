@@ -530,7 +530,7 @@ function CleanerView({
               }
               onPress={onDocuments}
               iconBgColor={isIdentityVerified ? "#dcfce7" : C.surfaceLow}
-              iconColor={isIdentityVerified ? "#16a34a" : C.primary}
+              iconColor={isIdentityVerified ? "#16a34a" : C.secondary}
               cardStyle
             />
           </View>
@@ -545,6 +545,7 @@ function CleanerView({
             sublabel="Termini, condizioni e gestione dati"
             onPress={onPrivacy}
             iconBgColor={C.surfaceLow}
+            iconColor={C.secondary}
             cardStyle
           />
           <MenuRow
@@ -553,6 +554,7 @@ function CleanerView({
             sublabel="Termini di servizio e condizioni d'uso"
             onPress={onLegal}
             iconBgColor={C.surfaceLow}
+            iconColor={C.secondary}
             cardStyle
           />
         </View>
