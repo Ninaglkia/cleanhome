@@ -54,7 +54,7 @@ BEGIN
     v_message := 'CleanHome: hai una nuova richiesta di prenotazione'
       || COALESCE(' per il ' || v_date, '')
       || COALESCE(', guadagno EUR ' || trim(to_char(v_earn, 'FM999990.00')), '')
-      || '. Apri l''app: https://cleanhomeapp.com';
+      || '. Apri l''app: cleanhome://';
   ELSE
     v_message := 'CleanHome - ' || COALESCE(NEW.title, '')
       || CASE WHEN NEW.body IS NOT NULL AND NEW.body <> '' THEN ': ' || NEW.body ELSE '' END;
