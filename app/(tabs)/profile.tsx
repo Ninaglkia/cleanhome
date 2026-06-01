@@ -501,6 +501,7 @@ function CleanerView({
               sublabel="Gestisci le tue informazioni personali"
               onPress={onEditProfile}
               iconBgColor={C.surfaceLow}
+              iconColor={C.secondary}
               cardStyle
             />
           </View>
@@ -511,6 +512,7 @@ function CleanerView({
               sublabel="Gestisci i tuoi annunci e zone di copertura"
               onPress={onListing}
               iconBgColor={C.surfaceLow}
+              iconColor={C.secondary}
               cardStyle
             />
           </View>
@@ -1098,7 +1100,7 @@ export default function ProfileScreen() {
             </View>
           </View>
           <NotificationBell
-            color={isCleaner ? C.cleanerPrimary : C.primary}
+            color={isCleaner ? C.secondary : C.primary}
           />
         </View>
 
