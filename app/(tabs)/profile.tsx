@@ -472,8 +472,8 @@ function CleanerView({
       <ProfileStatsStrip userId={cleanerId} role="cleaner" />
 
       {/* ── Toggle compatto ── */}
-      <View style={compactToggleStyles.row}>
-        <Text style={compactToggleStyles.label}>Modalità Professionista</Text>
+      <View style={[compactToggleStyles.row, { backgroundColor: "#e6f4f1" }]}>
+        <Text style={[compactToggleStyles.label, { color: C.secondary }]}>Modalità Professionista</Text>
         <AnimatedToggle
           value={true}
           onValueChange={() => onSwitchRole()}
