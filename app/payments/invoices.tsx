@@ -37,7 +37,7 @@ const IT_MONTHS = [
 ];
 
 function bookingToInvoice(b: Booking): Invoice {
-  const d = new Date(b.date);
+  const d = new Date(b.booking_date);
   const status: InvoiceStatus =
     b.status === "completed" || b.status === "work_done"
       ? "paid"

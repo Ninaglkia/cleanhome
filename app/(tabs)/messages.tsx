@@ -78,7 +78,7 @@ const ConversationRow = ({ item, onPress }: ConversationRowProps) => {
         <View style={styles.rowMeta}>
           <Ionicons name="calendar-outline" size={12} color={C.outline} />
           <Text style={styles.rowMetaText}>
-            {item.date} · {item.time_slot}
+            {item.booking_date} · {item.time_slot}
           </Text>
         </View>
       </View>

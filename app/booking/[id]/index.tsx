@@ -203,7 +203,7 @@ export default function BookingDetailScreen() {
     !booking.client_confirmed_at &&
     !booking.client_dispute_opened_at;
 
-  const formattedDate = new Date(booking.date).toLocaleDateString("it-IT", {
+  const formattedDate = new Date(booking.booking_date).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",

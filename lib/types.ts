@@ -13,7 +13,9 @@ export interface Booking {
   client_id: string;
   cleaner_id: string;
   service_type: string;
-  date: string;
+  // Live DB column is `booking_date` (NOT `date`). Reads must use this name —
+  // see the webhook insert in stripe-webhook (booking_date: md.date).
+  booking_date: string;
   time_slot: string;
   num_rooms: number;
   estimated_hours: number;

@@ -120,7 +120,7 @@ function JobCard({
         <View style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={13} color={Colors.textTertiary} />
           <Text style={styles.detailText}>
-            {formatItDate(booking.date)} — {booking.time_slot}
+            {formatItDate(booking.booking_date)} — {booking.time_slot}
           </Text>
         </View>
         <View style={styles.detailRow}>
@@ -287,7 +287,7 @@ function PaymentRow({ booking }: PaymentRowProps) {
         <Text style={styles.paymentService} numberOfLines={1}>
           {booking.service_type}
         </Text>
-        <Text style={styles.paymentDate}>{formatItDate(booking.date)}</Text>
+        <Text style={styles.paymentDate}>{formatItDate(booking.booking_date)}</Text>
       </View>
       <Text style={styles.paymentAmount}>€{earnings}</Text>
     </View>

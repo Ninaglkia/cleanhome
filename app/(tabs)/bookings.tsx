@@ -540,7 +540,7 @@ const BookingCard = ({
           <View style={styles.metaRow}>
             <Ionicons name="calendar-outline" size={14} color={C.onSurfaceVariant} />
             <Text style={[styles.metaText, isCompleted && styles.metaTextDim]}>
-              {item.date}
+              {item.booking_date}
               {item.time_slot ? ` · ${item.time_slot}` : ""}
             </Text>
           </View>

@@ -249,7 +249,7 @@ export default function ReviewScreen() {
             <Text
               style={{ fontSize: 13, color: Colors.textSecondary }}
             >
-              {formatBookingDate(booking.date)} · {booking.time_slot}
+              {formatBookingDate(booking.booking_date)} · {booking.time_slot}
             </Text>
           </View>
 

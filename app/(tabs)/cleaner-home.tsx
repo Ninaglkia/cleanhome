@@ -98,7 +98,7 @@ function RequestCard({ booking, onAccept, onDecline }: RequestCardProps) {
     [booking.id, onDecline]
   );
 
-  const dateLabel = formatBookingDate(booking.date);
+  const dateLabel = formatBookingDate(booking.booking_date);
 
   return (
     <View style={styles.requestCard}>
@@ -176,7 +176,7 @@ interface AppointmentRowProps {
 }
 
 function AppointmentRow({ booking, onPress }: AppointmentRowProps) {
-  const d = new Date(booking.date);
+  const d = new Date(booking.booking_date);
   const dayAbbrev = IT_DAY_ABBREV[d.getDay()];
   const dayNum = d.getDate();
   const title = `${booking.address ?? "Cliente"} — ${booking.service_type}`;
@@ -245,7 +245,7 @@ function OfferCard({ offer, onAccept, onDecline }: OfferCardProps) {
 
   if (!booking) return null;
 
-  const dateLabel = formatBookingDate(booking.date);
+  const dateLabel = formatBookingDate(booking.booking_date);
   const netEarnings = booking.base_price - (booking.cleaner_fee ?? 0);
 
   return (
@@ -516,7 +516,7 @@ export default function CleanerHomeScreen() {
     () =>
       bookings
         .filter((b) => ["accepted", "work_done"].includes(b.status))
-        .sort((a, b) => a.date.localeCompare(b.date))
+        .sort((a, b) => a.booking_date.localeCompare(b.booking_date))
         .slice(0, 3),
     [bookings]
   );
