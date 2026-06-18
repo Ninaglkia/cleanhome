@@ -39,6 +39,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useCountdown } from "../../lib/hooks/useCountdown";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
+import IncomingOfferModal from "../../components/IncomingOfferModal";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -408,6 +409,8 @@ export default function CleanerHomeScreen() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pendingOffers, setPendingOffers] = useState<BookingOffer[]>([]);
+  // Offer ids that the cleaner deferred with "Più tardi" — not shown in modal until dismissed/expired
+  const [laterOfferIds, setLaterOfferIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -547,6 +550,18 @@ export default function CleanerHomeScreen() {
       completate: bookings.filter((b) => b.status === "completed").length,
     }),
     [bookings, pendingOffers]
+  );
+
+  // The first pending offer that has booking data, hasn't expired, and wasn't deferred by the cleaner
+  const activeOffer = useMemo(
+    () =>
+      pendingOffers.find(
+        (o) =>
+          o.booking != null &&
+          !laterOfferIds.has(o.id) &&
+          new Date(o.expires_at).getTime() > Date.now()
+      ) ?? null,
+    [pendingOffers, laterOfferIds]
   );
 
   // Legacy single-cleaner accept (still uses stripe-booking-action with action="accept")
@@ -779,7 +794,7 @@ export default function CleanerHomeScreen() {
         >
           <Text style={styles.sectionTitle}>Richieste in arrivo</Text>
           <Pressable
-            onPress={() => router.push("/cleaner/jobs" as never)}
+            onPress={() => router.push("/(tabs)/bookings" as never)}
             style={({ pressed }) => [pressed && { opacity: 0.6 }]}
             accessibilityLabel="Vedi tutte le richieste"
             accessibilityRole="button"
@@ -851,7 +866,7 @@ export default function CleanerHomeScreen() {
               Accetta una richiesta per vederla qui nel tuo calendario
             </Text>
             <Pressable
-              onPress={() => router.push("/cleaner/jobs" as never)}
+              onPress={() => router.push("/(tabs)/bookings" as never)}
               style={({ pressed }) => [styles.emptyCtaBtn, pressed && { opacity: 0.8 }]}
               accessibilityRole="button"
             >
@@ -905,6 +920,18 @@ export default function CleanerHomeScreen() {
           onDone={handleCoachMarkDone}
         />
       )}
+
+      {/* ── Incoming offer modal — overlays everything, Deliveroo-style ── */}
+      <IncomingOfferModal
+        offer={activeOffer}
+        onAccept={handleOfferAccept}
+        onDecline={handleOfferDecline}
+        onLater={() => {
+          if (activeOffer) {
+            setLaterOfferIds((prev) => new Set(prev).add(activeOffer.id));
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

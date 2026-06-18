@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -27,9 +28,23 @@ import Animated, {
 } from "react-native-reanimated";
 import LottieView from "lottie-react-native";
 import { useAuth } from "../../lib/auth";
-import { fetchBookings, confirmBookingCompletion } from "../../lib/api";
-import { Booking } from "../../lib/types";
+import {
+  fetchBookings,
+  confirmBookingCompletion,
+  fetchPendingOffersForCleaner,
+  cleanerOfferAction,
+} from "../../lib/api";
+import { Booking, BookingOffer } from "../../lib/types";
 import { NotificationBell } from "../../components/NotificationBell";
+import { MarkDoneModal } from "../../components/escrow/MarkDoneModal";
+import {
+  startLocationBroadcast,
+  TrackingSession,
+} from "../../lib/realtime-tracking";
+import {
+  NotificationMessages,
+  sendPushNotification,
+} from "../../lib/notifications";
 
 // ─── Static design tokens (non-role-specific) ────────────────────────────────
 
@@ -458,6 +473,11 @@ interface BookingCardProps {
   onPress: (bookingId: string) => void;
   onReview: (bookingId: string) => void;
   onConfirmWorkDone: (bookingId: string) => void;
+  onMarkDone?: (bookingId: string) => void;
+  onStartTracking?: (bookingId: string) => void;
+  onStopTracking?: (bookingId: string) => void;
+  isBroadcasting?: boolean;
+  isTrackingLoading?: boolean;
   isClientView: boolean;
   theme: typeof CLEANER_THEME | typeof CLIENT_THEME;
 }
@@ -467,6 +487,11 @@ const BookingCard = ({
   onPress,
   onReview,
   onConfirmWorkDone,
+  onMarkDone,
+  onStartTracking,
+  onStopTracking,
+  isBroadcasting = false,
+  isTrackingLoading = false,
   isClientView,
   theme,
 }: BookingCardProps) => {
@@ -480,6 +505,8 @@ const BookingCard = ({
 
   const isCompleted = item.status === "completed";
   const needsClientConfirm = isClientView && item.status === "work_done";
+  const canCleanerMarkDone = !isClientView && item.status === "accepted" && !!onMarkDone;
+  const isWaitingConfirm = !isClientView && item.status === "work_done";
 
   const scale = useSharedValue(1);
   const cardAnimated = useAnimatedStyle(() => ({
@@ -555,6 +582,61 @@ const BookingCard = ({
           ) : null}
         </View>
 
+        {/* ── Cleaner: location tracking banner ── */}
+        {canCleanerMarkDone && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            {isBroadcasting
+              ? <><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#16a34a" }} /><Text style={{ fontSize: 12, fontWeight: "700", color: "#16a34a" }}>Condivisione posizione attiva</Text></>
+              : <Text style={{ fontSize: 12, color: C.outline }}>Posizione non condivisa</Text>
+            }
+          </View>
+        )}
+
+        {/* ── Cleaner: travel + mark-done actions ── */}
+        {isWaitingConfirm ? (
+          <View style={[styles.cleanerWaitBanner]}>
+            <Ionicons name="time-outline" size={14} color={C.amber700} />
+            <Text style={{ fontSize: 13, color: C.amber700, marginLeft: 6, fontWeight: "600" }}>In attesa di conferma cliente</Text>
+          </View>
+        ) : canCleanerMarkDone ? (
+          <View style={{ gap: 8 }}>
+            {!isBroadcasting ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sono in viaggio"
+                disabled={isTrackingLoading}
+                onPress={() => onStartTracking?.(item.id)}
+                style={({ pressed }) => [styles.travelBtn, { borderColor: theme.secondary }, (pressed || isTrackingLoading) && { opacity: 0.7 }]}
+              >
+                {isTrackingLoading ? <ActivityIndicator size="small" color={theme.secondary} /> : (
+                  <><Ionicons name="navigate" size={16} color={theme.secondary} /><Text style={[styles.travelBtnText, { color: theme.secondary }]}>Sono in viaggio</Text></>
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Arrivato — ferma posizione"
+                disabled={isTrackingLoading}
+                onPress={() => onStopTracking?.(item.id)}
+                style={({ pressed }) => [styles.arrivedBtn, { backgroundColor: theme.secondary }, (pressed || isTrackingLoading) && { opacity: 0.7 }]}
+              >
+                {isTrackingLoading ? <ActivityIndicator size="small" color="#fff" /> : (
+                  <><Ionicons name="checkmark-circle" size={16} color="#fff" /><Text style={styles.arrivedBtnText}>Arrivato — ferma posizione</Text></>
+                )}
+              </Pressable>
+            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Segna completato"
+              onPress={() => onMarkDone?.(item.id)}
+              style={({ pressed }) => [styles.markDoneBtn, { backgroundColor: theme.secondary }, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.markDoneBtnText}>Segna completato</Text>
+              <Ionicons name="checkmark" size={15} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* ── Footer: price + action ── */}
         <View style={styles.cardFooter}>
           <Text style={[styles.priceText, { color: theme.primary }, isCompleted && styles.priceTextDim]}>
@@ -573,7 +655,7 @@ const BookingCard = ({
               <Ionicons name="checkmark-circle" size={14} color="#fff" />
               <Text style={styles.confirmWorkBtnText}>Conferma lavoro</Text>
             </Pressable>
-          ) : isCompleted ? (
+          ) : isCompleted && isClientView ? (
             <Pressable
               onPress={(e) => {
                 e.stopPropagation();
@@ -645,6 +727,18 @@ export default function BookingsScreen() {
   const isClientView = !isCleaner;
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
+  // ─── Cleaner-only: pending dispatch offers ────────────────────────────────
+  const [pendingOffers, setPendingOffers] = useState<BookingOffer[]>([]);
+  const [actingOfferId, setActingOfferId] = useState<string | null>(null);
+
+  // ─── Cleaner-only: MarkDoneModal ─────────────────────────────────────────
+  const [markDoneBookingId, setMarkDoneBookingId] = useState<string | null>(null);
+
+  // ─── Cleaner-only: live location tracking ────────────────────────────────
+  const [broadcastingIds, setBroadcastingIds] = useState<Set<string>>(new Set());
+  const [trackingLoadingId, setTrackingLoadingId] = useState<string | null>(null);
+  const sessionsRef = useRef<Record<string, TrackingSession>>({});
+
   // ─── Role-based theme ───────────────────────────────────────────────────────
   const theme = useMemo(
     () => (isCleaner ? CLEANER_THEME : CLIENT_THEME),
@@ -704,8 +798,22 @@ export default function BookingsScreen() {
     if (!user || !profile) return;
     try {
       setHasError(false);
-      const data = await fetchBookings(user.id, profile.active_role);
-      setBookings(data);
+      if (profile.active_role === "cleaner") {
+        const [data, offers] = await Promise.all([
+          fetchBookings(user.id, "cleaner"),
+          fetchPendingOffersForCleaner(user.id),
+        ]);
+        setBookings(data);
+        const now = Date.now();
+        setPendingOffers(
+          offers.filter(
+            (o) => o.booking != null && new Date(o.expires_at).getTime() > now
+          )
+        );
+      } else {
+        const data = await fetchBookings(user.id, profile.active_role);
+        setBookings(data);
+      }
     } catch {
       // Keep stale bookings visible — surface a retryable error instead of a
       // misleading "zero bookings" empty state on network failure.
@@ -792,6 +900,143 @@ export default function BookingsScreen() {
     []
   );
 
+  // ─── Cleaner: offer accept/decline ───────────────────────────────────────────
+  const handleAcceptOffer = useCallback(
+    async (offerId: string, bookingId: string) => {
+      setActingOfferId(offerId);
+      try {
+        const result = await cleanerOfferAction(bookingId, "accept");
+        if (result.ok) {
+          setPendingOffers((prev) => prev.filter((o) => o.id !== offerId));
+          loadBookings();
+          Alert.alert("Incarico accettato", "Trovi i dettagli nella sezione Attive.");
+        } else if (result.error === "already_taken") {
+          setPendingOffers((prev) => prev.filter((o) => o.id !== offerId));
+          Alert.alert(
+            "Incarico non disponibile",
+            "Un altro professionista ha già accettato questa richiesta."
+          );
+        } else {
+          Alert.alert("Errore", result.error ?? "Impossibile accettare l'incarico. Riprova.");
+        }
+      } catch (err) {
+        Alert.alert(
+          "Errore",
+          err instanceof Error ? err.message : "Impossibile accettare l'incarico."
+        );
+      } finally {
+        setActingOfferId(null);
+      }
+    },
+    [loadBookings]
+  );
+
+  const handleDeclineOffer = useCallback(
+    (offerId: string, bookingId: string) => {
+      Alert.alert(
+        "Rifiutare l'incarico?",
+        "Non potrai più accettarlo in seguito.",
+        [
+          { text: "Annulla", style: "cancel" },
+          {
+            text: "Rifiuta",
+            style: "destructive",
+            onPress: async () => {
+              setActingOfferId(offerId);
+              try {
+                await cleanerOfferAction(bookingId, "decline");
+                setPendingOffers((prev) => prev.filter((o) => o.id !== offerId));
+              } catch (err) {
+                Alert.alert(
+                  "Errore",
+                  err instanceof Error ? err.message : "Impossibile rifiutare l'incarico."
+                );
+              } finally {
+                setActingOfferId(null);
+              }
+            },
+          },
+        ]
+      );
+    },
+    []
+  );
+
+  // ─── Cleaner: location tracking ───────────────────────────────────────────────
+  const handleStartTracking = useCallback(async (id: string) => {
+    if (sessionsRef.current[id]) return;
+    setTrackingLoadingId(id);
+    try {
+      const session = await startLocationBroadcast(id);
+      sessionsRef.current[id] = session;
+      setBroadcastingIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const permissionDenied = /permess|negato/i.test(msg);
+      if (permissionDenied) {
+        Alert.alert(
+          "Posizione disattivata",
+          "Per far vedere al cliente il tuo arrivo in tempo reale, consenti l'accesso alla posizione nelle impostazioni.",
+          [
+            { text: "Annulla", style: "cancel" },
+            { text: "Apri impostazioni", onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert("Impossibile condividere la posizione", "Controlla la connessione e riprova.");
+      }
+    } finally {
+      setTrackingLoadingId(null);
+    }
+  }, []);
+
+  const handleStopTracking = useCallback(async (id: string) => {
+    setTrackingLoadingId(id);
+    try {
+      await sessionsRef.current[id]?.stop();
+    } catch {
+      // ignore — drop locally regardless
+    }
+    delete sessionsRef.current[id];
+    setBroadcastingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setTrackingLoadingId(null);
+  }, []);
+
+  // Stop tracking for jobs that are no longer "accepted"
+  useEffect(() => {
+    if (!isCleaner) return;
+    const acceptedIds = new Set(
+      bookings.filter((b) => b.status === "accepted").map((b) => b.id)
+    );
+    Object.keys(sessionsRef.current).forEach((id) => {
+      if (!acceptedIds.has(id)) {
+        sessionsRef.current[id]?.stop().catch(() => {});
+        delete sessionsRef.current[id];
+        setBroadcastingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    });
+  }, [bookings, isCleaner]);
+
+  // Tear down on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sessionsRef.current).forEach((s) => s.stop().catch(() => {}));
+      sessionsRef.current = {};
+    };
+  }, []);
+
   // ─── Filtered data ───────────────────────────────────────────────────────────
   const filteredBookings =
     activeFilter === "all"
@@ -807,11 +1052,14 @@ export default function BookingsScreen() {
   const completedCount = bookings.filter((b) => b.status === "completed").length;
 
   const headerSubtitle =
-    bookings.length === 0
+    bookings.length === 0 && pendingOffers.length === 0
       ? isClientView
         ? "Inizia il tuo primo servizio"
         : "Le richieste appariranno qui"
       : [
+          !isClientView && pendingOffers.length > 0
+            ? `${pendingOffers.length} ${pendingOffers.length === 1 ? "offerta" : "offerte"} in attesa`
+            : null,
           activeCount > 0 ? `${activeCount} ${activeCount === 1 ? "attiva" : "attive"}` : null,
           completedCount > 0 ? `${completedCount} completate` : null,
         ]
@@ -826,11 +1074,16 @@ export default function BookingsScreen() {
         onPress={handleBookingPress}
         onReview={handleReview}
         onConfirmWorkDone={handleConfirmWorkDone}
+        onMarkDone={isCleaner ? (id) => setMarkDoneBookingId(id) : undefined}
+        onStartTracking={isCleaner ? handleStartTracking : undefined}
+        onStopTracking={isCleaner ? handleStopTracking : undefined}
+        isBroadcasting={isCleaner ? broadcastingIds.has(item.id) : false}
+        isTrackingLoading={isCleaner ? trackingLoadingId === item.id : false}
         isClientView={isClientView}
         theme={theme}
       />
     ),
-    [handleBookingPress, handleReview, handleConfirmWorkDone, isClientView, theme]
+    [handleBookingPress, handleReview, handleConfirmWorkDone, isCleaner, handleStartTracking, handleStopTracking, broadcastingIds, trackingLoadingId, isClientView, theme]
   );
 
   const keyExtractor = useCallback((item: Booking) => item.id, []);
@@ -856,7 +1109,7 @@ export default function BookingsScreen() {
         <View style={styles.headerRow}>
           <Animated.View style={[styles.headerTextBlock, headerParallaxStyle]}>
             <Text style={[styles.headerTitle, { color: theme.primary }]}>
-              Le tue prenotazioni
+              {isCleaner ? "I tuoi incarichi" : "Le tue prenotazioni"}
             </Text>
             <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
           </Animated.View>
@@ -907,7 +1160,7 @@ export default function BookingsScreen() {
               <Text style={styles.retryBtnText}>Riprova</Text>
             </Pressable>
           </View>
-        ) : filteredBookings.length === 0 ? (
+        ) : filteredBookings.length === 0 && (isClientView || (activeFilter !== "all" && activeFilter !== "pending") || pendingOffers.length === 0) ? (
           <EmptyState
             isClient={isClientView}
             onCTA={() => router.push("/(tabs)/home" as never)}
@@ -932,6 +1185,86 @@ export default function BookingsScreen() {
               removeClippedSubviews
               maxToRenderPerBatch={8}
               windowSize={5}
+              ListHeaderComponent={
+                isCleaner && pendingOffers.length > 0 && (activeFilter === "all" || activeFilter === "pending")
+                  ? () => (
+                      <View>
+                        {pendingOffers.map((offer) => {
+                          const bk = offer.booking;
+                          if (!bk) return null;
+                          const earnings = ((bk.base_price ?? 0) - (bk.cleaner_fee ?? 0)).toFixed(2);
+                          const minsLeft = Math.max(0, Math.round((new Date(offer.expires_at).getTime() - Date.now()) / 60_000));
+                          const expiresLabel = minsLeft <= 0 ? "Scaduta" : minsLeft < 60 ? `Scade tra ${minsLeft} min` : `Scade tra ${Math.round(minsLeft / 60)}h`;
+                          const isActing = actingOfferId === offer.id;
+                          return (
+                            <View key={offer.id} style={styles.offerCard}>
+                              <View style={styles.offerExpiryRow}>
+                                <View style={styles.offerExpiryBadge}>
+                                  <Ionicons name="time-outline" size={12} color={theme.secondary} />
+                                  <Text style={[styles.offerExpiryText, { color: theme.secondary }]}>{expiresLabel}</Text>
+                                </View>
+                                <View style={[styles.offerEarningsBadge, { backgroundColor: `${theme.secondary}15` }]}>
+                                  <Text style={[styles.offerEarningsText, { color: theme.secondary }]}>€{earnings}</Text>
+                                </View>
+                              </View>
+                              <View style={styles.offerTitleRow}>
+                                <View style={[styles.offerIconWrap, { backgroundColor: `${theme.secondary}15` }]}>
+                                  <Ionicons name="briefcase-outline" size={20} color={theme.secondary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.offerTitle, { color: theme.primary }]} numberOfLines={1}>{bk.service_type}</Text>
+                                  <Text style={[styles.offerSubtitle, { color: theme.secondary }]}>Richiesta in attesa</Text>
+                                </View>
+                              </View>
+                              {bk.address ? (
+                                <View style={styles.offerDetailRow}>
+                                  <Ionicons name="location-outline" size={13} color={C.onSurfaceVariant} />
+                                  <Text style={styles.offerDetailText} numberOfLines={1}>{bk.address}</Text>
+                                </View>
+                              ) : null}
+                              {bk.booking_date ? (
+                                <View style={styles.offerDetailRow}>
+                                  <Ionicons name="calendar-outline" size={13} color={C.onSurfaceVariant} />
+                                  <Text style={styles.offerDetailText}>{bk.booking_date}{bk.time_slot ? ` · ${bk.time_slot}` : ""}</Text>
+                                </View>
+                              ) : null}
+                              <View style={styles.offerActionsRow}>
+                                <Pressable
+                                  style={({ pressed }) => [styles.offerDeclineBtn, { borderColor: theme.secondary }, (pressed || isActing) && { opacity: 0.6 }]}
+                                  disabled={isActing}
+                                  onPress={() => handleDeclineOffer(offer.id, offer.booking_id)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Rifiuta incarico"
+                                >
+                                  {isActing ? <ActivityIndicator size="small" color={theme.secondary} /> : (
+                                    <>
+                                      <Ionicons name="close" size={16} color={theme.secondary} />
+                                      <Text style={[styles.offerDeclineBtnText, { color: theme.secondary }]}>Rifiuta</Text>
+                                    </>
+                                  )}
+                                </Pressable>
+                                <Pressable
+                                  style={({ pressed }) => [styles.offerAcceptBtn, { backgroundColor: theme.secondary }, (pressed || isActing) && { opacity: 0.6 }]}
+                                  disabled={isActing}
+                                  onPress={() => handleAcceptOffer(offer.id, offer.booking_id)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Accetta incarico"
+                                >
+                                  {isActing ? <ActivityIndicator size="small" color="#fff" /> : (
+                                    <>
+                                      <Ionicons name="checkmark" size={16} color="#fff" />
+                                      <Text style={styles.offerAcceptBtnText}>Accetta</Text>
+                                    </>
+                                  )}
+                                </Pressable>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )
+                  : undefined
+              }
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -945,6 +1278,19 @@ export default function BookingsScreen() {
           </>
         )}
       </Animated.View>
+
+      {/* MarkDoneModal — cleaner photo-based work completion */}
+      {markDoneBookingId != null && (
+        <MarkDoneModal
+          visible={true}
+          bookingId={markDoneBookingId}
+          onClose={() => setMarkDoneBookingId(null)}
+          onSuccess={() => {
+            setMarkDoneBookingId(null);
+            loadBookings();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1318,6 +1664,168 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 32,
     paddingTop: 4,
+  },
+
+  // ── Offer card (cleaner dispatch offers) ─────────────────────────────────────
+  offerCard: {
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 18,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: "rgba(0,107,85,0.18)",
+    shadowColor: C.onSurface,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  offerExpiryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  offerExpiryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,107,85,0.08)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  offerExpiryText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  offerEarningsBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  offerEarningsText: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  offerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+  },
+  offerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  offerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  offerSubtitle: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  offerDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 4,
+  },
+  offerDetailText: {
+    fontSize: 13,
+    color: C.onSurfaceVariant,
+    flex: 1,
+  },
+  offerActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  offerDeclineBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: "transparent",
+  },
+  offerDeclineBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  offerAcceptBtn: {
+    flex: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  offerAcceptBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  // ── Cleaner job actions ───────────────────────────────────────────────────────
+  cleanerWaitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.amber50,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  travelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: "transparent",
+  },
+  travelBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  arrivedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  arrivedBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  markDoneBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  markDoneBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
   },
 
   // ── Refresh spinner ───────────────────────────────────────────────────────────

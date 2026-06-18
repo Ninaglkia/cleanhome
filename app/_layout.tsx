@@ -324,7 +324,7 @@ export default function RootLayout() {
           if (data.bookingId) {
             router.push(`/booking/${data.bookingId}` as never);
           } else {
-            router.push("/cleaner/jobs");
+            router.push("/(tabs)/bookings");
           }
           break;
         case "reviews":
