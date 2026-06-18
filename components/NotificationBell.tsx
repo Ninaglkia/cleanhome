@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View, Pressable, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,10 +25,25 @@ export function NotificationBell({
   const { count } = useUnreadNotificationsCount(user?.id);
   const insets = useSafeAreaInsets();
 
+  const bellRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
+  // Anchor the dropdown to the bell's real on-screen bottom. Fallback to a
+  // sensible guess until the first measurement lands.
+  const [anchorBottom, setAnchorBottom] = useState(insets.top + 56);
 
   const handlePress = useCallback(() => {
-    setOpen(true);
+    // Measure the bell's actual position on press — header heights differ
+    // per screen (and the bookings header shifts with parallax on scroll),
+    // so a fixed offset overlaps the title. measureInWindow is exact.
+    const node = bellRef.current;
+    if (node) {
+      node.measureInWindow((_x, y, _w, h) => {
+        if (h > 0) setAnchorBottom(y + h);
+        setOpen(true);
+      });
+    } else {
+      setOpen(true);
+    }
   }, []);
 
   const handleClose = useCallback(() => {
@@ -37,12 +52,13 @@ export function NotificationBell({
 
   const badgeLabel = count > 9 ? "9+" : count > 0 ? String(count) : null;
 
-  // Position the dropdown below the status bar + top inset + header (≈56px)
-  const dropdownTopOffset = insets.top + 56;
+  // Position the dropdown just below the measured bell.
+  const dropdownTopOffset = anchorBottom;
 
   return (
     <>
       <Pressable
+        ref={bellRef}
         onPress={handlePress}
         accessibilityLabel={
           count > 0 ? `Notifiche, ${count} non lette` : "Notifiche"
