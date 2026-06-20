@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { friendlyPaymentError } from "../../lib/friendlyPaymentError";
+import { Image as ExpoImage } from "expo-image";
+import { thumbUrl } from "../../lib/thumbUrl";
 import {
   View,
   Text,
-  Image,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -304,7 +306,7 @@ export default function MyListingsScreen() {
           await deleteListing(pendingListingId).catch(() => {});
         }
         if (presentErr.code !== "Canceled") {
-          Alert.alert("Pagamento non riuscito", presentErr.message);
+          Alert.alert("Pagamento non riuscito", friendlyPaymentError(presentErr.message));
         }
         return;
       }
@@ -662,10 +664,11 @@ function ListingCard({
       {/* Cover */}
       <View>
         {listing.cover_url ? (
-          <Image
-            source={{ uri: listing.cover_url }}
+          <ExpoImage
+            source={{ uri: thumbUrl(listing.cover_url, 480) }}
             style={{ width: "100%", height: 170, backgroundColor: "#eef3f1" }}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
           />
         ) : (
           <View

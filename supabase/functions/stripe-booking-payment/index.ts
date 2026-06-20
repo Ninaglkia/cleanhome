@@ -28,11 +28,12 @@
 //     time_slot: string,
 //     num_rooms: number,
 //     estimated_hours: number,
-//     base_price: number,
+//     sqm: number,                     // REQUIRED for ad-hoc bookings; ignored when property_id set
+//     base_price?: number,             // OPTIONAL cross-check only; rejected if > €0.01 from server value
 //     address?: string,
 //     notes?: string,
 //     listing_id?: UUID,
-//     property_id?: UUID,
+//     property_id?: UUID,              // when set, sqm is read from client_properties (authoritative)
 //   }
 //
 // Response: { customer, ephemeralKey, paymentIntent, paymentIntentId, totals, dispatch_mode }
@@ -48,6 +49,29 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const STRIPE_API_VERSION = "2023-10-16";
 const FEE_RATE = 0.09;
 const MAX_CLEANERS = 6;
+
+// ── Canonical pricing — mirrors lib/pricing.ts exactly ───────────────────────
+// Formula: basePrice = max(MIN_ORDER, round(sqm × RATE_PER_SQM, 2))
+// NEVER accept a client-supplied base_price as truth; always recompute here.
+const RATE_PER_SQM = 1.3;
+const MIN_ORDER = 50;
+// Optional extras — flat price each, mirrors EXTRA_PRICE + EXTRAS_OPTIONS in
+// app/booking/new.tsx. The client sends extra KEYS only; the server prices them.
+const EXTRA_PRICE = 15;
+const KNOWN_EXTRAS = new Set(["finestre"]);
+
+function computeBasePrice(sqm: number): number {
+  const raw = sqm * RATE_PER_SQM;
+  return Math.max(MIN_ORDER, Math.round(raw * 100) / 100);
+}
+
+// ── Production guard ──────────────────────────────────────────────────────────
+// Returns true when running against the production Supabase project.
+// We detect this by the absence of "localhost" / ".local" in the project URL.
+function isProduction(): boolean {
+  const url = SUPABASE_URL ?? "";
+  return !url.includes("localhost") && !url.includes(".local");
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,28 +153,77 @@ serve(async (req: Request) => {
       time_slot?: string;
       num_rooms?: number;
       estimated_hours?: number;
+      // sqm is the authoritative input for pricing (replaces client-supplied base_price).
+      // The client MAY still send base_price for cross-validation purposes only.
+      sqm?: number;
       base_price?: number;
       address?: string;
       notes?: string;
       listing_id?: string;
       property_id?: string;
+      extras?: string[];
     };
 
     // ── Common field validation ───────────────────────────────────
     if (!body.service_type || !body.date || !body.time_slot) {
       return json({ error: "service_type, date e time_slot sono obbligatori" }, 400);
     }
-    // MIN_ORDER matches lib/pricing.ts — €50 is the platform minimum.
-    // The upper cap of €10k is sanity (largest realistic clean is ~€800).
-    const MIN_BASE = 50;
-    if (typeof body.base_price !== "number" || body.base_price < MIN_BASE || body.base_price > 10000) {
-      return json(
-        { error: `Prezzo base non valido (min €${MIN_BASE})` },
-        400
-      );
-    }
     if (typeof body.num_rooms !== "number" || body.num_rooms < 1 || body.num_rooms > 50) {
       return json({ error: "Numero stanze non valido" }, 400);
+    }
+
+    // ── Server-side price computation ─────────────────────────────
+    // Step 1: resolve the authoritative sqm value.
+    //   - If the booking references a saved property, read sqm from the DB row.
+    //   - Otherwise, require the client to send sqm (integer, 1–5000).
+    // Step 2: recompute basePrice with the canonical formula.
+    // Step 3: if client also sent base_price, cross-check; reject on > €0.01 deviation.
+    // We NEVER feed body.base_price into toCents().
+    let authoritativeSqm: number;
+
+    if (body.property_id && UUID_RE.test(body.property_id)) {
+      // Use the sqm stored on the saved property — the client cannot forge it.
+      const { data: prop, error: propErr } = await supabase
+        .from("client_properties")
+        .select("sqm")
+        .eq("id", body.property_id)
+        .eq("user_id", client.id) // RLS-equivalent guard: client must own the property
+        .maybeSingle();
+      if (propErr || !prop) {
+        return json({ error: "Proprietà non trovata o non autorizzata" }, 404);
+      }
+      if (typeof prop.sqm !== "number" || prop.sqm <= 0) {
+        return json({ error: "La proprietà non ha una superficie valida" }, 422);
+      }
+      authoritativeSqm = prop.sqm;
+    } else {
+      // Ad-hoc booking: client must supply sqm; we recompute the price ourselves.
+      if (typeof body.sqm !== "number" || body.sqm < 1 || body.sqm > 5000) {
+        return json({ error: "Il campo sqm è obbligatorio e deve essere compreso tra 1 e 5000" }, 400);
+      }
+      authoritativeSqm = body.sqm;
+    }
+
+    // Add server-priced extras (the client sends keys only, never prices).
+    // Unknown keys are ignored so a forged extras list can't move the price.
+    const extrasTotal = Array.isArray(body.extras)
+      ? body.extras.filter((k) => KNOWN_EXTRAS.has(k)).length * EXTRA_PRICE
+      : 0;
+    const basePrice = computeBasePrice(authoritativeSqm) + extrasTotal;
+
+    // Cross-check: if the client sent a base_price, verify it matches our computation.
+    // Tolerance = 1 cent (€0.01) to absorb floating-point drift on the client side.
+    if (typeof body.base_price === "number") {
+      const deviation = Math.abs(body.base_price - basePrice);
+      if (deviation > 0.01) {
+        console.warn(
+          `[stripe-booking-payment] base_price mismatch: client=${body.base_price} server=${basePrice} sqm=${authoritativeSqm}`
+        );
+        return json(
+          { error: "Il prezzo inviato non corrisponde al listino ufficiale. Aggiorna l'app e riprova." },
+          422
+        );
+      }
     }
 
     // ── Determine dispatch mode and cleaner list ──────────────────
@@ -160,7 +233,19 @@ serve(async (req: Request) => {
 
     // DEV ONLY: set ALLOW_SELF_BOOKING=true on the Supabase project to bypass
     // the anti-self-booking check. NEVER set this in production.
-    const allowSelfBooking = Deno.env.get("ALLOW_SELF_BOOKING") === "true";
+    // Guard: if ALLOW_SELF_BOOKING is true but we are in production, refuse to start —
+    // this prevents accidental misconfiguration from silently breaking payment integrity.
+    const allowSelfBookingRaw = Deno.env.get("ALLOW_SELF_BOOKING") === "true";
+    if (allowSelfBookingRaw && isProduction()) {
+      console.error(
+        "[stripe-booking-payment] ALLOW_SELF_BOOKING=true is set in a production environment. Refusing to process."
+      );
+      return json(
+        { error: "Configurazione non valida. Contatta il supporto." },
+        500
+      );
+    }
+    const allowSelfBooking = allowSelfBookingRaw;
 
     if (body.cleaner_id && UUID_RE.test(body.cleaner_id)) {
       // MODE A: legacy single-cleaner
@@ -236,7 +321,8 @@ serve(async (req: Request) => {
     }
 
     // ── Fee computation (always server-side) ──────────────────────
-    const basePrice = Number(body.base_price);
+    // basePrice was already computed via computeBasePrice(authoritativeSqm) above.
+    // We never touch body.base_price here.
     const clientFee = Math.round(basePrice * FEE_RATE * 100) / 100;
     const cleanerFee = Math.round(basePrice * FEE_RATE * 100) / 100;
     const totalPrice = basePrice + clientFee;

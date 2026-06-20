@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   StatusBar,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -169,11 +171,11 @@ export default function CleanerOnboardingScreen() {
       await setActiveRole("cleaner");
       await refreshProfile();
 
-      // Forward to the post-wizard checklist instead of dropping the user
-      // straight on /(tabs)/cleaner-home. The checklist walks them through
-      // the remaining setup (photo, Stripe KYC, first listing) with an
-      // animated "next step" pulse so they don't miss anything critical.
-      router.replace("/onboarding/cleaner-setup-checklist");
+      // Ask the cleaner to verify their phone before reaching the setup
+      // checklist. On success, verify-phone will replace to the checklist.
+      router.replace(
+        "/verify-phone?onSuccessRoute=/onboarding/cleaner-setup-checklist"
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Impossibile creare il profilo";
       Alert.alert("Errore", message);
@@ -750,59 +752,67 @@ export default function CleanerOnboardingScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        style={{ flex: 1, paddingHorizontal: 20 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      {/* KeyboardAvoidingView lifts the scroll + CTA above the software
+          keyboard when the user focuses the Bio/City/rate inputs on
+          step 2. Without this the keyboard covers those inputs on notched iPhones. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {renderStep()}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        <ScrollView
+          style={{ flex: 1, paddingHorizontal: 20 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {renderStep()}
+          <View style={{ height: 100 }} />
+        </ScrollView>
 
-      {/* Bottom CTA */}
-      <View
-        style={{
-          paddingHorizontal: 20,
-          paddingBottom: 36,
-          paddingTop: 16,
-          backgroundColor: Colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: Colors.borderLight,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => {
-            if (step < TOTAL_STEPS - 1) setStep(step + 1);
-            else handleSubmit();
-          }}
-          disabled={!canProceed() || loading}
-          activeOpacity={0.85}
+        {/* Bottom CTA */}
+        <View
           style={{
-            height: 56,
-            borderRadius: 16,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: canProceed() ? Colors.secondary : Colors.border,
-            flexDirection: "row",
-            gap: 8,
+            paddingHorizontal: 20,
+            paddingBottom: 36,
+            paddingTop: 16,
+            backgroundColor: Colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: Colors.borderLight,
           }}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-                {step < TOTAL_STEPS - 1 ? "Continua" : "Attiva profilo"}
-              </Text>
-              <Ionicons
-                name={step < TOTAL_STEPS - 1 ? "arrow-forward" : "checkmark-circle-outline"}
-                size={18}
-                color="#fff"
-              />
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={() => {
+              if (step < TOTAL_STEPS - 1) setStep(step + 1);
+              else handleSubmit();
+            }}
+            disabled={!canProceed() || loading}
+            activeOpacity={0.85}
+            style={{
+              height: 56,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: canProceed() ? Colors.secondary : Colors.border,
+              flexDirection: "row",
+              gap: 8,
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+                  {step < TOTAL_STEPS - 1 ? "Continua" : "Attiva profilo"}
+                </Text>
+                <Ionicons
+                  name={step < TOTAL_STEPS - 1 ? "arrow-forward" : "checkmark-circle-outline"}
+                  size={18}
+                  color="#fff"
+                />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

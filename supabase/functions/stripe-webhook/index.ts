@@ -44,6 +44,15 @@ async function findBookingByPaymentIntent(
   return data ?? null;
 }
 
+// Event types that are NOT safely reprocessable: deleting their dedup row on
+// failure would allow double-refunds, double-dispute-flags, etc. For these we
+// log the failure and return 200 (Stripe stops retrying) rather than 500.
+const NON_IDEMPOTENT_EVENT_TYPES = new Set([
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.closed",
+]);
+
 async function insertNotification(
   userId: string,
   type: string,
@@ -196,6 +205,8 @@ serve(async (req: Request) => {
       }
 
       // ── Refund ───────────────────────────────────────────────────
+      // FIX (MEDIUM): distinguish partial vs full refunds; do not silently
+      // overwrite a 'transferred' status without triggering a reversal.
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         const piId =
@@ -205,17 +216,73 @@ serve(async (req: Request) => {
         if (!piId) break;
         const booking = await findBookingByPaymentIntent(piId);
         if (!booking) break;
+
         const refundAmount = charge.amount_refunded / 100;
+        const isFull = charge.amount_refunded >= charge.amount;
+        const newPaymentStatus = isFull ? "refunded" : "partially_refunded";
+
+        // Load current DB state to guard against clobbering a transferred booking
+        const { data: currentBooking } = await supabase
+          .from("bookings")
+          .select("payment_status, stripe_transfer_id")
+          .eq("id", booking.id)
+          .maybeSingle();
+
+        const alreadyTransferred =
+          currentBooking?.payment_status === "transferred" ||
+          !!currentBooking?.stripe_transfer_id;
+
+        if (alreadyTransferred) {
+          // The cleaner has already been paid. A refund issued after payout
+          // creates a net loss on the platform balance. Flag for admin review
+          // instead of silently updating status — the operator must decide
+          // whether to reverse the transfer or absorb the loss.
+          console.error(
+            "[stripe-webhook] charge.refunded on already-transferred booking — admin action required:",
+            {
+              bookingId: booking.id,
+              stripeTransferId: currentBooking?.stripe_transfer_id,
+              refundAmountEur: refundAmount,
+              isFull,
+            }
+          );
+          await supabase
+            .from("bookings")
+            .update({
+              refund_amount: refundAmount,
+              // Mark the anomaly without blinding overwriting 'transferred'
+              payment_status: isFull ? "refund_after_payout" : "partial_refund_after_payout",
+            })
+            .eq("id", booking.id);
+          // Notify cleaner so they are aware their payment may be clawed back
+          if (booking.cleaner_id) {
+            await insertNotification(
+              booking.cleaner_id,
+              "payment_refunded",
+              "Rimborso post-pagamento",
+              `Una prenotazione pagata è stata rimborsata di €${refundAmount.toFixed(2)}. Il team amministrativo verificherà la situazione.`,
+              `/booking/${booking.id}`,
+              { booking_id: booking.id, refund_amount: refundAmount, requires_admin: true }
+            );
+          }
+          break;
+        }
+
         await supabase
           .from("bookings")
-          .update({ payment_status: "refunded", refund_amount: refundAmount })
+          .update({ payment_status: newPaymentStatus, refund_amount: refundAmount })
           .eq("id", booking.id);
+
         if (booking.cleaner_id) {
+          const notifTitle = isFull ? "Rimborso effettuato" : "Rimborso parziale effettuato";
+          const notifBody = isFull
+            ? `La prenotazione è stata completamente rimborsata (€${refundAmount.toFixed(2)}).`
+            : `Una prenotazione è stata parzialmente rimborsata di €${refundAmount.toFixed(2)}.`;
           await insertNotification(
             booking.cleaner_id,
             "payment_refunded",
-            "Rimborso effettuato",
-            `Una prenotazione è stata rimborsata di €${refundAmount.toFixed(2)}.`,
+            notifTitle,
+            notifBody,
             `/booking/${booking.id}`,
             { booking_id: booking.id, refund_amount: refundAmount }
           );
@@ -265,28 +332,102 @@ serve(async (req: Request) => {
         const booking = await findBookingByPaymentIntent(piId);
         if (!booking) break;
         const won = dispute.status === "won";
+        const lost = dispute.status === "lost";
+
+        // Load full booking state once — used by both won and lost branches
+        const { data: fullBooking } = await supabase
+          .from("bookings")
+          .select("base_price, cleaner_fee, stripe_transfer_id, payment_status")
+          .eq("id", booking.id)
+          .maybeSingle();
+
         await supabase
           .from("bookings")
           .update({
             status: won ? "completed" : "dispute_lost",
             payout_blocked: !won,
             dispute_outcome: dispute.status,
-            ...(won ? {} : { payment_status: "refunded" }),
+            ...(lost ? { payment_status: "dispute_lost" } : {}),
           })
           .eq("id", booking.id);
 
-        // ── DISPUTE WON: trigger the cleaner transfer ─────────────
-        // When the platform wins a dispute, the money is no longer at risk.
-        // Without this, funds remain on the platform balance forever and
-        // the cleaner never gets paid for completed work.
-        if (won && booking.cleaner_id) {
-          const { data: fullBooking } = await supabase
-            .from("bookings")
-            .select("base_price, cleaner_fee, stripe_transfer_id")
-            .eq("id", booking.id)
-            .maybeSingle();
+        // ── FIX (CRITICAL): DISPUTE LOST — reverse transfer if payout already out ──
+        // Stripe debits the full charge from the platform balance when a dispute is
+        // lost. If we already transferred the net to the cleaner, the platform absorbs
+        // the entire chargeback while the cleaner keeps the money = unbounded loss.
+        // Solution: reverse the transfer, idempotency-keyed to run exactly once.
+        if (lost && fullBooking?.stripe_transfer_id) {
+          const reversalIdempotencyKey = `reversal_dispute_lost_${booking.id}`;
+          try {
+            const revRes = await fetch(
+              `https://api.stripe.com/v1/transfers/${fullBooking.stripe_transfer_id}/reversals`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                  "Stripe-Version": "2023-10-16",
+                  "Idempotency-Key": reversalIdempotencyKey,
+                },
+                body: new URLSearchParams({
+                  "metadata[booking_id]": booking.id,
+                  "metadata[trigger]": "dispute_lost",
+                  "metadata[dispute_id]": dispute.id,
+                }).toString(),
+              }
+            );
+            const revData = await revRes.json();
+            if (revRes.ok) {
+              await supabase
+                .from("bookings")
+                .update({
+                  stripe_transfer_id: null,        // transfer reversed — no longer valid
+                  payment_status: "transfer_reversed",
+                  transfer_reversal_id: revData.id,
+                })
+                .eq("id", booking.id);
+              console.log(
+                "[stripe-webhook] dispute_lost: transfer reversed successfully",
+                { bookingId: booking.id, reversalId: revData.id }
+              );
+            } else {
+              // Could be 'already reversed' (idempotency replay returns the original
+              // reversal object as 200, so reaching here means a genuine error).
+              console.error(
+                "[stripe-webhook] dispute_lost: transfer reversal failed — ADMIN REQUIRED",
+                {
+                  bookingId: booking.id,
+                  stripeTransferId: fullBooking.stripe_transfer_id,
+                  error: revData?.error?.message,
+                }
+              );
+              // Flag for manual intervention without losing the dispute_lost status
+              await supabase
+                .from("bookings")
+                .update({ payment_status: "reversal_failed_admin_required" })
+                .eq("id", booking.id);
+            }
+          } catch (e: any) {
+            console.error(
+              "[stripe-webhook] dispute_lost: transfer reversal threw — ADMIN REQUIRED",
+              { bookingId: booking.id, error: e?.message }
+            );
+          }
+        }
 
-          if (fullBooking && !fullBooking.stripe_transfer_id) {
+        // ── FIX (MEDIUM): DISPUTE WON — trigger the cleaner transfer ─────────────
+        // When the platform wins a dispute the money is no longer at risk.
+        // Canonical idempotency key `transfer_${booking.id}` is SHARED with the
+        // normal confirm path so a duplicate transfer is impossible even if the DB
+        // persist failed after the Stripe call in the confirm path.
+        // Gate: payment_status NOT IN ('transferred') to avoid double-pay when DB
+        // state IS up-to-date.
+        if (won && booking.cleaner_id) {
+          const alreadyTransferred =
+            fullBooking?.payment_status === "transferred" ||
+            !!fullBooking?.stripe_transfer_id;
+
+          if (!alreadyTransferred && fullBooking) {
             const { data: cp } = await supabase
               .from("cleaner_profiles")
               .select("stripe_account_id, stripe_charges_enabled")
@@ -300,6 +441,8 @@ serve(async (req: Request) => {
               const cleanerNetCents = Math.round(cleanerNetEur * 100);
 
               if (cleanerNetCents > 0) {
+                // Canonical key — shared with the confirm path in create-booking-confirm
+                const transferIdempotencyKey = `transfer_${booking.id}`;
                 try {
                   const trRes = await fetch(
                     "https://api.stripe.com/v1/transfers",
@@ -309,7 +452,7 @@ serve(async (req: Request) => {
                         Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
                         "Content-Type": "application/x-www-form-urlencoded",
                         "Stripe-Version": "2023-10-16",
-                        "Idempotency-Key": `transfer_dispute_won_${booking.id}`,
+                        "Idempotency-Key": transferIdempotencyKey,
                       },
                       body: new URLSearchParams({
                         amount: String(cleanerNetCents),
@@ -560,7 +703,24 @@ serve(async (req: Request) => {
     });
   } catch (err: any) {
     console.error("[stripe-webhook] handler error:", err?.message ?? err);
-    // Roll back the dedup row so Stripe's retry isn't short-circuited.
+    // FIX (MEDIUM — idempotency TOCTOU): only delete the dedup row for
+    // safely reprocessable event types. For non-idempotent events (refunds,
+    // disputes) deleting the row on failure would allow Stripe's retry to
+    // re-run a partially-applied handler — e.g. double-flagging a dispute or
+    // double-sending notifications. Instead we return 200 so Stripe stops
+    // retrying, and the error is logged for manual inspection.
+    if (NON_IDEMPOTENT_EVENT_TYPES.has(event.type)) {
+      console.error(
+        "[stripe-webhook] non-idempotent event failed mid-handler — dedup row retained, manual review required:",
+        { eventId: event.id, eventType: event.type }
+      );
+      return new Response(
+        JSON.stringify({ received: true, error: "handler_failed_dedup_retained" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    // For idempotent event types (payment_intent.succeeded, subscription events, etc.)
+    // delete the dedup row so Stripe's retry can reprocess cleanly.
     await supabase.from("stripe_events").delete().eq("id", event.id);
     return new Response("Internal server error", { status: 500 });
   }

@@ -12,7 +12,6 @@ import {
   StatusBar,
   StyleSheet,
   ScrollView,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -36,6 +35,8 @@ import {
 } from "../../lib/notifications";
 import { Booking, Message } from "../../lib/types";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import { Image as ExpoImage } from "expo-image";
+import { thumbUrl } from "../../lib/thumbUrl";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -493,9 +494,11 @@ export default function ChatScreen() {
         {/* Counterparty avatar + name — pulled from the profiles table */}
         <View style={styles.headerAvatar}>
           {counterpartyAvatar ? (
-            <Image
-              source={{ uri: counterpartyAvatar }}
+            <ExpoImage
+              source={{ uri: thumbUrl(counterpartyAvatar, 120) }}
               style={{ width: "100%", height: "100%", borderRadius: 999 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
           ) : (
             <Text

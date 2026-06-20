@@ -11,7 +11,6 @@ import {
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -30,6 +29,9 @@ import {
 } from "../../lib/api";
 import type { ClientProperty, ListingSearchResult } from "../../lib/types";
 import { Button } from "../../components/ui/Button";
+import { friendlyPaymentError } from "../../lib/friendlyPaymentError";
+import { Image as ExpoImage } from "expo-image";
+import { thumbUrl } from "../../lib/thumbUrl";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -73,31 +75,6 @@ const SIZE_PRESETS = [
 // standard cleaning. Backend still wants service_type so we keep this as a
 // constant and send it in the submit body.
 const SERVICE_NAME = "Pulizia ordinaria";
-
-// Map raw payment errors (Stripe SDK messages, Edge Function HTTP bodies) to
-// friendly Italian text. The raw detail is logged only in dev — the user never
-// sees a raw error string, a JSON blob, or English Stripe codes.
-function friendlyPaymentError(raw: string): string {
-  if (__DEV__) console.log("[payment error]", raw);
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.error === "string") raw = parsed.error;
-  } catch { /* not JSON — use raw as-is */ }
-  const m = (raw || "").toLowerCase();
-  // Keep the already-friendly Italian messages we throw ourselves.
-  if (/indirizzo richiesto|casa non trovata|impossibile avviare il pagamento/.test(m)) {
-    return raw;
-  }
-  if (/network|timeout|connection|failed to fetch|offline|internet/.test(m))
-    return "Connessione assente o instabile. Controlla la rete e riprova.";
-  if (/insufficient/.test(m)) return "Fondi insufficienti sulla carta.";
-  if (/expired/.test(m)) return "La carta è scaduta. Prova con un'altra carta.";
-  if (/cvc|security code|incorrect_number|invalid_number|incorrect|invalid/.test(m))
-    return "Dati della carta non corretti. Controlla numero, scadenza e CVC.";
-  if (/declined|do_not_honor|card_declined|generic_decline|decline/.test(m))
-    return "La carta è stata rifiutata. Prova con un'altra carta o un altro metodo.";
-  return "Non è stato possibile completare il pagamento. Riprova tra poco o scrivi a info@cleanhomeapp.com.";
-}
 
 // Optional add-ons the client can stack on top of the base cleaning.
 // Multi-select; each adds a flat fee to the base price (still subject to the
@@ -504,9 +481,11 @@ export default function NewBookingScreen() {
   }, [cleanerId]);
 
   // Pricing now driven by square meters (sqm), not hours.
-  // Formula: max(€50, sqm × €1.30). The server does NOT recompute from sqm:
-  // it only bounds-checks base_price to [50, 10000] and otherwise trusts the
-  // client-supplied value.
+  // Formula: max(€50, sqm × €1.30), + €15 per extra.
+  // The SERVER is now authoritative: it recomputes base+extras from sqm (read
+  // from the saved property, or from the sqm we send for ad-hoc bookings) and
+  // rejects a base_price that doesn't match. This client value is just what we
+  // display; the server never trusts it for the charge.
   // Hours shown are only an estimate for the cleaner (~25 mq/h).
   const breakdown = useMemo(() => calculatePrice(sqm), [sqm]);
 
@@ -669,6 +648,9 @@ export default function NewBookingScreen() {
         time_slot: timeSlotString,
         num_rooms: numRooms,
         estimated_hours: estimatedHours,
+        // sqm is the authoritative pricing input the server recomputes from.
+        // base_price is sent only as a cross-check (server rejects mismatches).
+        sqm,
         base_price: basePrice,
         address,
         notes: notes || undefined,
@@ -1391,9 +1373,11 @@ export default function NewBookingScreen() {
 
               {/* Avatar */}
               {listing.cover_url ? (
-                <Image
-                  source={{ uri: listing.cover_url }}
+                <ExpoImage
+                  source={{ uri: thumbUrl(listing.cover_url, 120) }}
                   style={s.cleanerAvatar}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <View style={[s.cleanerAvatar, s.cleanerAvatarFallback]}>
@@ -1489,10 +1473,11 @@ export default function NewBookingScreen() {
       {cleanerId && (
         <View style={s.cleanerStrip}>
           {cleanerAvatar ? (
-            <Image
-              source={{ uri: cleanerAvatar }}
+            <ExpoImage
+              source={{ uri: thumbUrl(cleanerAvatar, 120) }}
               style={s.cleanerStripAvatar}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
           ) : (
             <View style={[s.cleanerStripAvatar, s.cleanerStripAvatarFallback]}>
