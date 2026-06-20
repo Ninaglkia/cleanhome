@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Platform, Alert, View, Image, Text, LogBox } from "react-native";
+import { Platform, Alert, View, Image, Text, LogBox, AppState, AppStateStatus } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StripeProvider } from "@stripe/stripe-react-native";
 
@@ -9,7 +9,15 @@ LogBox.ignoreLogs([
   "forwardRef render functions accept exactly two parameters",
 ]);
 import ErrorBoundary from "../components/ErrorBoundary";
+import HoloSplash from "../components/splash/HoloSplash";
+import * as SplashScreen from "expo-splash-screen";
 import * as Sentry from "@sentry/react-native";
+
+// Keep the native splash up until the JS UI (the HoloSplash gate) is ready,
+// then hide it from the root layout. Without this the native splash would
+// cover the holographic splash for logged-in users (index.tsx, which used to
+// call hideAsync, no longer mounts for them).
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Initialize Sentry — replace the DSN with your project's DSN from
 // https://sentry.io when you create a project. Until then crash
@@ -123,6 +131,52 @@ export default function RootLayout() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const router = useRouter();
 
+  // Minimum time the holographic splash stays on screen on every cold launch.
+  // Without this, the auth redirect below fires the instant the session
+  // resolves (~instant for a logged-in user) and the splash never plays.
+  const [splashMinElapsed, setSplashMinElapsed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSplashMinElapsed(true), 2600);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Replay the holographic splash when the user returns from background after
+  // more than 60 seconds. We reset splashMinElapsed → false, which causes the
+  // gate below to show HoloSplash again; after 2.6 s it flips back to true and
+  // the user lands on their current screen (hasRedirected stays true, so no
+  // extra auth redirect fires).
+  const backgroundedAt = useRef<number | null>(null);
+  const RESUME_REPLAY_THRESHOLD_MS = 60_000;
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "background" || nextState === "inactive") {
+        backgroundedAt.current = Date.now();
+      } else if (nextState === "active") {
+        const now = Date.now();
+        const elapsed = backgroundedAt.current !== null
+          ? now - backgroundedAt.current
+          : 0;
+        if (elapsed > RESUME_REPLAY_THRESHOLD_MS) {
+          // Replay: reset the gate. Auth state stays intact; hasRedirected
+          // stays true so no unwanted re-redirect fires.
+          setSplashMinElapsed(false);
+          setTimeout(() => setSplashMinElapsed(true), 2600);
+        }
+        backgroundedAt.current = null;
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Hide the native splash as soon as the JS UI is mounted, revealing the
+  // holographic splash gate underneath.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     if (!user) return null;
     setIsProfileLoading(true);
@@ -202,7 +256,9 @@ export default function RootLayout() {
   const hasRedirected = useRef(false);
   const prevUser = useRef<string | null>(null);
   useEffect(() => {
-    if (isLoading || isProfileLoading) return;
+    // Hold the redirect until the splash has had its minimum on-screen time,
+    // so the holographic splash actually plays before routing to a dashboard.
+    if (isLoading || isProfileLoading || !splashMinElapsed) return;
 
     // Reset redirect flag when user changes (login/logout)
     const currentUserId = user?.id ?? null;
@@ -228,7 +284,7 @@ export default function RootLayout() {
         router.replace("/(tabs)/home");
       }
     }
-  }, [user, isLoading, isProfileLoading, profile?.active_role]);
+  }, [user, isLoading, isProfileLoading, profile?.active_role, splashMinElapsed]);
 
   // Handle OAuth deep link callback (cleanhome://auth/callback?code=...)
   useEffect(() => {
@@ -542,43 +598,13 @@ export default function RootLayout() {
     upsertActiveRole(user.id, role, fullName).catch(() => {});
   };
 
-  if (isLoading || (user && isProfileLoading && !profile)) {
+  // Holographic splash: shown on every cold launch while auth resolves AND
+  // for a minimum time, so it always plays before the dashboard redirect.
+  // Also replayed after foreground resume > 60 s (see AppState listener above).
+  if (isLoading || (user && isProfileLoading && !profile) || !splashMinElapsed) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#022420",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Image
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          source={require("../assets/icon.png")}
-          style={{ width: 220, height: 220, borderRadius: 36, marginBottom: 24 }}
-          resizeMode="contain"
-        />
-        <Text
-          style={{
-            color: "#ffffff",
-            fontSize: 40,
-            fontWeight: "700",
-            marginBottom: 8,
-          }}
-        >
-          CleanHome
-        </Text>
-        <Text
-          style={{
-            color: "#82f4d1",
-            fontSize: 12,
-            fontWeight: "500",
-            letterSpacing: 4,
-            textTransform: "uppercase",
-          }}
-        >
-          La tua casa al meglio
-        </Text>
+      <View style={{ flex: 1, backgroundColor: "#04140f" }}>
+        <HoloSplash shouldExit={false} onExitComplete={() => {}} />
       </View>
     );
   }

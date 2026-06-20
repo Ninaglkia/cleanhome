@@ -9,15 +9,19 @@
     "userInterfaceStyle": "light",
     "scheme": "cleanhome",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#022420"
+      "image": "./assets/splash-native.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#05070a"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleanhome.app",
       "buildNumber": "10",
       "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:cleanhomeapp.com",
+        "applinks:www.cleanhomeapp.com"
+      ],
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
@@ -168,7 +172,7 @@
       "package": "com.cleanhome.app",
       "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#022420",
+        "backgroundColor": "#062a23",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
@@ -187,6 +191,26 @@
           "data": [
             {
               "scheme": "cleanhome"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "cleanhomeapp.com",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.cleanhomeapp.com",
+              "pathPrefix": "/"
             }
           ],
           "category": [
