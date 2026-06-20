@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   FlatList,
   StatusBar,
   Dimensions,
-  Image,
   Platform,
   Alert,
   Modal,
@@ -15,6 +14,7 @@ import {
   ScrollView,
   Switch,
   Linking,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,6 +45,8 @@ import { filterCleaners } from "../../lib/cleanerFilter";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 import { NotificationBell } from "../../components/NotificationBell";
+import { Image as ExpoImage } from "expo-image";
+import { thumbUrl } from "../../lib/thumbUrl";
 
 // AsyncStorage key for caching the last map region the user was on.
 // Used to restore the map to the correct position instantly on cold start,
@@ -87,10 +89,11 @@ const C = {
 interface PriceMarkerProps {
   price: number | null;
   selected: boolean;
-  onPress: () => void;
+  index: number;
+  onMarkerPress: (index: number) => void;
 }
 
-function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
+const PriceMarker = React.memo(function PriceMarker({ price, selected, index, onMarkerPress }: PriceMarkerProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -105,11 +108,13 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
     scale.value = withSpring(1, SpringConfig.press);
   };
 
+  const handlePress = useCallback(() => onMarkerPress(index), [onMarkerPress, index]);
+
   // Stitch spec: bg-primary-container (#1a3a35) default, bg-secondary (#006b55) selected
   // rounded-full px-4 py-1.5, border-2 border-white, shadow-xl
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={1}
@@ -157,7 +162,7 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
       </Animated.View>
     </TouchableOpacity>
   );
-}
+});
 
 // ─── Cleaner Map Card ─────────────────────────────────────────────────────────
 // Stitch spec: bg-surface-container-lowest (#fff) rounded-lg p-4
@@ -165,11 +170,13 @@ function PriceMarker({ price, selected, onPress }: PriceMarkerProps) {
 
 interface MapCleanerCardProps {
   cleaner: CleanerProfile;
-  onPress: () => void;
+  index: number;
+  onMarkerPress: (index: number) => void;
+  onCleanerPress: (cleanerId: string) => void;
   isSelected: boolean;
 }
 
-function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
+const MapCleanerCard = React.memo(function MapCleanerCard({ cleaner, index, onMarkerPress, onCleanerPress, isSelected }: MapCleanerCardProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -184,6 +191,8 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
     scale.value = withSpring(1, SpringConfig.press);
   };
 
+  const handlePress = useCallback(() => onMarkerPress(index), [onMarkerPress, index]);
+
   const initials = cleaner.full_name
     .split(" ")
     .map((n) => n[0])
@@ -193,7 +202,7 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={1}
@@ -222,10 +231,11 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
             {/* Square photo — 112x112 rounded-md */}
             <View style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
               {cleaner.avatar_url ? (
-                <Image
-                  source={{ uri: cleaner.avatar_url }}
+                <ExpoImage
+                  source={{ uri: thumbUrl(cleaner.avatar_url, 120) }}
                   style={{ width: 112, height: 112, borderRadius: 8 }}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <View
@@ -351,7 +361,7 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
 
             {/* "View Profile" CTA — bg-primary when selected, bg-surface-container-high otherwise */}
             <TouchableOpacity
-              onPress={onPress}
+              onPress={() => onCleanerPress(cleaner.id)}
               activeOpacity={0.85}
               style={{
                 backgroundColor: isSelected ? C.primary : C.surfaceContainerHigh,
@@ -375,7 +385,7 @@ function MapCleanerCard({ cleaner, onPress, isSelected }: MapCleanerCardProps) {
       </Animated.View>
     </TouchableOpacity>
   );
-}
+});
 
 // ─── Property Marker (client's saved houses) ─────────────────────────────
 // Amber/gold house pin that visually distinguishes the client's saved
@@ -476,7 +486,10 @@ export default function HomeScreen() {
   const [serviceFilters, setServiceFilters] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Ref for debounce timer — auto-submits city search 600ms after user stops typing
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   // True when the user has explicitly denied foreground location permission.
   // Drives the "Attiva GPS" banner so they can navigate to Settings.
@@ -552,6 +565,8 @@ export default function HomeScreen() {
   // and are passed to the booking wizard.
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   const loadProperties = useCallback(async () => {
     if (!user?.id) return;
@@ -860,25 +875,30 @@ export default function HomeScreen() {
       setSearchText(city);
       setSearchFocused(false);
       if (!city.trim()) return;
-      // Resolve the typed city to coordinates, then do the spatial search.
-      const geo = await geocodeCityWithGoogle(city);
-      if (geo) {
-        setRegion((r) => ({
-          ...r,
-          latitude: geo.lat,
-          longitude: geo.lng,
-        }));
-        await loadCleanersAtPoint(geo.lat, geo.lng);
-      } else {
-        // Fallback: keep legacy text-based search so users still see
-        // something if geocoding fails (e.g. no API key set in dev).
-        try {
-          const results = await searchCleaners(city);
-          setCleaners(results);
-          setSelectedIndex(0);
-        } catch {
-          setCleaners([]);
+      setSearchLoading(true);
+      try {
+        // Resolve the typed city to coordinates, then do the spatial search.
+        const geo = await geocodeCityWithGoogle(city);
+        if (geo) {
+          setRegion((r) => ({
+            ...r,
+            latitude: geo.lat,
+            longitude: geo.lng,
+          }));
+          await loadCleanersAtPoint(geo.lat, geo.lng);
+        } else {
+          // Fallback: keep legacy text-based search so users still see
+          // something if geocoding fails (e.g. no API key set in dev).
+          try {
+            const results = await searchCleaners(city);
+            setCleaners(results);
+            setSelectedIndex(0);
+          } catch {
+            setCleaners([]);
+          }
         }
+      } finally {
+        setSearchLoading(false);
       }
     },
     [geocodeCityWithGoogle, loadCleanersAtPoint]
@@ -963,19 +983,25 @@ export default function HomeScreen() {
     [filteredCleaners, region]
   );
 
-  const scrollToIndex = (index: number) => {
+  const cleanerPositions = useMemo(
+    () => filteredCleaners.map((_, i) => getCleanerPosition(i)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredCleaners, getCleanerPosition]
+  );
+
+  const scrollToIndex = useCallback((index: number) => {
     flatListRef.current?.scrollToIndex({
       index,
       animated: true,
       viewPosition: 0,
     });
-  };
+  }, []);
 
-  const handleMarkerPress = (index: number) => {
+  const handleMarkerPress = useCallback((index: number) => {
     setSelectedIndex(index);
-    scrollToIndex(index);
-    // Pan map toward that cleaner
-    const pos = getCleanerPosition(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 });
+    const pos = cleanerPositions[index];
+    if (!pos) return;
     mapRef.current?.animateToRegion(
       {
         latitude: pos.latitude - 0.012, // offset so card doesn't cover it
@@ -985,7 +1011,7 @@ export default function HomeScreen() {
       },
       350
     );
-  };
+  }, [cleanerPositions]);
 
   const handleCardScroll = useCallback(
     (event: { nativeEvent: { contentOffset: { x: number } } }) => {
@@ -1041,14 +1067,14 @@ export default function HomeScreen() {
         {filteredCleaners.map((cleaner, index) => (
           <Marker
             key={cleaner.id}
-            coordinate={getCleanerPosition(index)}
-            onPress={() => handleMarkerPress(index)}
+            coordinate={cleanerPositions[index] ?? getCleanerPosition(index)}
             tracksViewChanges={false}
           >
             <PriceMarker
               price={cleaner.hourly_rate ?? null}
               selected={selectedIndex === index}
-              onPress={() => handleMarkerPress(index)}
+              index={index}
+              onMarkerPress={handleMarkerPress}
             />
           </Marker>
         ))}
@@ -1119,7 +1145,7 @@ export default function HomeScreen() {
       >
         {/* Left: search icon + Discovery/Explore label */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          {/* Search icon button — focuses the TextInput next to it */}
+          {/* Search icon / loading indicator — focuses the TextInput next to it */}
           <TouchableOpacity
             onPress={() => searchInputRef.current?.focus()}
             activeOpacity={0.75}
@@ -1133,7 +1159,11 @@ export default function HomeScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="search" size={20} color="#022420" />
+            {searchLoading ? (
+              <ActivityIndicator size={14} color={C.secondary} />
+            ) : (
+              <Ionicons name="search" size={20} color="#022420" />
+            )}
           </TouchableOpacity>
 
           {/* Discovery / Explore text stack */}
@@ -1164,8 +1194,27 @@ export default function HomeScreen() {
               placeholder="Cerca città"
               placeholderTextColor="rgba(2,36,32,0.4)"
               value={searchText}
-              onChangeText={setSearchText}
-              onSubmitEditing={() => handleSearch(searchText)}
+              onChangeText={(text) => {
+                setSearchText(text);
+                // Cancel any pending debounce
+                if (searchDebounceRef.current) {
+                  clearTimeout(searchDebounceRef.current);
+                }
+                if (text.trim().length > 0) {
+                  // Auto-submit 600ms after user stops typing
+                  searchDebounceRef.current = setTimeout(() => {
+                    void handleSearch(text);
+                  }, 600);
+                }
+              }}
+              onSubmitEditing={() => {
+                // Manual submit — cancel debounce to avoid double-search
+                if (searchDebounceRef.current) {
+                  clearTimeout(searchDebounceRef.current);
+                  searchDebounceRef.current = null;
+                }
+                void handleSearch(searchText);
+              }}
               onFocus={() => {
                 setSearchFocused(true);
                 searchExpanded.value = withTiming(1, { duration: 200 });
@@ -1184,7 +1233,15 @@ export default function HomeScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {searchText.length > 0 && (
             <TouchableOpacity
-              onPress={() => handleSearch("")}
+              onPress={() => {
+                // Cancel debounce + clear loading
+                if (searchDebounceRef.current) {
+                  clearTimeout(searchDebounceRef.current);
+                  searchDebounceRef.current = null;
+                }
+                setSearchLoading(false);
+                void handleSearch("");
+              }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
@@ -1530,169 +1587,281 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Filter chip bar ─────────────────────────────────────────────────
-          Slim horizontal row of pills floating below the property picker (or
-          below the search bar when no properties exist). Transparent background
-          keeps the map visible; chips are individually opaque.                 */}
-      {(availableServices.length > 0 || PRICE_PRESETS.length > 0) && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+      {/* ── Filter pill button ── */}
+      {/* Compact floating pill that replaces the horizontal chip bar. Tapping
+          opens the filter bottom-sheet. Shows a badge with active filter count. */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setFilterSheetOpen(true)}
+        accessibilityLabel="Apri filtri"
+        accessibilityRole="button"
+        style={{
+          position: "absolute",
+          top: insets.top + (properties.length > 0 ? 136 : 72),
+          left: 16,
+          zIndex: 18,
+          backgroundColor: "rgba(255,255,255,0.92)",
+          borderRadius: 9999,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          shadowColor: C.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 6,
+        }}
+      >
+        <Ionicons name="options-outline" size={15} color={C.primary} />
+        <Text
           style={{
-            position: "absolute",
-            top: insets.top + (properties.length > 0 ? 136 : 72),
-            left: 0,
-            right: 0,
-            zIndex: 18,
-          }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingVertical: 6,
-            flexDirection: "row",
-            alignItems: "center",
+            fontSize: 13,
+            fontWeight: "700",
+            color: C.primary,
           }}
         >
-          {/* Price preset chips */}
-          {PRICE_PRESETS.map((preset) => {
-            const isActive =
-              priceFilter?.min === preset.min && priceFilter?.max === preset.max;
-            return (
-              <Pressable
-                key={preset.label}
-                onPress={() => handlePriceChipPress(preset)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={`Prezzo: ${preset.label}`}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginRight: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 9999,
-                  backgroundColor: isActive ? C.secondary : "rgba(255,255,255,0.92)",
-                  borderWidth: 1.5,
-                  borderColor: isActive ? C.secondary : "rgba(2,36,32,0.12)",
-                  shadowColor: C.primary,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: isActive ? 0.18 : 0.07,
-                  shadowRadius: 6,
-                  elevation: isActive ? 4 : 2,
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <Ionicons
-                  name="pricetag-outline"
-                  size={11}
-                  color={isActive ? "#ffffff" : C.secondary}
-                  style={{ marginRight: 4 }}
-                />
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "700",
-                    color: isActive ? "#ffffff" : C.onSurface,
-                    letterSpacing: 0.1,
-                  }}
-                >
-                  {preset.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          Filtri
+        </Text>
+        {hasActiveFilters && (
+          <View
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: C.secondary,
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: 2,
+            }}
+          >
+            <Text
+              style={{
+                color: "#ffffff",
+                fontSize: 10,
+                fontWeight: "800",
+                lineHeight: 12,
+              }}
+            >
+              {(priceFilter != null ? 1 : 0) + serviceFilters.length}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
 
-          {/* Separator dot — only if services exist */}
-          {availableServices.length > 0 && (
+      {/* ── Filter bottom-sheet modal ── */}
+      <Modal
+        visible={filterSheetOpen}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setFilterSheetOpen(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(2, 36, 32, 0.4)",
+            justifyContent: "flex-end",
+          }}
+          onPress={() => setFilterSheetOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 12,
+              paddingBottom: 32 + insets.bottom,
+            }}
+          >
+            {/* Drag handle */}
             <View
               style={{
-                width: 4,
+                alignSelf: "center",
+                width: 40,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: "rgba(2,36,32,0.18)",
-                alignSelf: "center",
-                marginRight: 8,
+                backgroundColor: "#d4e4e0",
+                marginBottom: 16,
               }}
             />
-          )}
 
-          {/* Service chips */}
-          {availableServices.map((service) => {
-            const isActive = serviceFilters.includes(service);
-            return (
-              <Pressable
-                key={service}
-                onPress={() => handleServiceChipPress(service)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={`Servizio: ${service}`}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginRight: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 9999,
-                  backgroundColor: isActive ? C.primaryContainer : "rgba(255,255,255,0.92)",
-                  borderWidth: 1.5,
-                  borderColor: isActive ? C.primaryContainer : "rgba(2,36,32,0.12)",
-                  shadowColor: C.primary,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: isActive ? 0.18 : 0.07,
-                  shadowRadius: 6,
-                  elevation: isActive ? 4 : 2,
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                {isActive && (
-                  <Ionicons name="checkmark" size={11} color="#ffffff" style={{ marginRight: 4 }} />
-                )}
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "700",
-                    color: isActive ? "#ffffff" : C.onSurface,
-                    letterSpacing: 0.1,
-                  }}
-                >
-                  {service}
-                </Text>
-              </Pressable>
-            );
-          })}
-
-          {/* "Azzera" chip — only when at least one filter is active */}
-          {hasActiveFilters && (
-            <Pressable
-              onPress={clearFilters}
-              accessibilityRole="button"
-              accessibilityLabel="Azzera filtri"
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 12,
-                paddingVertical: 7,
-                borderRadius: 9999,
-                backgroundColor: "rgba(220,38,38,0.10)",
-                borderWidth: 1.5,
-                borderColor: "rgba(220,38,38,0.30)",
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Ionicons name="close" size={12} color={Colors.error} style={{ marginRight: 4 }} />
+            {/* Title */}
+            <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
               <Text
                 style={{
-                  fontSize: 12,
-                  fontWeight: "700",
-                  color: Colors.error,
-                  letterSpacing: 0.1,
+                  fontSize: 22,
+                  fontWeight: "900",
+                  color: C.primary,
+                  letterSpacing: -0.4,
                 }}
               >
-                Azzera
+                Filtri
               </Text>
-            </Pressable>
-          )}
-        </ScrollView>
-      )}
+            </View>
+
+            {/* Section: Prezzo orario */}
+            <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "800",
+                  color: C.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                  textTransform: "uppercase",
+                  marginBottom: 12,
+                }}
+              >
+                Prezzo orario
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {PRICE_PRESETS.map((preset) => {
+                  const isActive =
+                    priceFilter?.min === preset.min && priceFilter?.max === preset.max;
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      onPress={() => handlePriceChipPress(preset)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
+                      style={({ pressed }) => ({
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 9999,
+                        backgroundColor: isActive ? C.secondary : C.surfaceContainerHigh,
+                        borderWidth: 1.5,
+                        borderColor: isActive ? C.secondary : C.outlineVariant,
+                        opacity: pressed ? 0.8 : 1,
+                      })}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: isActive ? "700" : "600",
+                          color: isActive ? "#ffffff" : C.onSurface,
+                        }}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Section: Servizi (only when available) */}
+            {availableServices.length > 0 && (
+              <View style={{ paddingHorizontal: 24, marginBottom: 32 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "800",
+                    color: C.onSurfaceVariant,
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    marginBottom: 12,
+                  }}
+                >
+                  Servizi
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {availableServices.slice(0, 8).map((service) => {
+                    const isActive = serviceFilters.includes(service);
+                    return (
+                      <Pressable
+                        key={service}
+                        onPress={() => handleServiceChipPress(service)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isActive }}
+                        style={({ pressed }) => ({
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 9999,
+                          backgroundColor: isActive ? C.secondary : C.surfaceContainerHigh,
+                          borderWidth: 1.5,
+                          borderColor: isActive ? C.secondary : C.outlineVariant,
+                          opacity: pressed ? 0.8 : 1,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        })}
+                      >
+                        {isActive && (
+                          <Ionicons name="checkmark" size={12} color="#ffffff" />
+                        )}
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: isActive ? "700" : "600",
+                            color: isActive ? "#ffffff" : C.onSurface,
+                          }}
+                        >
+                          {service}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Bottom action row */}
+            <View
+              style={{
+                paddingHorizontal: 24,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  clearFilters();
+                  setFilterSheetOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Azzera filtri"
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "700",
+                    color: Colors.error,
+                  }}
+                >
+                  Azzera
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setFilterSheetOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Applica filtri"
+                style={({ pressed }) => ({
+                  flex: 1,
+                  backgroundColor: C.secondary,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: "800",
+                    color: "#ffffff",
+                  }}
+                >
+                  Applica
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ── My location button ── */}
       <TouchableOpacity
@@ -1779,6 +1948,267 @@ export default function HomeScreen() {
         </Pressable>
       )}
 
+      {/* ── Mappa / Lista toggle pill ── */}
+      {/* Always visible above the tab bar, centered horizontally. */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          bottom: TAB_BAR_HEIGHT + 8,
+          left: 0,
+          right: 0,
+          zIndex: 16,
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: "rgba(255,255,255,0.92)",
+            borderRadius: 9999,
+            padding: 3,
+            shadowColor: C.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.10,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          {(["map", "list"] as const).map((mode) => {
+            const isActive = viewMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => setViewMode(mode)}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 9999,
+                  backgroundColor: isActive ? C.primary : "transparent",
+                }}
+              >
+                <Ionicons
+                  name={mode === "map" ? "map-outline" : "list-outline"}
+                  size={15}
+                  color={isActive ? "#ffffff" : C.onSurfaceVariant}
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: isActive ? "#ffffff" : C.onSurfaceVariant,
+                  }}
+                >
+                  {mode === "map" ? "Mappa" : "Lista"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* ── List view — visible when viewMode === "list" ── */}
+      {viewMode === "list" && !loading && (
+        <View
+          style={{
+            position: "absolute",
+            top: insets.top + (properties.length > 0 ? 164 : 96),
+            left: 0,
+            right: 0,
+            bottom: TAB_BAR_HEIGHT,
+            zIndex: 14,
+            backgroundColor: "rgba(246,250,249,0.97)",
+          }}
+        >
+          {filteredCleaners.length === 0 && !loadError && !hasActiveFilters ? (
+            // Empty state for list view
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 32,
+              }}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: C.surfaceContainerHigh,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <Ionicons name="search-outline" size={26} color={C.secondary} />
+              </View>
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "800",
+                  color: C.primary,
+                  textAlign: "center",
+                  marginBottom: 8,
+                  letterSpacing: -0.3,
+                }}
+              >
+                Nessun professionista in questa zona
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: C.onSurfaceVariant,
+                  textAlign: "center",
+                  lineHeight: 18,
+                  marginBottom: 20,
+                }}
+              >
+                Prova a cercare un'altra città o allarga la zona
+              </Text>
+              <TouchableOpacity
+                onPress={() => loadCleanersAtPoint(region.latitude, region.longitude)}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: C.primary,
+                  borderRadius: 12,
+                  paddingVertical: 11,
+                  paddingHorizontal: 24,
+                }}
+              >
+                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                  Cerca in questa zona
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredCleaners}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{
+                paddingTop: 8,
+                paddingBottom: 8,
+              }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const initials = item.full_name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
+                return (
+                  <TouchableOpacity
+                    onPress={() => handleCleanerPress(item.id)}
+                    activeOpacity={0.88}
+                    style={{
+                      backgroundColor: C.surfaceContainerLowest,
+                      borderRadius: 16,
+                      marginHorizontal: 16,
+                      marginBottom: 12,
+                      padding: 16,
+                      flexDirection: "row",
+                      gap: 12,
+                      shadowColor: C.primary,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 12,
+                      elevation: 4,
+                    }}
+                  >
+                    {/* Avatar */}
+                    {item.avatar_url ? (
+                      <ExpoImage
+                        source={{ uri: thumbUrl(item.avatar_url, 80) }}
+                        style={{ width: 72, height: 72, borderRadius: 10, flexShrink: 0 }}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 72,
+                          height: 72,
+                          borderRadius: 10,
+                          backgroundColor: C.surfaceContainerHigh,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: C.onSurfaceVariant,
+                            fontSize: 22,
+                            fontWeight: "800",
+                          }}
+                        >
+                          {initials}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Info column */}
+                    <View style={{ flex: 1, justifyContent: "space-between" }}>
+                      {/* Top: rating + name + bio */}
+                      <View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                          <Ionicons name="star" size={11} color={C.secondary} />
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: C.secondary }}>
+                            {(item.avg_rating ?? 0).toFixed(1)}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "700",
+                            color: C.primary,
+                            letterSpacing: -0.2,
+                            marginBottom: 2,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {item.full_name}
+                        </Text>
+                        <Text
+                          style={{ fontSize: 12, color: C.onSurfaceVariant }}
+                          numberOfLines={1}
+                        >
+                          {item.bio ?? (item.city ? `Professionista a ${item.city}` : "Pulizie professionali")}
+                        </Text>
+                      </View>
+
+                      {/* Bottom: rate + CTA */}
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "800", color: C.primary }}>
+                          {item.hourly_rate != null ? `€${item.hourly_rate}/ora` : "Su richiesta"}
+                        </Text>
+                        <View
+                          style={{
+                            backgroundColor: C.primary,
+                            borderRadius: 8,
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                          }}
+                        >
+                          <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "700" }}>
+                            Vedi profilo
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      )}
+
       {/* ── Ghost Views for tab bar measurement ──────────────────────────────
           These transparent Views are positioned exactly over the tab bar
           buttons (Prenotazioni = tab index 2, Profilo = tab index 3).
@@ -1827,11 +2257,12 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* ── Bottom carousel ── */}
+      {/* ── Bottom carousel — only in map mode ── */}
       {/* pointerEvents="box-none" lets the map receive drag/pan gestures in
           the empty space around the cards (e.g. to the right of the visible
           card). Without this the absolute full-width container swallows every
           touch in the bottom region even where it looks empty. */}
+      {viewMode === "map" && (
       <View
         pointerEvents="box-none"
         style={{
@@ -2212,13 +2643,16 @@ export default function HomeScreen() {
             renderItem={({ item, index }) => (
               <MapCleanerCard
                 cleaner={item}
+                index={index}
                 isSelected={selectedIndex === index}
-                onPress={() => handleCleanerPress(item.id)}
+                onMarkerPress={handleMarkerPress}
+                onCleanerPress={handleCleanerPress}
               />
             )}
           />
         )}
       </View>
+      )}
     </View>
   );
 }
