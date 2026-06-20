@@ -336,11 +336,12 @@ function formatDateIT(dateStr: string | null): string {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function NewBookingScreen() {
-  const { cleanerId, cleanerName, cleanerAvatar, hourlyRate } = useLocalSearchParams<{
-    cleanerId: string;
-    cleanerName: string;
+  const { cleanerId, cleanerName, cleanerAvatar, hourlyRate, preferredIds } = useLocalSearchParams<{
+    cleanerId?: string;
+    cleanerName?: string;
     cleanerAvatar?: string;
-    hourlyRate: string;
+    hourlyRate?: string;
+    preferredIds?: string; // comma-separated cleaner IDs from home list selection
   }>();
   const { user } = useAuth();
   const router = useRouter();
@@ -366,6 +367,14 @@ export default function NewBookingScreen() {
   const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [availableCountLoading, setAvailableCountLoading] = useState(false);
   const [preferredCleanerIds, setPreferredCleanerIds] = useState<string[]>([]);
+
+  // Hydrate preferredCleanerIds from the route param sent by home list selection
+  useEffect(() => {
+    if (preferredIds) {
+      const ids = preferredIds.split(",").filter(Boolean);
+      if (ids.length > 0) setPreferredCleanerIds(ids);
+    }
+  }, [preferredIds]);
 
   // Saved properties ("Le mie case") — lets the client pick a pre-filled
   // address/rooms/notes instead of retyping everything. `propertyId` is

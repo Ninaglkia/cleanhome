@@ -15,6 +15,7 @@ import {
   Switch,
   Linking,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +34,14 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
+import {
+  PColor,
+  PBorder,
+  PShadow,
+  PRadius,
+  PSpace,
+  PType,
+} from "../../lib/design/pulitori";
 import {
   fetchClientProperties,
   searchCleaners,
@@ -456,6 +465,187 @@ function PropertyMarker({ isDefault }: { isDefault: boolean }) {
   );
 }
 
+// ─── List Cleaner Card (selection mode) ──────────────────────────────────────
+
+interface ListCleanerCardProps {
+  cleaner: CleanerProfile;
+  isSelected: boolean;
+  selectionMode: boolean;
+  onPress: (id: string) => void;
+}
+
+const ITEM_HEIGHT_LIST = 96;
+
+const ListCleanerCard = React.memo(function ListCleanerCard({
+  cleaner,
+  isSelected,
+  selectionMode,
+  onPress,
+}: ListCleanerCardProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const initials = cleaner.full_name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.97, { damping: 15 });
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15 });
+  }, [scale]);
+
+  const handlePress = useCallback(() => {
+    onPress(cleaner.id);
+  }, [cleaner.id, onPress]);
+
+  return (
+    <Animated.View
+      style={[
+        listCardStyles.card,
+        isSelected && listCardStyles.cardSelected,
+        animatedStyle,
+      ]}
+    >
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        accessibilityRole="button"
+        style={listCardStyles.inner}
+      >
+        {/* Avatar */}
+        {cleaner.avatar_url ? (
+          <ExpoImage
+            source={{ uri: thumbUrl(cleaner.avatar_url, 80) }}
+            style={listCardStyles.avatar}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        ) : (
+          <View style={[listCardStyles.avatar, listCardStyles.avatarFallback]}>
+            <Text style={listCardStyles.avatarInitials}>{initials}</Text>
+          </View>
+        )}
+
+        {/* Info */}
+        <View style={{ flex: 1 }}>
+          <Text style={listCardStyles.name} numberOfLines={1}>
+            {cleaner.full_name}
+          </Text>
+          <View style={listCardStyles.starsRow}>
+            <Ionicons name="star" size={12} color="#F5A623" />
+            <Text style={listCardStyles.rating}>
+              {(cleaner.avg_rating ?? 0).toFixed(1)}
+            </Text>
+          </View>
+          <Text style={listCardStyles.rate}>
+            {cleaner.hourly_rate != null ? `€${cleaner.hourly_rate}/ora` : "Su richiesta"}
+          </Text>
+        </View>
+
+        {/* Checkbox (visible only in selection mode) */}
+        {selectionMode && (
+          <View
+            style={[
+              listCardStyles.checkbox,
+              isSelected && listCardStyles.checkboxSelected,
+            ]}
+          >
+            {isSelected && (
+              <Ionicons name="checkmark" size={14} color={PColor.white} />
+            )}
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+});
+
+const listCardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: PColor.white,
+    borderRadius: PRadius.card,
+    marginHorizontal: PSpace.screen,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: PBorder.card,
+    ...PShadow.card,
+  },
+  cardSelected: {
+    backgroundColor: PColor.cardSelected,
+    borderColor: PColor.accent,
+  },
+  inner: {
+    flexDirection: "row",
+    padding: 16,
+    gap: 12,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  avatarFallback: {
+    backgroundColor: PColor.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: PColor.white,
+  },
+  name: {
+    ...PType.cardTitle,
+    color: PColor.ink,
+    marginBottom: 2,
+  },
+  starsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 2,
+  },
+  rating: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: PColor.body,
+  },
+  rate: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: PColor.accent,
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: PBorder.subtle,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  checkboxSelected: {
+    backgroundColor: PColor.accent,
+    borderColor: PColor.accent,
+  },
+});
+
 // ─── Filter chip presets — defined outside component to avoid re-allocation ───
 
 const PRICE_PRESETS: ReadonlyArray<{ label: string; min: number; max: number }> = [
@@ -567,6 +757,10 @@ export default function HomeScreen() {
   const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+
+  // ── List selection mode ────────────────────────────────────────────────────
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>([]);
 
   const loadProperties = useCallback(async () => {
     if (!user?.id) return;
@@ -2024,6 +2218,55 @@ export default function HomeScreen() {
             backgroundColor: "rgba(246,250,249,0.97)",
           }}
         >
+          {/* Selection mode toggle bar */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: PSpace.screen,
+              paddingVertical: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: C.onSurfaceVariant,
+              }}
+            >
+              {filteredCleaners.length} professionisti
+            </Text>
+            <Pressable
+              onPress={() => {
+                if (selectionMode) {
+                  setSelectionMode(false);
+                  setSelectedCleanerIds([]);
+                } else {
+                  setSelectionMode(true);
+                }
+              }}
+              accessibilityRole="button"
+              style={({ pressed }) => ({
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 12,
+                backgroundColor: selectionMode ? PColor.error : PColor.accent,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: PColor.white,
+                }}
+              >
+                {selectionMode ? "Annulla" : "Seleziona"}
+              </Text>
+            </Pressable>
+          </View>
+
           {filteredCleaners.length === 0 && !loadError && !hasActiveFilters ? (
             // Empty state for list view
             <View
@@ -2089,122 +2332,115 @@ export default function HomeScreen() {
             <FlatList
               data={filteredCleaners}
               keyExtractor={(item) => item.id}
+              getItemLayout={(_, index) => ({
+                length: ITEM_HEIGHT_LIST + 12,
+                offset: (ITEM_HEIGHT_LIST + 12) * index,
+                index,
+              })}
               contentContainerStyle={{
                 paddingTop: 8,
-                paddingBottom: 8,
+                paddingBottom: selectionMode ? 80 : 8,
               }}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
-                const initials = item.full_name
-                  .split(" ")
-                  .map((n: string) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
-                return (
-                  <TouchableOpacity
-                    onPress={() => handleCleanerPress(item.id)}
-                    activeOpacity={0.88}
+              removeClippedSubviews
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              ListHeaderComponent={
+                <View
+                  style={{
+                    backgroundColor: PColor.mintPale,
+                    borderRadius: PRadius.chip,
+                    marginHorizontal: PSpace.screen,
+                    marginBottom: 12,
+                    padding: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <Ionicons name="flash-outline" size={16} color={PColor.accent} />
+                  <Text
                     style={{
-                      backgroundColor: C.surfaceContainerLowest,
-                      borderRadius: 16,
-                      marginHorizontal: 16,
-                      marginBottom: 12,
-                      padding: 16,
-                      flexDirection: "row",
-                      gap: 12,
-                      shadowColor: C.primary,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 12,
-                      elevation: 4,
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color: PColor.body,
+                      flex: 1,
+                      lineHeight: 17,
                     }}
                   >
-                    {/* Avatar */}
-                    {item.avatar_url ? (
-                      <ExpoImage
-                        source={{ uri: thumbUrl(item.avatar_url, 80) }}
-                        style={{ width: 72, height: 72, borderRadius: 10, flexShrink: 0 }}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: 10,
-                          backgroundColor: C.surfaceContainerHigh,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: C.onSurfaceVariant,
-                            fontSize: 22,
-                            fontWeight: "800",
-                          }}
-                        >
-                          {initials}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Info column */}
-                    <View style={{ flex: 1, justifyContent: "space-between" }}>
-                      {/* Top: rating + name + bio */}
-                      <View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                          <Ionicons name="star" size={11} color={C.secondary} />
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: C.secondary }}>
-                            {(item.avg_rating ?? 0).toFixed(1)}
-                          </Text>
-                        </View>
-                        <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: "700",
-                            color: C.primary,
-                            letterSpacing: -0.2,
-                            marginBottom: 2,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {item.full_name}
-                        </Text>
-                        <Text
-                          style={{ fontSize: 12, color: C.onSurfaceVariant }}
-                          numberOfLines={1}
-                        >
-                          {item.bio ?? (item.city ? `Professionista a ${item.city}` : "Pulizie professionali")}
-                        </Text>
-                      </View>
-
-                      {/* Bottom: rate + CTA */}
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "800", color: C.primary }}>
-                          {item.hourly_rate != null ? `€${item.hourly_rate}/ora` : "Su richiesta"}
-                        </Text>
-                        <View
-                          style={{
-                            backgroundColor: C.primary,
-                            borderRadius: 8,
-                            paddingHorizontal: 14,
-                            paddingVertical: 8,
-                          }}
-                        >
-                          <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "700" }}>
-                            Vedi profilo
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
+                    Invia ai tuoi preferiti — il primo che accetta prende il lavoro
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => (
+                <ListCleanerCard
+                  cleaner={item}
+                  isSelected={selectedCleanerIds.includes(item.id)}
+                  selectionMode={selectionMode}
+                  onPress={(id) => {
+                    if (!selectionMode) {
+                      handleCleanerPress(id);
+                    } else {
+                      setSelectedCleanerIds((prev) =>
+                        prev.includes(id)
+                          ? prev.filter((x) => x !== id)
+                          : [...prev, id]
+                      );
+                    }
+                  }}
+                />
+              )}
             />
+          )}
+
+          {/* Bottom send bar — visible only in selection mode */}
+          {selectionMode && (
+            <View
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: PColor.white,
+                padding: 16,
+                paddingBottom: 16 + insets.bottom,
+                borderTopWidth: 1,
+                borderTopColor: PBorder.card,
+                ...PShadow.floating,
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  if (selectedCleanerIds.length === 0) return;
+                  router.push({
+                    pathname: "/booking/new",
+                    params: { preferredIds: selectedCleanerIds.join(",") },
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Invia richiesta a ${selectedCleanerIds.length} pulitori`}
+                style={{
+                  width: "100%",
+                  height: 52,
+                  borderRadius: PRadius.pill,
+                  backgroundColor:
+                    selectedCleanerIds.length > 0 ? PColor.ink : PColor.muted,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: selectedCleanerIds.length > 0 ? 1 : 0.5,
+                }}
+              >
+                <Text
+                  style={{
+                    color: PColor.mint,
+                    fontSize: 15,
+                    fontWeight: "700",
+                  }}
+                >
+                  Invia richiesta a {selectedCleanerIds.length} pulitori
+                </Text>
+              </Pressable>
+            </View>
           )}
         </View>
       )}

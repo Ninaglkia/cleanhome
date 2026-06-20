@@ -7,6 +7,7 @@ import {
   Platform,
   StatusBar,
   Pressable,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -21,13 +22,13 @@ import Animated, {
   interpolate,
   cancelAnimation,
 } from "react-native-reanimated";
-import { Colors, Spacing, Radius, Shadows } from "../../../lib/theme";
 import {
   fetchBookingWithOffers,
   subscribeToBooking,
   subscribeToBookingOffers,
+  updateBookingStatus,
 } from "../../../lib/api";
-import { useCountdown } from "../../../lib/hooks/useCountdown";
+import { PColor, PBorder, PShadow, PSpace, PType, PRadius } from "../../../lib/design/pulitori";
 import type { Booking, BookingOffer, BookingOfferStatus } from "../../../lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -44,7 +45,7 @@ function RadarAnimation() {
   const pulse = useSharedValue(1);
 
   useEffect(() => {
-    const duration = 2200;
+    const duration = 2500;
     ring1.value = withRepeat(
       withTiming(1, { duration, easing: Easing.out(Easing.ease) }),
       -1,
@@ -52,16 +53,16 @@ function RadarAnimation() {
     );
     ring2.value = withRepeat(
       withSequence(
-        withTiming(0, { duration: duration * 0.33 }),
-        withTiming(1, { duration: duration * 0.67, easing: Easing.out(Easing.ease) })
+        withTiming(0, { duration: Math.floor(duration / 3) }),
+        withTiming(1, { duration: Math.ceil(duration * 2 / 3), easing: Easing.out(Easing.ease) })
       ),
       -1,
       false
     );
     ring3.value = withRepeat(
       withSequence(
-        withTiming(0, { duration: duration * 0.66 }),
-        withTiming(1, { duration: duration * 0.34, easing: Easing.out(Easing.ease) })
+        withTiming(0, { duration: Math.floor(duration * 2 / 3) }),
+        withTiming(1, { duration: Math.ceil(duration / 3), easing: Easing.out(Easing.ease) })
       ),
       -1,
       false
@@ -83,17 +84,18 @@ function RadarAnimation() {
     };
   }, [ring1, ring2, ring3, pulse]);
 
+  // scale 0.7→2.1, opacity 0.55→0
   const ring1Style = useAnimatedStyle(() => ({
-    opacity: interpolate(ring1.value, [0, 0.7, 1], [0.6, 0.3, 0]),
-    transform: [{ scale: interpolate(ring1.value, [0, 1], [1, 2.4]) }],
+    opacity: interpolate(ring1.value, [0, 0.7, 1], [0.55, 0.2, 0]),
+    transform: [{ scale: interpolate(ring1.value, [0, 1], [0.7, 2.1]) }],
   }));
   const ring2Style = useAnimatedStyle(() => ({
-    opacity: interpolate(ring2.value, [0, 0.7, 1], [0.5, 0.2, 0]),
-    transform: [{ scale: interpolate(ring2.value, [0, 1], [1, 2.4]) }],
+    opacity: interpolate(ring2.value, [0, 0.7, 1], [0.55, 0.2, 0]),
+    transform: [{ scale: interpolate(ring2.value, [0, 1], [0.7, 2.1]) }],
   }));
   const ring3Style = useAnimatedStyle(() => ({
-    opacity: interpolate(ring3.value, [0, 0.7, 1], [0.4, 0.15, 0]),
-    transform: [{ scale: interpolate(ring3.value, [0, 1], [1, 2.4]) }],
+    opacity: interpolate(ring3.value, [0, 0.7, 1], [0.55, 0.2, 0]),
+    transform: [{ scale: interpolate(ring3.value, [0, 1], [0.7, 2.1]) }],
   }));
   const coreStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
@@ -105,7 +107,7 @@ function RadarAnimation() {
       <Animated.View style={[radar.ring, ring2Style]} />
       <Animated.View style={[radar.ring, ring3Style]} />
       <Animated.View style={[radar.core, coreStyle]}>
-        <Ionicons name="search" size={32} color={Colors.textOnDark} />
+        <Ionicons name="paper-plane-outline" size={28} color={PColor.mint} />
       </Animated.View>
     </View>
   );
@@ -125,27 +127,27 @@ const radar = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: Colors.secondary,
+    borderColor: PColor.accent,
   },
   core: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: PColor.ink,
     alignItems: "center",
     justifyContent: "center",
-    ...Shadows.md,
+    ...PShadow.card,
   },
 });
 
 // ─── Offer status dot ─────────────────────────────────────────────────────────
 
 const STATUS_DOT_COLOR: Record<BookingOfferStatus, string> = {
-  pending: Colors.textTertiary,
-  accepted: Colors.success,
-  declined: Colors.error,
-  expired: Colors.textTertiary,
-  cancelled: Colors.textTertiary,
+  pending: PColor.muted,
+  accepted: PColor.success,
+  declined: PColor.error,
+  expired: PColor.error,
+  cancelled: PColor.muted,
 };
 
 interface OfferRowProps {
@@ -155,6 +157,30 @@ interface OfferRowProps {
 function OfferRow({ offer }: OfferRowProps) {
   const dotColor = STATUS_DOT_COLOR[offer.status];
   const initials = (offer.cleaner_name ?? "?").slice(0, 2).toUpperCase();
+  const isPending = offer.status === "pending";
+
+  // Blinking dot for pending offers
+  const dotOpacity = useSharedValue(1);
+  useEffect(() => {
+    if (isPending) {
+      dotOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(dotOpacity);
+      dotOpacity.value = 1;
+    }
+    return () => cancelAnimation(dotOpacity);
+  }, [isPending, dotOpacity]);
+
+  const animatedDotStyle = useAnimatedStyle(() => ({
+    opacity: dotOpacity.value,
+  }));
 
   const statusLabel: Record<BookingOfferStatus, string> = {
     pending: "In attesa",
@@ -177,7 +203,7 @@ function OfferRow({ offer }: OfferRowProps) {
           {statusLabel[offer.status]}
         </Text>
       </View>
-      <View style={[offerStyles.dot, { backgroundColor: dotColor }]} />
+      <Animated.View style={[offerStyles.dot, { backgroundColor: dotColor }, animatedDotStyle]} />
     </View>
   );
 }
@@ -186,28 +212,27 @@ const offerStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    paddingVertical: 10,
+    gap: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: PBorder.card,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: PColor.mintPale,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.accent,
+    color: PColor.accent,
   },
   name: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
+    ...PType.cleanerName,
+    color: PColor.ink,
     marginBottom: 2,
   },
   statusText: {
@@ -236,9 +261,26 @@ export default function WaitingScreen() {
   const offersChannelRef = useRef<RealtimeChannel | null>(null);
   const isMountedRef = useRef(true);
 
-  // Deadline = created_at + 24h (backend sets cleaner_deadline)
-  const deadline = booking?.cleaner_deadline ?? null;
-  const countdown = useCountdown(deadline);
+  // Elapsed timer instead of countdown
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!booking?.created_at) return;
+    const start = new Date(booking.created_at).getTime();
+    const update = () => setElapsedSec(Math.floor((Date.now() - start) / 1000));
+    update();
+    const t = setInterval(update, 1000);
+    return () => clearInterval(t);
+  }, [booking?.created_at]);
+
+  const elapsedLabel =
+    elapsedSec < 60 ? "Pochi secondi" : `${Math.floor(elapsedSec / 60)}m in attesa`;
+
+  // Expired check: no winner after 24h
+  const isExpiredWithNoWinner =
+    !isLoading &&
+    booking !== null &&
+    elapsedSec >= MAX_WAIT_HOURS * 3600 &&
+    booking.status !== "accepted";
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -267,16 +309,15 @@ export default function WaitingScreen() {
     load();
   }, [load]);
 
-  // Subscribe to booking status changes (backend accepts → navigate)
+  // Subscribe to booking status changes
   useEffect(() => {
     if (!id) return;
 
     bookingChannelRef.current = subscribeToBooking(id, (updatedBooking) => {
       setBooking(updatedBooking);
-      // Guard against navigating after unmount — a realtime event can arrive
-      // during/after channel teardown when the user has already left.
+      // Navigate to match screen (celebration) when a cleaner accepts
       if (updatedBooking.status === "accepted" && isMountedRef.current) {
-        router.replace(`/booking/${id}/tracking` as never);
+        router.replace(`/booking/${id}/match` as never);
       }
     });
 
@@ -296,37 +337,50 @@ export default function WaitingScreen() {
     };
   }, [id, router]);
 
-  // Show error state if load failed
+  const handleCancel = useCallback(() => {
+    if (!id) return;
+    Alert.alert(
+      "Annulla richiesta",
+      "Sei sicuro di voler annullare? L'operazione è irreversibile.",
+      [
+        { text: "No, continua", style: "cancel" },
+        {
+          text: "Sì, annulla",
+          style: "destructive",
+          onPress: () => {
+            updateBookingStatus(id, "cancelled")
+              .then(() => router.replace("/(tabs)/bookings" as never))
+              .catch(() => Alert.alert("Errore", "Impossibile annullare. Riprova."));
+          },
+        },
+      ]
+    );
+  }, [id, router]);
+
+  // ─── Error state ──────────────────────────────────────────────────────────
+
   if (!isLoading && loadError) {
     return (
       <SafeAreaView style={s.root} edges={["top"]}>
         <StatusBar barStyle="dark-content" />
         <View style={s.expiredContainer}>
-          <Ionicons name="wifi-outline" size={64} color={Colors.textTertiary} />
+          <Ionicons name="wifi-outline" size={64} color={PColor.muted} />
           <Text style={s.expiredTitle}>Errore di rete</Text>
           <Text style={s.expiredSub}>{loadError}</Text>
-          <View style={s.retryBtn}>
-            <Pressable
-              onPress={load}
-              accessibilityRole="button"
-              accessibilityLabel="Riprova caricamento"
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => ({
-                paddingVertical: 16,
-                paddingHorizontal: 36,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Text style={s.retryBtnText}>Riprova</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={load}
+            accessibilityRole="button"
+            accessibilityLabel="Riprova caricamento"
+            style={s.retryBtn}
+          >
+            <Text style={s.retryBtnText}>Riprova</Text>
+          </Pressable>
           <Pressable
             onPress={() => router.replace("/(tabs)/bookings" as never)}
             accessibilityRole="button"
-            accessibilityLabel="Vai alle prenotazioni"
-            style={{ marginTop: Spacing.md }}
+            style={{ marginTop: 12 }}
           >
-            <Text style={{ color: Colors.secondary, fontSize: 14, fontWeight: "600" }}>
+            <Text style={{ color: PColor.accent, fontSize: 14, fontWeight: "600" }}>
               Vai alle prenotazioni
             </Text>
           </Pressable>
@@ -335,52 +389,38 @@ export default function WaitingScreen() {
     );
   }
 
-  // Guard: don't show expired state while booking is still loading or null —
-  // countdown.isExpired starts false and booking?.status is undefined initially,
-  // which would briefly show the "nessun cleaner" screen before data arrives.
-  const isExpiredWithNoWinner =
-    !isLoading && booking !== null && countdown.isExpired && booking.status !== "accepted";
+  // ─── Expired state ────────────────────────────────────────────────────────
 
   if (isExpiredWithNoWinner) {
     return (
       <SafeAreaView style={s.root} edges={["top"]}>
         <StatusBar barStyle="dark-content" />
         <View style={s.expiredContainer}>
-          <Ionicons name="sad-outline" size={64} color={Colors.textTertiary} />
+          <Ionicons name="moon-outline" size={64} color={PColor.muted} />
           <Text style={s.expiredTitle}>Nessun cleaner disponibile</Text>
           <Text style={s.expiredSub}>
-            Nessun professionista ha accettato entro le 24 ore. Prova a selezionare
+            Nessun professionista ha accettato entro le {MAX_WAIT_HOURS} ore. Prova a selezionare
             un orario diverso o ad ampliare la zona di ricerca.
           </Text>
-          <View style={s.retryBtn}>
-            <Pressable
-              onPress={() => router.replace("/booking/new" as never)}
-              accessibilityRole="button"
-              accessibilityLabel="Riprova prenotazione"
-              android_ripple={{ color: "rgba(255,255,255,0.18)" }}
-              style={({ pressed }) => ({
-                paddingVertical: 16,
-                paddingHorizontal: 36,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Text style={s.retryBtnText}>Riprova</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => router.replace("/booking/new" as never)}
+            accessibilityRole="button"
+            style={s.retryBtn}
+          >
+            <Text style={s.retryBtnText}>Riprova</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ─── Main content ─────────────────────────────────────────────────────────
+
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Escape hatch — the wait window can be up to 24h. Without a back
-          button the user is trapped on this screen until a cleaner
-          accepts or the request expires. Tapping the chevron routes to
-          the bookings tab so they can keep using the app; the request
-          stays open in the background. */}
+      {/* Top bar */}
       <View style={s.topBar}>
         <Pressable
           onPress={() => router.replace("/(tabs)/bookings" as never)}
@@ -389,9 +429,9 @@ export default function WaitingScreen() {
           accessibilityLabel="Torna alle prenotazioni"
           style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color={PColor.ink} />
         </Pressable>
-        <Text style={s.topBarTitle}>Richiesta in corso</Text>
+        <Text style={s.topBarTitle}>Ricerca in corso</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -401,7 +441,7 @@ export default function WaitingScreen() {
       >
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.headerTitle}>In attesa di un cleaner...</Text>
+          <Text style={s.headerTitle}>Stiamo cercando il tuo pulitore...</Text>
           <Text style={s.headerSub}>
             Abbiamo inviato la richiesta ai professionisti disponibili nella tua zona.
           </Text>
@@ -412,13 +452,11 @@ export default function WaitingScreen() {
           <RadarAnimation />
         </View>
 
-        {/* Countdown */}
-        <View style={s.countdownCard}>
-          <Text style={s.countdownLabel}>Tempo rimanente</Text>
-          <Text style={s.countdownValue}>{countdown.formatted}</Text>
-          <Text style={s.countdownSub}>
-            Un professionista ha {MAX_WAIT_HOURS} ore per accettare la tua richiesta
-          </Text>
+        {/* Elapsed timer card */}
+        <View style={s.elapsedCard}>
+          <Text style={s.elapsedOverline}>TEMPO ATTESA</Text>
+          <Text style={s.elapsedValue}>{elapsedLabel}</Text>
+          <Text style={s.elapsedSub}>Max {MAX_WAIT_HOURS} ore · notificheremo subito il match</Text>
         </View>
 
         {/* Offer list */}
@@ -439,6 +477,18 @@ export default function WaitingScreen() {
           </View>
         )}
 
+        {/* Cancel button */}
+        <View style={s.cancelWrap}>
+          <Pressable
+            onPress={handleCancel}
+            accessibilityRole="button"
+            accessibilityLabel="Annulla richiesta"
+            style={({ pressed }) => [s.cancelBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={s.cancelBtnText}>Annulla richiesta</Text>
+          </Pressable>
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -450,138 +500,156 @@ export default function WaitingScreen() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: PColor.canvas,
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.background,
+    paddingHorizontal: PSpace.screen,
+    paddingVertical: 10,
+    backgroundColor: PColor.canvas,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
+    backgroundColor: PColor.mintPale,
     alignItems: "center",
     justifyContent: "center",
   },
   topBarTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.text,
-    letterSpacing: -0.15,
+    ...PType.cardTitle,
+    color: PColor.ink,
   },
+
   scroll: {
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.xl,
+    paddingHorizontal: PSpace.screen,
+    paddingTop: 24,
   },
 
   header: {
     alignItems: "center",
-    marginBottom: Spacing.xl,
+    marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.text,
-    letterSpacing: -0.4,
+    ...PType.screenTitle,
+    color: PColor.ink,
     textAlign: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: 10,
   },
   headerSub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    ...PType.body,
+    color: PColor.muted,
     textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: Spacing.xl,
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
 
   radarWrap: {
     alignItems: "center",
-    marginBottom: Spacing.xl,
-    paddingVertical: Spacing.base,
+    marginBottom: 28,
+    paddingVertical: 12,
   },
 
-  countdownCard: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
+  // Elapsed timer card
+  elapsedCard: {
+    backgroundColor: PColor.white,
+    borderRadius: PRadius.card,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: PBorder.card,
     alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-    ...Shadows.md,
+    marginBottom: 24,
+    ...PShadow.card,
   },
-  countdownLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.textOnDarkTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  elapsedOverline: {
+    ...PType.overline,
+    color: PColor.muted,
+    marginBottom: 8,
   },
-  countdownValue: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: Colors.textOnDarkSecondary,
-    letterSpacing: -1,
+  elapsedValue: {
+    ...PType.timerMono,
+    color: PColor.ink,
     fontVariant: ["tabular-nums"],
+    marginBottom: 8,
   },
-  countdownSub: {
-    fontSize: 12,
-    color: Colors.textOnDarkTertiary,
+  elapsedSub: {
+    fontSize: 11,
+    color: PColor.muted,
     textAlign: "center",
-    lineHeight: 17,
+    lineHeight: 16,
   },
 
   offersSection: {
-    gap: Spacing.md,
+    gap: 10,
+    marginBottom: 24,
   },
   offersTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.textSecondary,
+    ...PType.overline,
+    color: PColor.muted,
     textTransform: "uppercase",
-    letterSpacing: 1,
   },
   offersCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.base,
-    ...Shadows.sm,
+    backgroundColor: PColor.white,
+    borderRadius: PRadius.card,
+    paddingHorizontal: PSpace.screen,
+    borderWidth: 1,
+    borderColor: PBorder.card,
+    ...PShadow.card,
   },
 
-  // Expired state
+  // Cancel button
+  cancelWrap: {
+    marginTop: 32,
+    marginBottom: 16,
+  },
+  cancelBtn: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: PRadius.pill,
+    borderWidth: 1.5,
+    borderColor: PColor.error,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: PColor.error,
+    textAlign: "center",
+  },
+
+  // Expired / error states
   expiredContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    gap: Spacing.base,
+    gap: 16,
   },
   expiredTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.text,
+    ...PType.screenTitle,
+    color: PColor.ink,
     textAlign: "center",
-    letterSpacing: -0.4,
   },
   expiredSub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    ...PType.body,
+    color: PColor.muted,
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 22,
   },
   retryBtn: {
-    marginTop: Spacing.md,
-    backgroundColor: Colors.secondary,
-    borderRadius: Radius.lg,
-    overflow: "hidden",
-    ...Shadows.md,
+    marginTop: 8,
+    backgroundColor: PColor.ink,
+    borderRadius: PRadius.card,
+    paddingVertical: 16,
+    paddingHorizontal: 36,
+    alignItems: "center",
   },
   retryBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.textOnDark,
+    color: PColor.mint,
   },
 });
