@@ -16,6 +16,7 @@ import {
   Linking,
   ActivityIndicator,
   StyleSheet,
+  PanResponder,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -92,6 +93,175 @@ const C = {
   onSurfaceVariant: "#414846",
   outlineVariant: "#c1c8c5",
 } as const;
+
+// ─── Filter design tokens (Pulitori handoff) ─────────────────────────────────
+const F = {
+  dark: "#14342b", // selected fill / footer button
+  accent: "#3ddc97", // footer label
+  muted: "#7c8b84", // secondary text
+  chipBorder: "#dfe4e1",
+  chipText: "#5f6d67",
+  star: "#f5a623",
+} as const;
+
+const SLIDER_MIN = 10;
+const SLIDER_MAX = 60; // displayed as "60+"
+const SLIDER_STEP = 5;
+const SPECIALIZZAZIONI = [
+  "Casa",
+  "Eco",
+  "Uffici",
+  "Vetri",
+  "Stiro",
+  "Sanificazione",
+  "Traslochi",
+] as const;
+const DISTANCE_OPTIONS = [1, 3, 5, 10] as const;
+const RATING_OPTIONS: ReadonlyArray<{ label: string; value: number | null }> = [
+  { label: "Tutte", value: null },
+  { label: "4.0", value: 4.0 },
+  { label: "4.5", value: 4.5 },
+  { label: "4.8", value: 4.8 },
+];
+
+// ─── Dual-thumb Range Slider ─────────────────────────────────────────────────
+
+interface RangeSliderProps {
+  low: number;
+  high: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (low: number, high: number) => void;
+}
+
+const RangeSlider = React.memo(function RangeSlider({
+  low,
+  high,
+  min,
+  max,
+  step,
+  onChange,
+}: RangeSliderProps) {
+  const THUMB = 26;
+  const [w, setW] = useState(0);
+  const span = max - min;
+
+  // Live refs so the once-created PanResponders never read stale values.
+  const lowRef = useRef(low);
+  const highRef = useRef(high);
+  const usableRef = useRef(1);
+  const onChangeRef = useRef(onChange);
+  const startRef = useRef(0);
+  lowRef.current = low;
+  highRef.current = high;
+  onChangeRef.current = onChange;
+  usableRef.current = Math.max(w - THUMB, 1);
+
+  const valFromX = (x: number) => {
+    const u = usableRef.current;
+    const c = Math.max(0, Math.min(u, x));
+    const raw = min + (c / u) * span;
+    return Math.min(max, Math.max(min, Math.round(raw / step) * step));
+  };
+  const xFromVal = (v: number) => ((v - min) / span) * usableRef.current;
+
+  const lowResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startRef.current = xFromVal(lowRef.current);
+      },
+      onPanResponderMove: (_e, g) => {
+        let v = valFromX(startRef.current + g.dx);
+        if (v > highRef.current - step) v = highRef.current - step;
+        if (v < min) v = min;
+        if (v !== lowRef.current) onChangeRef.current(v, highRef.current);
+      },
+    })
+  ).current;
+
+  const highResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startRef.current = xFromVal(highRef.current);
+      },
+      onPanResponderMove: (_e, g) => {
+        let v = valFromX(startRef.current + g.dx);
+        if (v < lowRef.current + step) v = lowRef.current + step;
+        if (v > max) v = max;
+        if (v !== highRef.current) onChangeRef.current(lowRef.current, v);
+      },
+    })
+  ).current;
+
+  const lowX = xFromVal(low);
+  const highX = xFromVal(high);
+
+  return (
+    <View
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      style={{ height: THUMB + 8, justifyContent: "center" }}
+    >
+      {/* track background */}
+      <View style={{ height: 5, borderRadius: 3, backgroundColor: "#e3e8e5" }} />
+      {/* active segment */}
+      <View
+        style={{
+          position: "absolute",
+          left: lowX + THUMB / 2,
+          width: Math.max(highX - lowX, 0),
+          height: 5,
+          borderRadius: 3,
+          backgroundColor: F.dark,
+        }}
+      />
+      {/* low thumb */}
+      <View
+        {...lowResponder.panHandlers}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={{
+          position: "absolute",
+          left: lowX,
+          width: THUMB,
+          height: THUMB,
+          borderRadius: THUMB / 2,
+          backgroundColor: "#ffffff",
+          borderWidth: 3,
+          borderColor: F.dark,
+          shadowColor: "#000",
+          shadowOpacity: 0.12,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+      {/* high thumb */}
+      <View
+        {...highResponder.panHandlers}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={{
+          position: "absolute",
+          left: highX,
+          width: THUMB,
+          height: THUMB,
+          borderRadius: THUMB / 2,
+          backgroundColor: "#ffffff",
+          borderWidth: 3,
+          borderColor: F.dark,
+          shadowColor: "#000",
+          shadowOpacity: 0.12,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+    </View>
+  );
+});
 
 // ─── Price Marker ────────────────────────────────────────────────────────────
 
@@ -674,6 +844,9 @@ export default function HomeScreen() {
   // filter here. `null` price range / empty services = no filter active.
   const [priceFilter, setPriceFilter] = useState<{ min: number; max: number } | null>(null);
   const [serviceFilters, setServiceFilters] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([SLIDER_MIN, SLIDER_MAX]);
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [maxDistance, setMaxDistance] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -1102,16 +1275,30 @@ export default function HomeScreen() {
   // The geo query already constrains by zone; here we additionally filter the
   // returned listings by the selected price range and services WITHOUT touching
   // the Supabase RPC. An empty filter set is a no-op (returns all results).
-  const hasActiveFilters = priceFilter != null || serviceFilters.length > 0;
+  const activeFilterCount =
+    (priceFilter != null ? 1 : 0) +
+    serviceFilters.length +
+    (minRating != null ? 1 : 0) +
+    (maxDistance != null ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   const filteredCleaners = useMemo(
-    () => filterCleaners(cleaners, { priceFilter, serviceFilters }),
-    [cleaners, priceFilter, serviceFilters]
+    () =>
+      filterCleaners(cleaners, {
+        priceFilter,
+        serviceFilters,
+        minRating,
+        maxDistance,
+      }),
+    [cleaners, priceFilter, serviceFilters, minRating, maxDistance]
   );
 
   const clearFilters = useCallback(() => {
     setPriceFilter(null);
     setServiceFilters([]);
+    setPriceRange([SLIDER_MIN, SLIDER_MAX]);
+    setMinRating(null);
+    setMaxDistance(null);
     setSelectedIndex(0);
   }, []);
 
@@ -1147,6 +1334,26 @@ export default function HomeScreen() {
     setServiceFilters((prev) =>
       prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
     );
+    setSelectedIndex(0);
+  }, []);
+
+  // Range slider → priceFilter. Full span [10,60] means "no price filter".
+  const handlePriceRangeChange = useCallback((lo: number, hi: number) => {
+    setPriceRange([lo, hi]);
+    const isFull = lo <= SLIDER_MIN && hi >= SLIDER_MAX;
+    setPriceFilter(
+      isFull ? null : { min: lo, max: hi >= SLIDER_MAX ? 9999 : hi }
+    );
+    setSelectedIndex(0);
+  }, []);
+
+  const handleRatingPress = useCallback((value: number | null) => {
+    setMinRating(value);
+    setSelectedIndex(0);
+  }, []);
+
+  const handleDistancePress = useCallback((km: number) => {
+    setMaxDistance((prev) => (prev === km ? null : km));
     setSelectedIndex(0);
   }, []);
 
@@ -1838,7 +2045,7 @@ export default function HomeScreen() {
                 lineHeight: 12,
               }}
             >
-              {(priceFilter != null ? 1 : 0) + serviceFilters.length}
+              {activeFilterCount}
             </Text>
           </View>
         )}
@@ -1866,8 +2073,8 @@ export default function HomeScreen() {
               backgroundColor: "#ffffff",
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,
-              paddingTop: 12,
-              paddingBottom: 32 + insets.bottom,
+              paddingTop: 10,
+              maxHeight: "90%",
             }}
           >
             {/* Drag handle */}
@@ -1878,178 +2085,287 @@ export default function HomeScreen() {
                 height: 4,
                 borderRadius: 2,
                 backgroundColor: "#d4e4e0",
-                marginBottom: 16,
+                marginBottom: 8,
               }}
             />
 
-            {/* Title */}
-            <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
-              <Text
+            {/* Header: X · Filtri · Reimposta */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                height: 48,
+                paddingHorizontal: 16,
+                marginBottom: 4,
+              }}
+            >
+              {/* X button — left column */}
+              <Pressable
+                onPress={() => setFilterSheetOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Chiudi filtri"
+                hitSlop={8}
                 style={{
-                  fontSize: 22,
-                  fontWeight: "900",
-                  color: C.primary,
-                  letterSpacing: -0.4,
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: "#f1f4f2",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                Filtri
-              </Text>
+                <Ionicons name="close" size={20} color={F.dark} />
+              </Pressable>
+
+              {/* "Filtri" title — center, flex:1 */}
+              <View style={{ flex: 1, alignItems: "center" }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "800",
+                    color: F.dark,
+                    letterSpacing: -0.2,
+                  }}
+                >
+                  Filtri
+                </Text>
+              </View>
+
+              {/* "Reimposta" — right column */}
+              <Pressable
+                onPress={clearFilters}
+                accessibilityRole="button"
+                accessibilityLabel="Reimposta filtri"
+                hitSlop={8}
+                style={{ alignItems: "flex-end" }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#006b55" }}>
+                  Reimposta
+                </Text>
+              </Pressable>
             </View>
 
-            {/* Section: Prezzo orario */}
-            <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
-              <Text
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 22,
+                paddingTop: 14,
+                paddingBottom: 20,
+              }}
+            >
+              {/* Prezzo orario */}
+              <View
                 style={{
-                  fontSize: 11,
-                  fontWeight: "800",
-                  color: C.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                  textTransform: "uppercase",
-                  marginBottom: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
-                Prezzo orario
+                <Text style={{ fontSize: 17, fontWeight: "800", color: F.dark }}>
+                  Prezzo orario
+                </Text>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: C.secondary }}>
+                  €{priceRange[0]} – €
+                  {priceRange[1] >= SLIDER_MAX ? "60+" : priceRange[1]}
+                </Text>
+              </View>
+              <View style={{ marginTop: 10 }}>
+                <RangeSlider
+                  low={priceRange[0]}
+                  high={priceRange[1]}
+                  min={SLIDER_MIN}
+                  max={SLIDER_MAX}
+                  step={SLIDER_STEP}
+                  onChange={handlePriceRangeChange}
+                />
+              </View>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 2,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "600", color: F.muted }}>
+                  €10
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: F.muted }}>
+                  €60+
+                </Text>
+              </View>
+
+              {/* Valutazione minima */}
+              <Text
+                style={{ fontSize: 17, fontWeight: "800", color: F.dark, marginTop: 26 }}
+              >
+                Valutazione minima
               </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {PRICE_PRESETS.map((preset) => {
-                  const isActive =
-                    priceFilter?.min === preset.min && priceFilter?.max === preset.max;
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                {RATING_OPTIONS.map((opt) => {
+                  const isActive = minRating === opt.value;
                   return (
                     <Pressable
-                      key={preset.label}
-                      onPress={() => handlePriceChipPress(preset)}
+                      key={opt.label}
+                      onPress={() => handleRatingPress(opt.value)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: isActive }}
-                      style={({ pressed }) => ({
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 9999,
-                        backgroundColor: isActive ? C.secondary : C.surfaceContainerHigh,
-                        borderWidth: 1.5,
-                        borderColor: isActive ? C.secondary : C.outlineVariant,
-                        opacity: pressed ? 0.8 : 1,
-                      })}
+                      style={[
+                        {
+                          flex: 1,
+                          height: 52,
+                          borderRadius: 14,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
+                          borderWidth: 1.5,
+                        },
+                        isActive
+                          ? { backgroundColor: F.dark, borderColor: F.dark }
+                          : { backgroundColor: "#ffffff", borderColor: "#dde3e0" },
+                      ]}
                     >
                       <Text
                         style={{
-                          fontSize: 13,
-                          fontWeight: isActive ? "700" : "600",
-                          color: isActive ? "#ffffff" : C.onSurface,
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: isActive ? "#ffffff" : F.chipText,
                         }}
                       >
-                        {preset.label}
+                        {opt.label}
+                      </Text>
+                      {opt.value != null && (
+                        <Ionicons
+                          name="star"
+                          size={13}
+                          color={isActive ? F.star : "#c4ccc8"}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Specializzazioni */}
+              <Text
+                style={{ fontSize: 17, fontWeight: "800", color: F.dark, marginTop: 26 }}
+              >
+                Specializzazioni
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  marginTop: 14,
+                }}
+              >
+                {SPECIALIZZAZIONI.map((spec) => {
+                  const isActive = serviceFilters.includes(spec);
+                  return (
+                    <Pressable
+                      key={spec}
+                      onPress={() => handleServiceChipPress(spec)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
+                      style={[
+                        {
+                          paddingHorizontal: 20,
+                          height: 46,
+                          borderRadius: 23,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1.5,
+                        },
+                        isActive
+                          ? { backgroundColor: F.dark, borderColor: F.dark }
+                          : { backgroundColor: "#ffffff", borderColor: "#dde3e0" },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: isActive ? "#ffffff" : F.chipText,
+                        }}
+                      >
+                        {spec}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-            </View>
 
-            {/* Section: Servizi (only when available) */}
-            {availableServices.length > 0 && (
-              <View style={{ paddingHorizontal: 24, marginBottom: 32 }}>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "800",
-                    color: C.onSurfaceVariant,
-                    letterSpacing: 1.2,
-                    textTransform: "uppercase",
-                    marginBottom: 12,
-                  }}
-                >
-                  Servizi
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {availableServices.slice(0, 8).map((service) => {
-                    const isActive = serviceFilters.includes(service);
-                    return (
-                      <Pressable
-                        key={service}
-                        onPress={() => handleServiceChipPress(service)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: isActive }}
-                        style={({ pressed }) => ({
-                          paddingHorizontal: 14,
-                          paddingVertical: 8,
-                          borderRadius: 9999,
-                          backgroundColor: isActive ? C.secondary : C.surfaceContainerHigh,
-                          borderWidth: 1.5,
-                          borderColor: isActive ? C.secondary : C.outlineVariant,
-                          opacity: pressed ? 0.8 : 1,
-                          flexDirection: "row",
+              {/* Distanza massima */}
+              <Text
+                style={{ fontSize: 17, fontWeight: "800", color: F.dark, marginTop: 26 }}
+              >
+                Distanza massima
+              </Text>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                {DISTANCE_OPTIONS.map((km) => {
+                  const isActive = maxDistance === km;
+                  return (
+                    <Pressable
+                      key={km}
+                      onPress={() => handleDistancePress(km)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
+                      style={[
+                        {
+                          flex: 1,
+                          height: 52,
+                          borderRadius: 14,
                           alignItems: "center",
-                          gap: 4,
-                        })}
+                          justifyContent: "center",
+                          borderWidth: 1.5,
+                        },
+                        isActive
+                          ? { backgroundColor: F.dark, borderColor: F.dark }
+                          : { backgroundColor: "#ffffff", borderColor: "#dde3e0" },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: isActive ? "#ffffff" : F.chipText,
+                        }}
                       >
-                        {isActive && (
-                          <Ionicons name="checkmark" size={12} color="#ffffff" />
-                        )}
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: isActive ? "700" : "600",
-                            color: isActive ? "#ffffff" : C.onSurface,
-                          }}
-                        >
-                          {service}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                        {km} km
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            )}
+            </ScrollView>
 
-            {/* Bottom action row */}
+            {/* Sticky footer CTA */}
             <View
               style={{
-                paddingHorizontal: 24,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
+                paddingHorizontal: 22,
+                paddingTop: 14,
+                paddingBottom: 14 + insets.bottom,
+                borderTopWidth: 1,
+                borderTopColor: "#eef1ef",
+                backgroundColor: "#ffffff",
               }}
             >
               <Pressable
-                onPress={() => {
-                  clearFilters();
-                  setFilterSheetOpen(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Azzera filtri"
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "700",
-                    color: Colors.error,
-                  }}
-                >
-                  Azzera
-                </Text>
-              </Pressable>
-              <Pressable
                 onPress={() => setFilterSheetOpen(false)}
                 accessibilityRole="button"
-                accessibilityLabel="Applica filtri"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  backgroundColor: C.secondary,
-                  borderRadius: 14,
-                  paddingVertical: 14,
+                accessibilityLabel={`Mostra ${filteredCleaners.length} risultati`}
+                style={{
+                  height: 56,
+                  borderRadius: 18,
+                  backgroundColor: F.dark,
                   alignItems: "center",
-                  opacity: pressed ? 0.85 : 1,
-                })}
+                  justifyContent: "center",
+                }}
               >
-                <Text
-                  style={{
-                    fontSize: 15,
-                    fontWeight: "800",
-                    color: "#ffffff",
-                  }}
-                >
-                  Applica
+                <Text style={{ fontSize: 16, fontWeight: "800", color: F.accent }}>
+                  Mostra {filteredCleaners.length}{" "}
+                  {filteredCleaners.length === 1 ? "risultato" : "risultati"}
                 </Text>
               </Pressable>
             </View>
