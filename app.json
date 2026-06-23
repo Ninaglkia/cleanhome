@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-native.png",
       "resizeMode": "cover",
-      "backgroundColor": "#05070a"
+      "backgroundColor": "#04140f"
     },
     "ios": {
       "supportsTablet": false,
@@ -172,7 +172,7 @@
       "package": "com.cleanhome.app",
       "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#062a23",
+        "backgroundColor": "#04140f",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [

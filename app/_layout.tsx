@@ -171,10 +171,15 @@ export default function RootLayout() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hide the native splash as soon as the JS UI is mounted, revealing the
-  // holographic splash gate underneath.
+  // Hide the native splash with a brief delay so the HoloSplash background
+  // has time to paint its first frame before the native layer fades out.
+  // Both backgrounds share the same dark green (#04140f), so the crossfade
+  // is imperceptible — the user experiences a single continuous splash.
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 80);
+    return () => clearTimeout(t);
   }, []);
 
   const refreshProfile = useCallback(async () => {
