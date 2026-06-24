@@ -1,0 +1,445 @@
+  <!-- ======================== SECTION A ======================== -->
+  <div style="display:flex;align-items:center;gap:12px;margin:6px 0 26px;">
+    <span style="font-size:13px;font-weight:800;letter-spacing:1px;color:#fff;background:#1f7a5c;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;">A</span>
+    <span style="font-size:23px;font-weight:800;color:#14342b;">Scoperta</span>
+    <span style="font-size:15px;font-weight:500;color:#9aa297;">Esplora, filtra e scegli più pulitori</span>
+  </div>
+
+  <!-- row of frames -->
+  <div style="display:flex;align-items:flex-start;gap:0;">
+
+    <!-- ============ FRAME 1 · MAPPA ============ -->
+    <div style="flex:none;width:393px;">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;padding-left:4px;">
+        <span style="width:30px;height:30px;border-radius:50%;background:#14342b;color:#3ddc97;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">1</span>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#14342b;">Esplora la mappa</div>
+          <div style="font-size:13px;font-weight:500;color:#9aa297;">Pulitori vicini a te</div>
+        </div>
+      </div>
+      <div style="position:relative;width:393px;height:852px;background:#cfe6f5;border-radius:52px;overflow:hidden;box-shadow:0 50px 90px -30px rgba(20,52,43,.5), 0 0 0 11px #0d0f0e, 0 0 0 12px #2a2d2b;">
+
+        <!-- status bar -->
+        <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:18px 34px 0;">
+          <div style="font-size:16px;font-weight:600;color:#14342b;">10:24</div>
+          <div style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:124px;height:34px;background:#0c0e0d;border-radius:20px;"></div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg width="18" height="13" viewBox="0 0 18 13"><rect x="0" y="8" width="3" height="5" rx="1" fill="#14342b"/><rect x="5" y="5" width="3" height="8" rx="1" fill="#14342b"/><rect x="10" y="2.5" width="3" height="10.5" rx="1" fill="#14342b"/><rect x="15" y="0" width="3" height="13" rx="1" fill="#14342b"/></svg>
+            <svg width="18" height="13" viewBox="0 0 18 13" fill="#14342b"><path d="M9 2.5c2.6 0 5 1 6.8 2.6l1.2-1.4C14.9 1.6 12.1.4 9 .4S3.1 1.6.9 3.7l1.2 1.4C3.9 3.5 6.4 2.5 9 2.5z"/><path d="M9 6.4c1.5 0 2.9.6 3.9 1.5l1.2-1.4C12.8 5.2 11 4.5 9 4.5s-3.8.7-5.1 2l1.2 1.4C6.1 7 7.5 6.4 9 6.4z"/><path d="M9 10.2l2-2.2c-.5-.5-1.2-.8-2-.8s-1.5.3-2 .8l2 2.2z"/></svg>
+            <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3.2" stroke="#14342b" stroke-opacity=".4"/><rect x="2.6" y="2.6" width="17.8" height="7.8" rx="2" fill="#14342b"/><rect x="23.5" y="4.5" width="1.6" height="4" rx="1" fill="#14342b" opacity=".4"/></svg>
+          </div>
+        </div>
+
+        <!-- map layer -->
+        <div style="position:absolute;top:178px;left:0;right:0;bottom:0;background:url('assets/map-clean.png') center/cover;background-repeat:no-repeat;">
+          <!-- cerca pill -->
+          <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:9px;height:42px;padding:0 20px;background:#fff;border-radius:21px;box-shadow:0 8px 22px -6px rgba(20,52,43,.3);white-space:nowrap;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.3 5.7" stroke="#1f7a5c" stroke-width="2.4" stroke-linecap="round"/><path d="M20 5v6h-6" stroke="#1f7a5c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span style="font-size:12px;font-weight:700;letter-spacing:1px;color:#14342b;">CERCA IN QUESTA ZONA</span>
+          </div>
+          <!-- price pins -->
+          <div style="position:absolute;top:96px;left:64px;">
+            <div style="height:34px;padding:0 13px;background:#fff;border-radius:17px;box-shadow:0 6px 14px -4px rgba(20,52,43,.35);font-size:14px;font-weight:800;color:#14342b;display:flex;align-items:center;">€26</div>
+            <div style="width:10px;height:10px;background:#fff;transform:rotate(45deg);margin:-5px auto 0;box-shadow:3px 3px 6px -3px rgba(20,52,43,.35);"></div>
+          </div>
+          <div style="position:absolute;top:110px;left:262px;">
+            <div style="height:34px;padding:0 13px;background:#fff;border-radius:17px;box-shadow:0 6px 14px -4px rgba(20,52,43,.35);font-size:14px;font-weight:800;color:#14342b;display:flex;align-items:center;">€30</div>
+            <div style="width:10px;height:10px;background:#fff;transform:rotate(45deg);margin:-5px auto 0;box-shadow:3px 3px 6px -3px rgba(20,52,43,.35);"></div>
+          </div>
+          <div style="position:absolute;top:158px;left:150px;z-index:5;">
+            <div style="height:40px;padding:0 17px;background:#14342b;border-radius:20px;box-shadow:0 10px 22px -6px rgba(20,52,43,.55);font-size:15px;font-weight:800;color:#3ddc97;display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="#3ddc97"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg>€22</div>
+            <div style="width:11px;height:11px;background:#14342b;transform:rotate(45deg);margin:-5px auto 0;"></div>
+          </div>
+          <div style="position:absolute;top:236px;left:108px;">
+            <div style="height:34px;padding:0 13px;background:#fff;border-radius:17px;box-shadow:0 6px 14px -4px rgba(20,52,43,.35);font-size:14px;font-weight:800;color:#14342b;display:flex;align-items:center;">€24</div>
+            <div style="width:10px;height:10px;background:#fff;transform:rotate(45deg);margin:-5px auto 0;box-shadow:3px 3px 6px -3px rgba(20,52,43,.35);"></div>
+          </div>
+          <div style="position:absolute;top:214px;left:256px;">
+            <div style="height:34px;padding:0 13px;background:#fff;border-radius:17px;box-shadow:0 6px 14px -4px rgba(20,52,43,.35);font-size:14px;font-weight:800;color:#14342b;display:flex;align-items:center;">€28</div>
+            <div style="width:10px;height:10px;background:#fff;transform:rotate(45deg);margin:-5px auto 0;box-shadow:3px 3px 6px -3px rgba(20,52,43,.35);"></div>
+          </div>
+          <!-- fab -->
+          <div style="position:absolute;top:300px;right:16px;width:50px;height:50px;border-radius:50%;background:#fff;box-shadow:0 6px 18px -4px rgba(20,52,43,.35);display:flex;align-items:center;justify-content:center;">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M21 3L3 10.5l7.5 2.5L13 21 21 3z" fill="#1f7a5c"/></svg>
+          </div>
+        </div>
+
+        <!-- search bar -->
+        <div style="position:absolute;top:60px;left:16px;right:16px;z-index:35;height:62px;background:rgba(255,255,255,.94);backdrop-filter:blur(18px);border-radius:21px;box-shadow:0 10px 26px -10px rgba(20,52,43,.3);display:flex;align-items:center;padding:0 14px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:#eef4f1;display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#1f7a5c" stroke-width="2.2"/><path d="M16.5 16.5L21 21" stroke="#1f7a5c" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </div>
+          <div style="flex:1;margin-left:12px;display:flex;flex-direction:column;">
+            <span style="font-size:10px;font-weight:700;letter-spacing:2.5px;color:#9aa9a2;">POSIZIONE</span>
+            <span style="font-size:17px;font-weight:700;color:#14342b;margin-top:1px;">San Francisco</span>
+          </div>
+          <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9z" stroke="#14342b" stroke-width="1.9" stroke-linejoin="round"/><path d="M10.5 21a1.8 1.8 0 003 0" stroke="#14342b" stroke-width="1.9" stroke-linecap="round"/></svg>
+            <span style="position:absolute;top:-2px;right:-2px;min-width:19px;height:19px;padding:0 5px;background:#e5484d;border-radius:10px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2.5px rgba(255,255,255,.94);">2</span>
+          </div>
+        </div>
+
+        <!-- segment -->
+        <div style="position:absolute;top:130px;left:16px;right:16px;z-index:34;height:48px;background:rgba(255,255,255,.94);backdrop-filter:blur(18px);border-radius:16px;box-shadow:0 8px 20px -10px rgba(20,52,43,.25);display:flex;align-items:stretch;overflow:hidden;padding:5px;gap:5px;">
+          <div style="flex:1;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="#14342b" stroke-width="2" stroke-linecap="round"/></svg>
+            <span style="font-size:15px;font-weight:600;color:#14342b;">Filtri</span>
+            <span style="min-width:20px;height:20px;padding:0 6px;background:#14342b;border-radius:10px;color:#3ddc97;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span>
+          </div>
+          <div style="flex:1;border-radius:12px;background:#eef4f1;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#1f7a5c" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="6" r="1.4" fill="#1f7a5c"/><circle cx="4" cy="12" r="1.4" fill="#1f7a5c"/><circle cx="4" cy="18" r="1.4" fill="#1f7a5c"/></svg>
+            <span style="font-size:15px;font-weight:700;color:#1f7a5c;">Lista</span>
+          </div>
+        </div>
+
+        <!-- bottom sheet carousel -->
+        <div style="position:absolute;left:0;right:0;bottom:96px;height:236px;background:#fff;border-radius:26px 26px 0 0;box-shadow:0 -12px 34px -14px rgba(20,52,43,.25);padding:12px 0 0;z-index:30;">
+          <div style="width:40px;height:5px;border-radius:3px;background:rgba(20,52,43,.16);margin:0 auto 12px;"></div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 20px 12px;">
+            <span style="font-size:17px;font-weight:800;color:#14342b;">6 pulitori disponibili</span>
+            <span style="font-size:13px;font-weight:600;color:#1f7a5c;">Ordina</span>
+          </div>
+          <div style="display:flex;gap:13px;padding:0 20px;overflow-x:auto;">
+            <div style="flex:none;width:236px;background:#f6f9f7;border:1px solid rgba(20,52,43,.06);border-radius:18px;padding:13px;">
+              <div style="display:flex;align-items:center;gap:11px;">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#1f7a5c,#34c79a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex:none;">GR</div>
+                <div style="min-width:0;">
+                  <div style="font-size:15px;font-weight:700;color:#14342b;">Giulia Rossi</div>
+                  <div style="display:flex;align-items:center;gap:4px;margin-top:2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:12.5px;font-weight:700;color:#14342b;">4.9</span><span style="font-size:12px;color:#9aa9a2;">· 1,2 km</span></div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;">
+                <div><span style="font-size:17px;font-weight:800;color:#14342b;">€22</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <button style="border:none;height:34px;padding:0 16px;border-radius:11px;background:#14342b;color:#3ddc97;font-size:13px;font-weight:700;font-family:inherit;">Prenota</button>
+              </div>
+            </div>
+            <div style="flex:none;width:236px;background:#f6f9f7;border:1px solid rgba(20,52,43,.06);border-radius:18px;padding:13px;">
+              <div style="display:flex;align-items:center;gap:11px;">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#2a6f97,#4cb5d6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex:none;">EC</div>
+                <div style="min-width:0;">
+                  <div style="font-size:15px;font-weight:700;color:#14342b;">Elena Conti</div>
+                  <div style="display:flex;align-items:center;gap:4px;margin-top:2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:12.5px;font-weight:700;color:#14342b;">5.0</span><span style="font-size:12px;color:#9aa9a2;">· 0,8 km</span></div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;">
+                <div><span style="font-size:17px;font-weight:800;color:#14342b;">€30</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <button style="border:none;height:34px;padding:0 16px;border-radius:11px;background:#14342b;color:#3ddc97;font-size:13px;font-weight:700;font-family:inherit;">Prenota</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- tab bar -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:96px;z-index:38;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border-top:1px solid rgba(20,52,43,.06);display:flex;align-items:flex-start;padding-top:12px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><svg width="25" height="25" viewBox="0 0 24 24" fill="none"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2z" stroke="#1f7a5c" stroke-width="1.9" stroke-linejoin="round"/><path d="M9 3v16M15 5v16" stroke="#1f7a5c" stroke-width="1.9"/></svg><span style="font-size:11px;font-weight:700;color:#1f7a5c;">Esplora</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><svg width="25" height="25" viewBox="0 0 24 24" fill="none"><path d="M4 5h11a2 2 0 012 2v6a2 2 0 01-2 2H9l-4 3v-3a2 2 0 01-1-2V7a2 2 0 011-2z" stroke="#9aa9a2" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:11px;font-weight:500;color:#9aa9a2;">Chat</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><svg width="25" height="25" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v15H6V3z" stroke="#9aa9a2" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h4" stroke="#9aa9a2" stroke-width="1.8" stroke-linecap="round"/></svg><span style="font-size:11px;font-weight:500;color:#9aa9a2;">Prenotazioni</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><svg width="25" height="25" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="#9aa9a2" stroke-width="1.8"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#9aa9a2" stroke-width="1.8" stroke-linecap="round"/></svg><span style="font-size:11px;font-weight:500;color:#9aa9a2;">Profilo</span></div>
+        </div>
+        <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#14342b;z-index:45;"></div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div style="flex:none;align-self:center;width:72px;display:flex;align-items:center;justify-content:center;">
+      <div style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 8px 20px -8px rgba(20,52,43,.3);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#14342b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+
+    <!-- ============ FRAME 2 · FILTRI ============ -->
+    <div style="flex:none;width:393px;">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;padding-left:4px;">
+        <span style="width:30px;height:30px;border-radius:50%;background:#14342b;color:#3ddc97;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">2</span>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#14342b;">Affina la ricerca</div>
+          <div style="font-size:13px;font-weight:500;color:#9aa297;">Prezzo, valutazione, servizi</div>
+        </div>
+      </div>
+      <div style="position:relative;width:393px;height:852px;background:#0c1a14;border-radius:52px;overflow:hidden;box-shadow:0 50px 90px -30px rgba(20,52,43,.5), 0 0 0 11px #0d0f0e, 0 0 0 12px #2a2d2b;">
+        <!-- dimmed map -->
+        <div style="position:absolute;inset:0;background:url('assets/map-clean.png') center/cover;filter:blur(2px) saturate(.85) brightness(.55);"></div>
+        <div style="position:absolute;inset:0;background:rgba(8,18,13,.45);"></div>
+        <!-- status bar light -->
+        <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:18px 34px 0;">
+          <div style="font-size:16px;font-weight:600;color:#fff;">10:24</div>
+          <div style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:124px;height:34px;background:#0c0e0d;border-radius:20px;"></div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg width="18" height="13" viewBox="0 0 18 13" fill="#fff"><rect x="0" y="8" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="8" rx="1"/><rect x="10" y="2.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg>
+            <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3.2" stroke="#fff" stroke-opacity=".5"/><rect x="2.6" y="2.6" width="17.8" height="7.8" rx="2" fill="#fff"/></svg>
+          </div>
+        </div>
+
+        <!-- sheet -->
+        <div style="position:absolute;left:0;right:0;bottom:0;top:118px;background:#fff;border-radius:30px 30px 0 0;z-index:30;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="flex:none;padding:12px 22px 6px;">
+            <div style="width:40px;height:5px;border-radius:3px;background:rgba(20,52,43,.16);margin:0 auto 14px;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="width:34px;height:34px;border-radius:50%;background:#f1f4f2;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#14342b" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+              <span style="font-size:18px;font-weight:800;color:#14342b;">Filtri</span>
+              <span style="font-size:14px;font-weight:600;color:#1f7a5c;">Reimposta</span>
+            </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:14px 22px 0;">
+            <!-- prezzo -->
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
+              <span style="font-size:16px;font-weight:700;color:#14342b;">Prezzo orario</span>
+              <span style="font-size:15px;font-weight:700;color:#1f7a5c;">€15 – €40</span>
+            </div>
+            <div style="position:relative;height:30px;margin-bottom:6px;">
+              <div style="position:absolute;top:13px;left:0;right:0;height:5px;border-radius:3px;background:#e7ece9;"></div>
+              <div style="position:absolute;top:13px;left:18%;right:22%;height:5px;border-radius:3px;background:#1f7a5c;"></div>
+              <div style="position:absolute;top:5px;left:14%;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #1f7a5c;box-shadow:0 2px 6px rgba(20,52,43,.25);"></div>
+              <div style="position:absolute;top:5px;right:18%;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #1f7a5c;box-shadow:0 2px 6px rgba(20,52,43,.25);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:#9aa9a2;margin-bottom:22px;"><span>€10</span><span>€60+</span></div>
+
+            <!-- valutazione -->
+            <div style="font-size:16px;font-weight:700;color:#14342b;margin-bottom:12px;">Valutazione minima</div>
+            <div style="display:flex;gap:9px;margin-bottom:24px;">
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#7c8b84;">Tutte</div>
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;gap:4px;font-size:14px;font-weight:600;color:#7c8b84;">4.0<svg width="12" height="12" viewBox="0 0 24 24" fill="#cbd3ce"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg></div>
+              <div style="flex:1;height:42px;border-radius:13px;background:#14342b;display:flex;align-items:center;justify-content:center;gap:4px;font-size:14px;font-weight:700;color:#fff;">4.5<svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg></div>
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;gap:4px;font-size:14px;font-weight:600;color:#7c8b84;">4.8<svg width="12" height="12" viewBox="0 0 24 24" fill="#cbd3ce"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg></div>
+            </div>
+
+            <!-- specializzazioni -->
+            <div style="font-size:16px;font-weight:700;color:#14342b;margin-bottom:12px;">Specializzazioni</div>
+            <div style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:24px;">
+              <span style="height:38px;padding:0 16px;border-radius:19px;background:#14342b;color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;">Casa</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;background:#14342b;color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;">Eco</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid rgba(20,52,43,.12);color:#7c8b84;font-size:14px;font-weight:600;display:flex;align-items:center;">Uffici</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid rgba(20,52,43,.12);color:#7c8b84;font-size:14px;font-weight:600;display:flex;align-items:center;">Vetri</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid rgba(20,52,43,.12);color:#7c8b84;font-size:14px;font-weight:600;display:flex;align-items:center;">Stiro</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid rgba(20,52,43,.12);color:#7c8b84;font-size:14px;font-weight:600;display:flex;align-items:center;">Sanificazione</span>
+              <span style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid rgba(20,52,43,.12);color:#7c8b84;font-size:14px;font-weight:600;display:flex;align-items:center;">Traslochi</span>
+            </div>
+
+            <!-- distanza -->
+            <div style="font-size:16px;font-weight:700;color:#14342b;margin-bottom:12px;">Distanza massima</div>
+            <div style="display:flex;gap:9px;margin-bottom:20px;">
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#7c8b84;">1 km</div>
+              <div style="flex:1;height:42px;border-radius:13px;background:#14342b;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;">3 km</div>
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#7c8b84;">5 km</div>
+              <div style="flex:1;height:42px;border-radius:13px;border:1.5px solid rgba(20,52,43,.12);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#7c8b84;">10 km</div>
+            </div>
+          </div>
+          <div style="flex:none;padding:14px 22px 30px;border-top:1px solid rgba(20,52,43,.07);">
+            <button style="width:100%;height:56px;border:none;border-radius:16px;background:#14342b;color:#3ddc97;font-size:16px;font-weight:700;font-family:inherit;">Mostra 6 risultati</button>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#14342b;z-index:45;"></div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div style="flex:none;align-self:center;width:72px;display:flex;align-items:center;justify-content:center;">
+      <div style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 8px 20px -8px rgba(20,52,43,.3);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#14342b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+
+    <!-- ============ FRAME 3 · LISTA ============ -->
+    <div style="flex:none;width:393px;">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;padding-left:4px;">
+        <span style="width:30px;height:30px;border-radius:50%;background:#14342b;color:#3ddc97;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">3</span>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#14342b;">Seleziona i pulitori</div>
+          <div style="font-size:13px;font-weight:500;color:#9aa297;">Invio multiplo · il primo accetta</div>
+        </div>
+      </div>
+      <div style="position:relative;width:393px;height:852px;background:#eef3f1;border-radius:52px;overflow:hidden;box-shadow:0 50px 90px -30px rgba(20,52,43,.5), 0 0 0 11px #0d0f0e, 0 0 0 12px #2a2d2b;">
+        <!-- status bar -->
+        <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:18px 34px 0;background:#fff;">
+          <div style="font-size:16px;font-weight:600;color:#14342b;">10:24</div>
+          <div style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:124px;height:34px;background:#0c0e0d;border-radius:20px;"></div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg width="18" height="13" viewBox="0 0 18 13"><rect x="0" y="8" width="3" height="5" rx="1" fill="#14342b"/><rect x="5" y="5" width="3" height="8" rx="1" fill="#14342b"/><rect x="10" y="2.5" width="3" height="10.5" rx="1" fill="#14342b"/><rect x="15" y="0" width="3" height="13" rx="1" fill="#14342b"/></svg>
+            <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3.2" stroke="#14342b" stroke-opacity=".4"/><rect x="2.6" y="2.6" width="17.8" height="7.8" rx="2" fill="#14342b"/></svg>
+          </div>
+        </div>
+        <!-- search + segment fixed -->
+        <div style="position:absolute;top:60px;left:16px;right:16px;z-index:35;height:56px;background:#fff;border-radius:18px;box-shadow:0 4px 14px -8px rgba(20,52,43,.2);display:flex;align-items:center;padding:0 14px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#1f7a5c" stroke-width="2.2"/><path d="M16.5 16.5L21 21" stroke="#1f7a5c" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <span style="flex:1;margin-left:11px;font-size:16px;font-weight:600;color:#14342b;">San Francisco</span>
+          <span style="font-size:13px;font-weight:600;color:#9aa9a2;">Modifica</span>
+        </div>
+        <div style="position:absolute;top:124px;left:16px;right:16px;z-index:34;height:48px;background:#fff;border-radius:16px;box-shadow:0 4px 14px -8px rgba(20,52,43,.2);display:flex;padding:5px;gap:5px;">
+          <div style="flex:1;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="#14342b" stroke-width="2" stroke-linecap="round"/></svg><span style="font-size:15px;font-weight:600;color:#14342b;">Filtri</span><span style="min-width:20px;height:20px;padding:0 6px;background:#14342b;border-radius:10px;color:#3ddc97;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span></div>
+          <div style="flex:1;border-radius:12px;background:#14342b;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 3L4 5v16l5-2 6 2 5-2V3l-5 2-6-2z" stroke="#3ddc97" stroke-width="1.9" stroke-linejoin="round"/><path d="M9 3v16M15 5v16" stroke="#3ddc97" stroke-width="1.9"/></svg><span style="font-size:15px;font-weight:700;color:#3ddc97;">Mappa</span></div>
+        </div>
+
+        <div style="position:absolute;top:172px;left:0;right:0;bottom:112px;overflow-y:auto;">
+          <!-- reminder banner -->
+          <div style="display:flex;gap:12px;align-items:flex-start;margin:14px 16px 8px;padding:14px;background:#e3f3ec;border-radius:16px;">
+            <div style="width:34px;height:34px;border-radius:10px;background:#1f7a5c;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></div>
+            <div>
+              <div style="font-size:14.5px;font-weight:700;color:#14342b;">Invia ai tuoi pulitori preferiti</div>
+              <div style="font-size:13px;font-weight:500;color:#4f6b60;line-height:1.45;margin-top:3px;">Mandi la richiesta a tutti quelli che ti piacciono: viene assegnato il primo che accetta.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 18px 12px;">
+            <span style="font-size:16px;font-weight:700;color:#14342b;">6 pulitori vicini</span>
+            <div style="display:flex;align-items:center;gap:6px;height:34px;padding:0 13px;background:#fff;border-radius:17px;box-shadow:0 2px 8px -4px rgba(20,52,43,.18);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3" stroke="#1f7a5c" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:13px;font-weight:600;color:#14342b;">Distanza</span></div>
+          </div>
+          <div style="padding:0 16px;">
+            <!-- card selected GR -->
+            <div style="display:flex;gap:13px;padding:13px;background:#f3fbf7;border:2px solid #1f7a5c;border-radius:20px;box-shadow:0 6px 16px -8px rgba(31,122,92,.3);margin-bottom:12px;">
+              <div style="position:relative;flex:none;"><div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#1f7a5c,#34c79a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;">GR</div><span style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#34c759;border:2.5px solid #fff;"></span></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:15.5px;font-weight:700;color:#14342b;">Giulia Rossi</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.5 1.6-1 2.8 1 2.8-2.5 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3.1 16l1-2.8-1-2.8 2.5-1.6 1-2.8 3 .2L12 2z" fill="#1f7a5c"/><path d="M8.5 12l2.3 2.3 4.7-4.6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:13.5px;font-weight:700;color:#14342b;">4.9</span><span style="font-size:13px;color:#9aa9a2;">(128) · 1,2 km</span></div>
+                <div style="display:flex;gap:6px;margin-top:9px;"><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Casa</span><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Uffici</span></div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;">
+                <div style="text-align:right;"><span style="font-size:18px;font-weight:800;color:#14342b;">€22</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <div style="width:30px;height:30px;border-radius:50%;background:#1f7a5c;display:flex;align-items:center;justify-content:center;margin-top:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              </div>
+            </div>
+            <!-- card selected EC -->
+            <div style="display:flex;gap:13px;padding:13px;background:#f3fbf7;border:2px solid #1f7a5c;border-radius:20px;box-shadow:0 6px 16px -8px rgba(31,122,92,.3);margin-bottom:12px;">
+              <div style="position:relative;flex:none;"><div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#2a6f97,#4cb5d6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;">EC</div><span style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#34c759;border:2.5px solid #fff;"></span></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:15.5px;font-weight:700;color:#14342b;">Elena Conti</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.5 1.6-1 2.8 1 2.8-2.5 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3.1 16l1-2.8-1-2.8 2.5-1.6 1-2.8 3 .2L12 2z" fill="#1f7a5c"/><path d="M8.5 12l2.3 2.3 4.7-4.6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:13.5px;font-weight:700;color:#14342b;">5.0</span><span style="font-size:13px;color:#9aa9a2;">(212) · 0,8 km</span></div>
+                <div style="display:flex;gap:6px;margin-top:9px;"><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Eco</span><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Stiro</span></div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;">
+                <div style="text-align:right;"><span style="font-size:18px;font-weight:800;color:#14342b;">€30</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <div style="width:30px;height:30px;border-radius:50%;background:#1f7a5c;display:flex;align-items:center;justify-content:center;margin-top:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              </div>
+            </div>
+            <!-- card unselected MB -->
+            <div style="display:flex;gap:13px;padding:14px;background:#fff;border:1px solid rgba(20,52,43,.06);border-radius:20px;box-shadow:0 3px 12px -6px rgba(20,52,43,.16);margin-bottom:12px;">
+              <div style="position:relative;flex:none;"><div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#8a5a2b,#c98b4a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;">MB</div><span style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#34c759;border:2.5px solid #fff;"></span></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:15.5px;font-weight:700;color:#14342b;">Marco Bianchi</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.5 1.6-1 2.8 1 2.8-2.5 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3.1 16l1-2.8-1-2.8 2.5-1.6 1-2.8 3 .2L12 2z" fill="#1f7a5c"/><path d="M8.5 12l2.3 2.3 4.7-4.6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:13.5px;font-weight:700;color:#14342b;">4.8</span><span style="font-size:13px;color:#9aa9a2;">(96) · 1,9 km</span></div>
+                <div style="display:flex;gap:6px;margin-top:9px;"><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#e3f3ec;padding:4px 9px;border-radius:8px;">Vetri</span><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#e3f3ec;padding:4px 9px;border-radius:8px;">Profondo</span></div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;">
+                <div style="text-align:right;"><span style="font-size:18px;font-weight:800;color:#14342b;">€28</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <div style="width:30px;height:30px;border-radius:50%;border:2px solid #cbd3ce;margin-top:10px;"></div>
+              </div>
+            </div>
+            <!-- card selected SG -->
+            <div style="display:flex;gap:13px;padding:13px;background:#f3fbf7;border:2px solid #1f7a5c;border-radius:20px;box-shadow:0 6px 16px -8px rgba(31,122,92,.3);margin-bottom:12px;">
+              <div style="position:relative;flex:none;"><div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#6b3fa0,#a874d6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;">SG</div><span style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#34c759;border:2.5px solid #fff;"></span></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:15.5px;font-weight:700;color:#14342b;">Sara Greco</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.5 1.6-1 2.8 1 2.8-2.5 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3.1 16l1-2.8-1-2.8 2.5-1.6 1-2.8 3 .2L12 2z" fill="#1f7a5c"/><path d="M8.5 12l2.3 2.3 4.7-4.6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg><span style="font-size:13.5px;font-weight:700;color:#14342b;">4.9</span><span style="font-size:13px;color:#9aa9a2;">(159) · 2,1 km</span></div>
+                <div style="display:flex;gap:6px;margin-top:9px;"><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Sanificazione</span><span style="font-size:11.5px;font-weight:600;color:#1f7a5c;background:#d6efe3;padding:4px 9px;border-radius:8px;">Uffici</span></div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;">
+                <div style="text-align:right;"><span style="font-size:18px;font-weight:800;color:#14342b;">€26</span><span style="font-size:12px;color:#9aa9a2;">/ora</span></div>
+                <div style="width:30px;height:30px;border-radius:50%;background:#1f7a5c;display:flex;align-items:center;justify-content:center;margin-top:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- sticky send bar -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:112px;z-index:36;background:#fff;border-top:1px solid rgba(20,52,43,.08);padding:14px 18px 0;">
+          <button style="width:100%;height:54px;border:none;border-radius:16px;background:#14342b;color:#3ddc97;font-size:16px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:9px;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3 11l18-8-8 18-2-7-8-3z" stroke="#3ddc97" stroke-width="2" stroke-linejoin="round"/></svg>Invia richiesta a 3 pulitori</button>
+          <div style="text-align:center;font-size:11.5px;font-weight:500;color:#9aa9a2;margin-top:9px;">Il primo che accetta viene a pulire · puoi annullare quando vuoi</div>
+        </div>
+        <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#14342b;z-index:45;"></div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div style="flex:none;align-self:center;width:72px;display:flex;align-items:center;justify-content:center;">
+      <div style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 8px 20px -8px rgba(20,52,43,.3);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#14342b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+
+    <!-- ============ FRAME 4 · DETTAGLIO ============ -->
+    <div style="flex:none;width:393px;">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px;padding-left:4px;">
+        <span style="width:30px;height:30px;border-radius:50%;background:#14342b;color:#3ddc97;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">4</span>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#14342b;">Profilo & prenota</div>
+          <div style="font-size:13px;font-weight:500;color:#9aa297;">Recensioni e dettagli</div>
+        </div>
+      </div>
+      <div style="position:relative;width:393px;height:852px;background:#fff;border-radius:52px;overflow:hidden;box-shadow:0 50px 90px -30px rgba(20,52,43,.5), 0 0 0 11px #0d0f0e, 0 0 0 12px #2a2d2b;">
+        <!-- hero header -->
+        <div style="position:absolute;top:0;left:0;right:0;height:300px;background:linear-gradient(150deg,#14342b 0%,#1f5e48 100%);"></div>
+        <!-- status bar -->
+        <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:18px 34px 0;">
+          <div style="font-size:16px;font-weight:600;color:#fff;">10:24</div>
+          <div style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:124px;height:34px;background:#0c0e0d;border-radius:20px;"></div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg width="18" height="13" viewBox="0 0 18 13" fill="#fff"><rect x="0" y="8" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="8" rx="1"/><rect x="10" y="2.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/></svg>
+            <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3.2" stroke="#fff" stroke-opacity=".5"/><rect x="2.6" y="2.6" width="17.8" height="7.8" rx="2" fill="#fff"/></svg>
+          </div>
+        </div>
+        <!-- top bar -->
+        <div style="position:absolute;top:62px;left:18px;right:18px;z-index:30;display:flex;align-items:center;justify-content:space-between;">
+          <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.3-9.3-8.3C1.2 8.9 2.6 5.5 5.8 5.5c2 0 3.3 1.2 4.2 2.4.9-1.2 2.2-2.4 4.2-2.4 3.2 0 4.6 3.4 3.1 6.2C19 15.7 12 20 12 20z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>
+        </div>
+
+        <!-- profile head -->
+        <div style="position:absolute;top:118px;left:0;right:0;z-index:25;display:flex;flex-direction:column;align-items:center;">
+          <div style="position:relative;width:96px;height:96px;border-radius:28px;background:linear-gradient(135deg,#1f7a5c,#34c79a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:800;box-shadow:0 12px 30px -8px rgba(0,0,0,.4);border:4px solid rgba(255,255,255,.25);">GR
+            <span style="position:absolute;bottom:-3px;right:-3px;width:24px;height:24px;border-radius:50%;background:#34c759;border:3px solid #14342b;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;margin-top:14px;">
+            <span style="font-size:23px;font-weight:800;color:#fff;">Giulia Rossi</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.5 1.6-1 2.8 1 2.8-2.5 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3.1 16l1-2.8-1-2.8 2.5-1.6 1-2.8 3 .2L12 2z" fill="#3ddc97"/><path d="M8.5 12l2.3 2.3 4.7-4.6" stroke="#14342b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9L12 2z"/></svg>
+            <span style="font-size:14px;font-weight:700;color:#fff;">4.9</span>
+            <span style="font-size:14px;color:rgba(255,255,255,.7);">· 128 recensioni · 1,2 km</span>
+          </div>
+        </div>
+
+        <!-- scroll body -->
+        <div style="position:absolute;top:300px;left:0;right:0;bottom:104px;overflow-y:auto;padding:20px 18px 0;background:#fff;">
+          <!-- stats -->
+          <div style="display:flex;background:#f6f9f7;border-radius:18px;padding:16px 0;margin-bottom:20px;">
+            <div style="flex:1;text-align:center;border-right:1px solid rgba(20,52,43,.08);"><div style="font-size:19px;font-weight:800;color:#14342b;">6 anni</div><div style="font-size:12px;color:#9aa9a2;margin-top:2px;">Esperienza</div></div>
+            <div style="flex:1;text-align:center;border-right:1px solid rgba(20,52,43,.08);"><div style="font-size:19px;font-weight:800;color:#14342b;">340</div><div style="font-size:12px;color:#9aa9a2;margin-top:2px;">Lavori</div></div>
+            <div style="flex:1;text-align:center;"><div style="font-size:19px;font-weight:800;color:#14342b;">98%</div><div style="font-size:12px;color:#9aa9a2;margin-top:2px;">Risposta</div></div>
+          </div>
+          <!-- servizi -->
+          <div style="font-size:16px;font-weight:700;color:#14342b;margin-bottom:11px;">Specializzazioni</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;">
+            <span style="height:36px;padding:0 15px;border-radius:18px;background:#e3f3ec;color:#1f7a5c;font-size:13.5px;font-weight:600;display:flex;align-items:center;">Pulizia casa</span>
+            <span style="height:36px;padding:0 15px;border-radius:18px;background:#e3f3ec;color:#1f7a5c;font-size:13.5px;font-weight:600;display:flex;align-items:center;">Uffici</span>
+            <span style="height:36px;padding:0 15px;border-radius:18px;background:#e3f3ec;color:#1f7a5c;font-size:13.5px;font-weight:600;display:flex;align-items:center;">Prodotti eco</span>
+            <span style="height:36px;padding:0 15px;border-radius:18px;background:#e3f3ec;color:#1f7a5c;font-size:13.5px;font-weight:600;display:flex;align-items:center;">Stiro</span>
+          </div>
+          <!-- bio -->
+          <div style="font-size:16px;font-weight:700;color:#14342b;margin-bottom:9px;">Su di me</div>
+          <div style="font-size:14.5px;font-weight:400;color:#6b7b74;line-height:1.55;margin-bottom:24px;">Pulisco case e uffici da oltre 6 anni con attenzione ai dettagli e prodotti ecologici. Affidabile, puntuale e flessibile sugli orari. Soddisfazione garantita.</div>
+          <!-- reviews -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+            <span style="font-size:16px;font-weight:700;color:#14342b;">Recensioni</span>
+            <span style="font-size:13px;font-weight:600;color:#1f7a5c;">Vedi tutte</span>
+          </div>
+          <div style="background:#f6f9f7;border-radius:16px;padding:14px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#c0392b,#e57368);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;">MT</div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#14342b;">Marta T.</div><div style="display:flex;gap:1px;margin-top:2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg></div></div>
+              <span style="font-size:12px;color:#9aa9a2;">2 sett. fa</span>
+            </div>
+            <div style="font-size:13.5px;color:#6b7b74;line-height:1.5;">Casa impeccabile e profumatissima. Giulia è gentile e super precisa, la riprenoto sicuramente.</div>
+          </div>
+          <div style="background:#f6f9f7;border-radius:16px;padding:14px;margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#2a6f97,#4cb5d6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;">LB</div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#14342b;">Luca B.</div><div style="display:flex;gap:1px;margin-top:2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.8 5.9 20.8 7.1 14l-5-4.8 6.9-.9z"/></svg></div></div>
+              <span style="font-size:12px;color:#9aa9a2;">1 mese fa</span>
+            </div>
+            <div style="font-size:13.5px;color:#6b7b74;line-height:1.5;">Puntuale e professionale. Ufficio pulito a fondo in poco tempo.</div>
+          </div>
+        </div>
+
+        <!-- sticky CTA -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:104px;z-index:35;background:#fff;border-top:1px solid rgba(20,52,43,.08);display:flex;align-items:center;gap:14px;padding:0 20px 22px;">
+          <div style="flex:none;"><div style="font-size:24px;font-weight:800;color:#14342b;">€22<span style="font-size:14px;font-weight:500;color:#9aa9a2;">/ora</span></div></div>
+          <button style="flex:1;height:56px;border:none;border-radius:16px;background:#14342b;color:#3ddc97;font-size:17px;font-weight:700;font-family:inherit;">Prenota ora</button>
+        </div>
+        <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:140px;height:5px;border-radius:3px;background:#14342b;z-index:45;"></div>
+      </div>
+    </div>
+
+  </div>
+

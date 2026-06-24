@@ -73,3 +73,6 @@ supabase/.temp/
 # identifiers (not secrets — restricted by package name + signing SHA-1) and are
 # bundled into every APK anyway. EAS builds from git, so it must be tracked.
 GoogleService-Info.plist
+
+# QA screenshots (local only)
+.qa_screens/
