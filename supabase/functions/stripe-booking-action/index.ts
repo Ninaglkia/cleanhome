@@ -201,15 +201,28 @@ serve(async (req) => {
         });
       } catch (e: any) { console.warn("[stripe-booking-action] push cleaner won:", e?.message); }
 
-      // Notify client
+      // Notify client — include cleaner's full name in the body
       const { data: clientData } = await supabase
         .from("bookings")
         .select("client_id")
         .eq("id", booking_id)
         .single();
       if (clientData?.client_id) {
+        // Fetch cleaner full_name for personalised message
+        let cleanerName = "Un professionista";
+        try {
+          const { data: cleanerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", user.id)
+            .single();
+          if (cleanerProfile?.full_name?.trim()) {
+            cleanerName = cleanerProfile.full_name.trim();
+          }
+        } catch (_e) { /* graceful fallback to default */ }
+
         const clientTitle = "Prenotazione confermata!";
-        const clientBody = "Un professionista ha accettato la tua richiesta di pulizia.";
+        const clientBody = `${cleanerName} ha accettato la tua richiesta di pulizia.`;
         await supabase.from("notifications").insert({
           user_id: clientData.client_id,
           type: "booking_accepted",
