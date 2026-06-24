@@ -37,8 +37,22 @@ import Animated, {
   runOnJS,
   withTiming,
   withSpring,
+  withSequence,
+  withRepeat,
+  cancelAnimation,
+  FadeInDown,
+  FadeOut,
   Easing,
 } from "react-native-reanimated";
+
+// Optional haptics — guarded so a missing module never crashes the screen.
+let Haptics: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  Haptics = require("expo-haptics");
+} catch {
+  Haptics = null;
+}
 import {
   Gesture,
   GestureDetector,
@@ -541,28 +555,64 @@ function RadiusSlider({ radiusKm, onRadiusChange }: RadiusSliderProps) {
 }
 
 // ─── PriceSlider ─────────────────────────────────────────────────────────────
-// Hourly rate slider €20 → €35 (1 € step). Mirrors RadiusSlider visually.
+// Hourly rate slider €15 → €25 (1 € step). Mirrors RadiusSlider visually.
+// New cleaners start at €15; higher rates unlock with positive reviews.
 
-const PRICE_MIN = 20;
-const PRICE_MAX = 35;
+const PRICE_MIN = 15;
+const PRICE_MAX = 25;
 
 interface PriceSliderProps {
   /** Current value in euros (number). */
   priceEur: number;
   onPriceChange: (eur: number) => void;
+  /** Maximum selectable rate, unlocked by positive reviews. Defaults to PRICE_MAX. */
+  maxAllowed?: number;
+  /** Called when the user attempts to drag past the maxAllowed cap. */
+  onLockedAttempt?: () => void;
 }
 
-function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
+function PriceSlider({ priceEur, onPriceChange, maxAllowed = PRICE_MAX, onLockedAttempt }: PriceSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const thumbX = useSharedValue(0);
+  const lockPulse = useSharedValue(0);
+  const lockShake = useSharedValue(0);
+  const lockPunch = useSharedValue(1);
 
-  // Clamp fraction to [0, 1] so out-of-range saved values don't push
-  // the fill past the track edge.
+  // Gentle continuous pulse on the lock icon to hint the locked zone.
+  useEffect(() => {
+    lockPulse.value = withRepeat(
+      withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    return () => cancelAnimation(lockPulse);
+  }, [lockPulse]);
+
+  // Sharp tactile feedback when the user pushes past the cap.
+  const triggerLockFeedback = useCallback(() => {
+    lockShake.value = withSequence(
+      withTiming(-4, { duration: 50 }),
+      withTiming(4, { duration: 80 }),
+      withTiming(-3, { duration: 70 }),
+      withTiming(0, { duration: 60 })
+    );
+    lockPunch.value = withSequence(
+      withTiming(1.5, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 5, stiffness: 200 })
+    );
+    Haptics?.impactAsync?.(Haptics?.ImpactFeedbackStyle?.Medium).catch?.(() => {});
+  }, [lockShake, lockPunch]);
+
+  // Clamp fraction to [0, 1] using maxAllowed as effective ceiling for position.
   const rawFraction = trackWidth > 0
     ? (priceEur - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)
     : 0;
   const fraction = Math.min(Math.max(rawFraction, 0), 1);
   const thumbPosition = fraction * trackWidth;
+
+  // Pixel position of the cap boundary on the track.
+  const capFraction = (maxAllowed - PRICE_MIN) / (PRICE_MAX - PRICE_MIN);
+  const capPosition = trackWidth > 0 ? Math.min(Math.max(capFraction, 0), 1) * trackWidth : 0;
 
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -592,25 +642,46 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
     (x: number) => {
       if (trackWidth === 0) return;
       const clamped = clamp(x, 0, trackWidth);
-      const eur = Math.round(
+      const rawEur = Math.round(
         PRICE_MIN + (clamped / trackWidth) * (PRICE_MAX - PRICE_MIN)
       );
-      onPriceChange(clamp(eur, PRICE_MIN, PRICE_MAX));
+      // If the user drags into the locked zone, snap to cap and notify.
+      if (rawEur > maxAllowed) {
+        onPriceChange(maxAllowed);
+        triggerLockFeedback();
+        if (onLockedAttempt) onLockedAttempt();
+        return;
+      }
+      onPriceChange(clamp(rawEur, PRICE_MIN, maxAllowed));
     },
-    [trackWidth, onPriceChange]
+    [trackWidth, onPriceChange, maxAllowed, onLockedAttempt, triggerLockFeedback]
   );
 
   const panGesture = Gesture.Pan()
     .minDistance(0)
     .onBegin((e) => {
-      const newX = Math.min(Math.max(e.x, 0), trackWidth);
+      // Snap to cap boundary if touch starts in the locked zone.
+      const capPx = capFraction * trackWidth;
+      const newX = Math.min(Math.max(e.x, 0), capPx);
       thumbX.value = newX;
       runOnJS(updatePrice)(newX);
     })
     .onUpdate((e) => {
-      const newX = Math.min(Math.max(e.x, 0), trackWidth);
+      const capPx = capFraction * trackWidth;
+      const rawX = Math.min(Math.max(e.x, 0), trackWidth);
+      const newX = Math.min(rawX, capPx);
       thumbX.value = newX;
-      runOnJS(updatePrice)(newX);
+      runOnJS(updatePrice)(rawX); // pass raw so updatePrice can fire onLockedAttempt
+    })
+    .onEnd((e) => {
+      // Recoil bounce off the locked wall when the finger lifts past the cap.
+      const capPx = capFraction * trackWidth;
+      if (e.x > capPx) {
+        thumbX.value = withSequence(
+          withTiming(Math.max(0, capPx - 6), { duration: 90, easing: Easing.out(Easing.quad) }),
+          withSpring(capPx, { damping: 9, stiffness: 220 })
+        );
+      }
     });
 
   const thumbAnimStyle = useAnimatedStyle(() => ({
@@ -618,18 +689,71 @@ function PriceSlider({ priceEur, onPriceChange }: PriceSliderProps) {
   }));
 
   const fillWidth = trackWidth > 0 ? thumbPosition : 0;
+  const lockedZoneWidth = trackWidth > 0 ? trackWidth - capPosition : 0;
+  const isPartiallyLocked = maxAllowed < PRICE_MAX;
+
+  const lockStyle = useAnimatedStyle(() => ({
+    opacity: 0.7 + lockPulse.value * 0.3,
+    transform: [
+      { translateX: lockShake.value },
+      { scale: (1 + lockPulse.value * 0.18) * lockPunch.value },
+    ],
+  }));
 
   return (
     <View style={styles.sliderContainer}>
       <View style={styles.sliderLabelRow}>
         <Text style={styles.sliderLabelLeft}>€{PRICE_MIN}</Text>
         <Text style={styles.sliderKmValue}>€{priceEur}/ora</Text>
-        <Text style={styles.sliderLabelRight}>€{PRICE_MAX}</Text>
+        <Text style={[styles.sliderLabelRight, isPartiallyLocked && { color: C.outline }]}>
+          €{PRICE_MAX}
+        </Text>
       </View>
       <GestureDetector gesture={panGesture}>
         <View style={styles.sliderTrackWrapper} onLayout={handleLayout}>
           <View style={styles.sliderTrack} />
+          {/* Green fill — only up to current value */}
           <View style={[styles.sliderFill, { width: fillWidth }]} />
+          {/* Locked zone — greyed area from cap to track end */}
+          {isPartiallyLocked && trackWidth > 0 && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: capPosition,
+                width: lockedZoneWidth,
+                height: 4,
+                backgroundColor: "#c1c8c5",
+                borderRadius: 2,
+              }}
+            />
+          )}
+          {/* Lock icon at the cap boundary — pulses, shakes & punches on locked attempt */}
+          {isPartiallyLocked && trackWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: "absolute",
+                  left: capPosition - 11,
+                  top: -9,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: "#ffffff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: C.secondary,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  shadowOffset: { width: 0, height: 1 },
+                },
+                lockStyle,
+              ]}
+            >
+              <Ionicons name="lock-closed" size={12} color={C.secondary} />
+            </Animated.View>
+          )}
           <Animated.View
             style={[styles.sliderThumbWrapper, thumbAnimStyle]}
             pointerEvents="none"
@@ -793,7 +917,7 @@ export default function ListingScreen() {
   const router = useRouter();
 
   // Existing state
-  const [hourlyRate, setHourlyRate] = useState("25");
+  const [hourlyRate, setHourlyRate] = useState("15");
   // Start with an empty description — the old hard-coded placeholder
   // ("Professionista con 5 anni di esperienza...") was silently
   // published by cleaners who didn't bother to edit it, which made
@@ -827,6 +951,13 @@ export default function ListingScreen() {
   // Subscription status loaded from DB on fetch. Used to gate radius > 5 km.
   const [currentSubscriptionStatus, setCurrentSubscriptionStatus] =
     useState<SubscriptionStatus>("none");
+
+  // ── Review-gated leveling ─────────────────────────────────────────────────
+  // null = still loading (treat as 0 for safe cap). Fetched once on mount.
+  const [positiveReviews, setPositiveReviews] = useState<number | null>(null);
+  // Transient inline message shown when cleaner drags past the cap.
+  const [showLockedNote, setShowLockedNote] = useState(false);
+  const lockedNoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listing ID from the route query (?id=...). Required: without an id
   // we redirect the user back to the listings hub so they can pick or
@@ -2016,6 +2147,26 @@ export default function ListingScreen() {
     router.push("/listings");
   }, [router]);
 
+  // ── Rate cap + level (must be declared before persistAndNavigate) ──────────
+  // Cap computation used throughout the render.
+  const maxAllowedRate = 15 + Math.min(10, positiveReviews ?? 0);
+
+  // Level badge derived from positive review count.
+  const rateLevel = (() => {
+    const count = positiveReviews ?? 0;
+    if (count === 0) return { key: "nuovo", label: "Nuovo", emoji: "🌱" };
+    if (count <= 5) return { key: "affermato", label: "Affermato", emoji: "⭐" };
+    return { key: "pro", label: "Pro", emoji: "💎" };
+  })();
+
+  const handleLockedAttempt = useCallback(() => {
+    if (lockedNoteTimerRef.current) clearTimeout(lockedNoteTimerRef.current);
+    setShowLockedNote(true);
+    lockedNoteTimerRef.current = setTimeout(() => {
+      setShowLockedNote(false);
+    }, 2500);
+  }, []);
+
   // Shared helper: persist the listing fields to Supabase and navigate away.
   // Called both from the normal save path and after a successful premium upgrade.
   const persistAndNavigate = useCallback(async () => {
@@ -2027,10 +2178,14 @@ export default function ListingScreen() {
         : null;
     const selectedServices = services.filter((s) => s.selected).map((s) => s.id);
 
+    // Clamp hourly_rate defensively to maxAllowedRate before saving.
+    // This prevents a race condition where the user somehow bypasses the slider.
+    const safeRate = Math.min(parseFloat(hourlyRate) || 15, maxAllowedRate);
+
     // Optimistic: navigate immediately while the write resolves in background.
     const savePromise = updateListing(listingId, {
       city: draftCity || null,
-      hourly_rate: parseFloat(hourlyRate) || null,
+      hourly_rate: safeRate || null,
       description: description.trim() || null,
       services: selectedServices.length > 0 ? selectedServices : null,
       coverage_mode: isCircle ? "circle" : "polygon",
@@ -2057,6 +2212,7 @@ export default function ListingScreen() {
     description,
     services,
     router,
+    maxAllowedRate,
   ]);
 
   // Launch the Stripe Premium upgrade flow then, on success, re-poll the
@@ -2254,7 +2410,7 @@ export default function ListingScreen() {
           setCoverUrl(cover);
         }
 
-        const rate = existing.hourly_rate != null ? String(existing.hourly_rate) : "25";
+        const rate = existing.hourly_rate != null ? String(existing.hourly_rate) : "15";
         if (existing.hourly_rate != null) setHourlyRate(rate);
 
         const desc = existing.description ?? "";
@@ -2350,7 +2506,7 @@ export default function ListingScreen() {
         // This is set once and never updated, so the user always compares
         // against what was saved in the DB at mount time.
         setInitialSnapshot({
-          hourlyRate: existing.hourly_rate != null ? String(existing.hourly_rate) : "25",
+          hourlyRate: existing.hourly_rate != null ? String(existing.hourly_rate) : "15",
           description: desc,
           selectedServices: resolvedServices
             .filter((s) => s.selected)
@@ -2376,6 +2532,44 @@ export default function ListingScreen() {
       cancelled = true;
     };
   }, [listingId]);
+
+  // ── Fetch positive reviews count for rate cap ─────────────────────────────
+  // Runs once after user.id is available. Treats any error as 0 reviews (safe).
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { count, error } = await supabase
+          .from("reviews")
+          .select("*", { count: "exact", head: true })
+          .eq("cleaner_id", user.id)
+          .gte("rating", 4);
+        if (cancelled) return;
+        if (error) {
+          setPositiveReviews(0);
+          return;
+        }
+        setPositiveReviews(count ?? 0);
+      } catch {
+        if (!cancelled) setPositiveReviews(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  // Clamp hourlyRate once review count is known: a returning cleaner whose
+  // cap hasn't been reached yet cannot keep an unlocked rate.
+  useEffect(() => {
+    if (positiveReviews === null) return; // still loading
+    const cap = 15 + Math.min(10, positiveReviews);
+    const current = parseInt(hourlyRate, 10) || 15;
+    if (current > cap) {
+      setHourlyRate(String(cap));
+    }
+  }, [positiveReviews]); // intentionally not including hourlyRate to run only when count resolves
 
 
   return (
@@ -2535,14 +2729,117 @@ export default function ListingScreen() {
             <SectionLabel>Tariffa oraria</SectionLabel>
             <PriceSlider
               priceEur={Math.min(
-                PRICE_MAX,
-                Math.max(PRICE_MIN, parseInt(hourlyRate, 10) || 25)
+                maxAllowedRate,
+                Math.max(PRICE_MIN, parseInt(hourlyRate, 10) || 15)
               )}
               onPriceChange={(v) => setHourlyRate(String(v))}
+              maxAllowed={maxAllowedRate}
+              onLockedAttempt={handleLockedAttempt}
             />
-            <Text style={[styles.priceHint, { marginTop: 4, alignSelf: "center" }]}>
-              Media zona: €22–€30
-            </Text>
+
+            {/* Level + unlock info block */}
+            <View style={{ marginTop: 10, gap: 4 }}>
+              {/* Level badge row */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  backgroundColor: C.surfaceLow,
+                  borderRadius: 20,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                }}>
+                  <Text style={{ fontSize: 13 }}>{rateLevel.emoji}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: C.secondary }}>
+                    {rateLevel.label}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 13, color: C.onSurfaceVariant, fontWeight: "600" }}>
+                  Tariffa max: €{maxAllowedRate}/ora
+                </Text>
+              </View>
+
+              {/* Unlock explanation + progress toward €25 */}
+              {maxAllowedRate < PRICE_MAX ? (
+                <View style={{ gap: 7, marginTop: 4 }}>
+                  <Text style={{ fontSize: 12.5, color: C.onSurfaceVariant, lineHeight: 18 }}>
+                    Ogni recensione positiva{" "}
+                    <Text style={{ fontWeight: "700", color: C.secondary }}>(≥4★)</Text>
+                    {" "}sblocca <Text style={{ fontWeight: "700", color: C.secondary }}>+€1/ora</Text>.
+                  </Text>
+
+                  {/* Progress bar 0 → 10 recensioni */}
+                  <View
+                    style={{
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: C.surfaceLow,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        height: 8,
+                        width: `${Math.min(100, ((positiveReviews ?? 0) / 10) * 100)}%`,
+                        backgroundColor: C.secondary,
+                        borderRadius: 4,
+                      }}
+                    />
+                  </View>
+
+                  {/* Step roadmap */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: C.secondary }}>
+                      🌱 ora €15
+                    </Text>
+                    <Text style={{ fontSize: 11, color: (positiveReviews ?? 0) >= 5 ? C.secondary : C.outline, fontWeight: (positiveReviews ?? 0) >= 5 ? "700" : "500" }}>
+                      ⭐ 5 rec → €20
+                    </Text>
+                    <Text style={{ fontSize: 11, color: (positiveReviews ?? 0) >= 10 ? C.secondary : C.outline, fontWeight: "500" }}>
+                      💎 10 rec → €25
+                    </Text>
+                  </View>
+
+                  <Text style={{ fontSize: 12, color: C.onSurfaceVariant, lineHeight: 17 }}>
+                    Ti manca{" "}
+                    <Text style={{ fontWeight: "700", color: C.secondary }}>
+                      1 recensione
+                    </Text>{" "}
+                    per arrivare a €{maxAllowedRate + 1}/ora · {(positiveReviews ?? 0)}/10 fatte
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 12.5, color: C.secondary, fontWeight: "700", lineHeight: 18, marginTop: 2 }}>
+                  💎 Livello Pro — hai sbloccato la tariffa massima di €25/ora!
+                </Text>
+              )}
+
+              {/* Inline note shown on locked-zone drag attempt — springs in */}
+              {showLockedNote && (
+                <Animated.View
+                  entering={FadeInDown.springify().damping(12).stiffness(180)}
+                  exiting={FadeOut.duration(220)}
+                  style={{
+                    marginTop: 4,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 7,
+                    backgroundColor: "#FEF3C7",
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: "#FCD34D",
+                  }}
+                >
+                  <Ionicons name="lock-closed" size={15} color="#B45309" />
+                  <Text style={{ flex: 1, fontSize: 12, color: "#92400E", lineHeight: 17 }}>
+                    Ricevi le tue prime recensioni positive per salire di livello e sbloccare tariffe più alte.
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
 
             {/* Active / inactive switch — hidden during initial fetch to avoid
                 flashing "Annuncio attivo" for a listing that is actually paused. */}
