@@ -7,11 +7,12 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import {
   useNotifications,
   type AppNotification,
@@ -26,14 +27,36 @@ const C = {
   surfaceLow: "#f0f4f3",
   surfaceContainerHigh: "#e5e9e8",
   surfaceVariant: "#dfe3e2",
-  primary: "#022420",
-  secondary: "#006b55",
+  /** Ink — main text / header title */
+  ink: "#14342b",
+  /** Accent green — CTA text, footer, mark-read button */
+  accentGreen: "#1f7a5c",
+  /** Icon bg green — check squircle bg */
+  accentGreenIcon: "#1f8a5b",
+  /** Unread row bg */
+  unreadRowBg: "#f3fbf7",
+  /** Unread dot */
+  unreadDot: "#1f8a5b",
+  /** Amber icon */
+  amberIcon: "#d99a2b",
+  /** Amber icon bg */
+  amberBg: "#fff3df",
+  /** Blue icon */
+  blueIcon: "#3a6fb0",
+  /** Blue icon bg */
+  blueBg: "#eaf0fb",
   error: "#ba1a1a",
   onSurface: "#181c1c",
   onSurfaceVariant: "#414846",
   outline: "#717976",
   outlineVariant: "#c1c8c5",
 } as const;
+
+const PANEL_HORIZONTAL_MARGIN = 12;
+const PANEL_TOP_GAP = 6;
+const PANEL_WIDTH = 340;
+const CARET_SIZE = 10; // half-width of the triangle
+const CARET_RIGHT_OFFSET = 20; // distance from right edge of panel to caret center
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -47,32 +70,57 @@ export interface NotificationsDropdownProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// The notifications table stores granular type strings (booking_accepted,
-// new_booking_request, message_new, booking_payout_released, …), so map them
-// to a coarse category before picking an icon — and always return a default
-// so the icon renders for every real notification type.
-function category(t: string): "booking" | "message" | "system" {
-  if (t.startsWith("message")) return "message";
+type IconCategory = "confirm" | "reminder" | "review" | "info";
+
+function iconCategory(t: string): IconCategory {
   if (
-    t.startsWith("booking") ||
+    t.startsWith("booking_accepted") ||
+    t.startsWith("booking_completed") ||
     t.startsWith("new_booking") ||
     t.startsWith("payment") ||
-    t.startsWith("review")
+    t.startsWith("booking_confirmed")
   )
-    return "booking";
-  return "system";
+    return "confirm";
+  if (t.startsWith("booking_reminder") || t.startsWith("reminder"))
+    return "reminder";
+  if (t.startsWith("review")) return "review";
+  if (t.startsWith("message")) return "info";
+  return "info";
 }
 
-function getTypeIcon(
-  type: NotificationType
-): React.ComponentProps<typeof Ionicons>["name"] {
-  switch (category(type)) {
-    case "booking":
-      return "calendar-outline";
-    case "message":
-      return "chatbubble-outline";
+interface IconConfig {
+  name: React.ComponentProps<typeof Ionicons>["name"];
+  iconColor: string;
+  bgColor: string;
+}
+
+function getIconConfig(type: NotificationType): IconConfig {
+  switch (iconCategory(type)) {
+    case "confirm":
+      return {
+        name: "checkmark",
+        iconColor: "#ffffff",
+        bgColor: C.accentGreenIcon,
+      };
+    case "reminder":
+      return {
+        name: "time-outline",
+        iconColor: C.amberIcon,
+        bgColor: C.amberBg,
+      };
+    case "review":
+      return {
+        name: "star-outline",
+        iconColor: C.blueIcon,
+        bgColor: C.blueBg,
+      };
+    case "info":
     default:
-      return "shield-checkmark-outline";
+      return {
+        name: "chatbubble-outline",
+        iconColor: C.onSurfaceVariant,
+        bgColor: C.surfaceContainerHigh,
+      };
   }
 }
 
@@ -99,17 +147,14 @@ interface RowProps {
 
 const NotificationRow = ({ item, onPress }: RowProps) => {
   const isUnread = !item.read_at;
-  const iconName = getTypeIcon(item.type);
+  const iconConfig = getIconConfig(item.type);
 
   const handlePress = useCallback(() => {
     onPress(item.id, item.link_path);
   }, [item.id, item.link_path, onPress]);
 
   return (
-    <Animated.View
-      entering={FadeInDown.springify().damping(20)}
-      layout={Layout.springify()}
-    >
+    <Animated.View entering={FadeInDown.springify().damping(20)}>
       <Pressable
         onPress={handlePress}
         style={({ pressed }) => [
@@ -120,16 +165,17 @@ const NotificationRow = ({ item, onPress }: RowProps) => {
         accessibilityLabel={`Notifica: ${item.title}`}
         accessibilityRole="button"
       >
+        {/* Squircle icon — 40x40 radius 11 */}
         <View
           style={[
             styles.rowIcon,
-            isUnread ? styles.rowIconUnread : styles.rowIconRead,
+            { backgroundColor: iconConfig.bgColor },
           ]}
         >
           <Ionicons
-            name={iconName}
+            name={iconConfig.name}
             size={18}
-            color={isUnread ? C.secondary : C.primary}
+            color={iconConfig.iconColor}
           />
         </View>
 
@@ -145,10 +191,11 @@ const NotificationRow = ({ item, onPress }: RowProps) => {
               {item.title}
             </Text>
             <View style={styles.rowTimestampWrap}>
-              {isUnread && <View style={styles.unreadDot} />}
               <Text style={styles.rowTimestamp}>
                 {formatTimestamp(item.created_at)}
               </Text>
+              {/* Unread dot — 8px, right of timestamp */}
+              {isUnread && <View style={styles.unreadDotView} />}
             </View>
           </View>
 
@@ -176,7 +223,11 @@ const Separator = () => <View style={styles.separator} />;
 function EmptyState() {
   return (
     <View style={styles.emptyState}>
-      <Ionicons name="notifications-off-outline" size={28} color={C.outlineVariant} />
+      <Ionicons
+        name="notifications-off-outline"
+        size={28}
+        color={C.outlineVariant}
+      />
       <Text style={styles.emptyText}>Nessuna notifica</Text>
     </View>
   );
@@ -206,7 +257,6 @@ export function NotificationsDropdown({
       markAsRead(id);
       onClose();
       if (linkPath) {
-        // Navigate after a tick so the modal has time to close
         setTimeout(() => {
           router.push(linkPath as never);
         }, 50);
@@ -214,6 +264,13 @@ export function NotificationsDropdown({
     },
     [markAsRead, onClose, router]
   );
+
+  const handleSeeAll = useCallback(() => {
+    onClose();
+    setTimeout(() => {
+      router.push("/(tabs)/notifications" as never);
+    }, 50);
+  }, [onClose, router]);
 
   const keyExtractor = useCallback((item: AppNotification) => item.id, []);
 
@@ -224,9 +281,14 @@ export function NotificationsDropdown({
     [handleRowPress]
   );
 
-  // Panel anchors: right-aligned below the bell icon
-  const panelTop = topOffset;
-  const panelRight = 16 + insets.right;
+  // Panel anchors: right-aligned below the header.
+  const panelTop = topOffset + PANEL_TOP_GAP + CARET_SIZE; // leave room for caret above panel
+  const panelRight = Math.max(PANEL_HORIZONTAL_MARGIN, 16 + insets.right);
+
+  // Caret sits ABOVE the panel, tip pointing upward, horizontally offset so
+  // its center aligns with the bell icon (CARET_RIGHT_OFFSET from panel right).
+  const caretTop = topOffset + PANEL_TOP_GAP;
+  const caretRight = panelRight + CARET_RIGHT_OFFSET;
 
   return (
     <Modal
@@ -238,12 +300,15 @@ export function NotificationsDropdown({
     >
       {/* Full-screen backdrop — tap to close */}
       <Pressable style={styles.backdrop} onPress={onClose}>
+        {/* Caret / triangle above the panel */}
+        <View
+          style={[styles.caret, { top: caretTop, right: caretRight }]}
+          pointerEvents="none"
+        />
+
         {/* Stop propagation so tapping the panel doesn't close it */}
         <Pressable
-          style={[
-            styles.panel,
-            { top: panelTop, right: panelRight },
-          ]}
+          style={[styles.panel, { top: panelTop, right: panelRight }]}
           onPress={() => {
             // swallow touch — prevent backdrop from receiving it
           }}
@@ -256,15 +321,10 @@ export function NotificationsDropdown({
                 onPress={markAllAsRead}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.markAllBtn}
-                accessibilityLabel="Segna tutte come lette"
+                accessibilityLabel="Segna lette"
                 accessibilityRole="button"
               >
-                <Ionicons
-                  name="checkmark-done-outline"
-                  size={14}
-                  color={C.primary}
-                />
-                <Text style={styles.markAllText}>Segna tutte lette</Text>
+                <Text style={styles.markAllText}>Segna lette</Text>
               </Pressable>
             )}
           </View>
@@ -274,7 +334,7 @@ export function NotificationsDropdown({
           {/* Content */}
           {isLoading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="small" color={C.secondary} />
+              <ActivityIndicator size="small" color={C.accentGreen} />
             </View>
           ) : (
             <FlatList
@@ -284,15 +344,30 @@ export function NotificationsDropdown({
               ItemSeparatorComponent={Separator}
               ListEmptyComponent={<EmptyState />}
               showsVerticalScrollIndicator={false}
-              removeClippedSubviews
               maxToRenderPerBatch={10}
               windowSize={3}
               style={styles.list}
               contentContainerStyle={
-                (data ?? []).length === 0 ? styles.listEmptyContainer : undefined
+                (data ?? []).length === 0
+                  ? styles.listEmptyContainer
+                  : undefined
               }
             />
           )}
+
+          {/* Footer — "Vedi tutte" */}
+          <View style={styles.footerDivider} />
+          <Pressable
+            onPress={handleSeeAll}
+            style={({ pressed }) => [
+              styles.footer,
+              pressed && styles.footerPressed,
+            ]}
+            accessibilityLabel="Vedi tutte le notifiche"
+            accessibilityRole="button"
+          >
+            <Text style={styles.footerText}>Vedi tutte</Text>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -307,13 +382,27 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.25)",
   },
 
+  // ── Caret ─────────────────────────────────────────────────────────────────────
+  // A CSS-style triangle pointing upward, rendered via border trick.
+  caret: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    borderLeftWidth: CARET_SIZE,
+    borderRightWidth: CARET_SIZE,
+    borderBottomWidth: CARET_SIZE,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: C.surface,
+  },
+
   // ── Panel ─────────────────────────────────────────────────────────────────────
   panel: {
     position: "absolute",
-    width: 340,
+    width: PANEL_WIDTH,
     maxHeight: 480,
     backgroundColor: C.surface,
-    borderRadius: 18,
+    borderRadius: 22,
     shadowColor: "#022420",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -332,27 +421,25 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   panelTitle: {
-    fontFamily: "NotoSerif_700Bold",
-    fontSize: 18,
-    fontWeight: "700",
-    color: C.primary,
+    fontFamily: "System",
+    fontSize: 17,
+    fontWeight: "800",
+    color: C.ink,
     letterSpacing: -0.3,
   },
   markAllBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
   markAllText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    color: C.primary,
+    color: C.accentGreen,
   },
   divider: {
     height: 1,
     backgroundColor: C.outlineVariant,
     opacity: 0.5,
-    marginHorizontal: 0,
   },
 
   // ── List ──────────────────────────────────────────────────────────────────────
@@ -382,9 +469,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   rowUnread: {
-    backgroundColor: C.surface,
-    borderLeftWidth: 3,
-    borderLeftColor: C.secondary,
+    backgroundColor: C.unreadRowBg,
   },
   rowRead: {
     backgroundColor: C.surface,
@@ -392,19 +477,14 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: 0.75,
   },
+  // Squircle 40x40 radius 11
   rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  rowIconUnread: {
-    backgroundColor: `${C.secondary}1A`,
-  },
-  rowIconRead: {
-    backgroundColor: C.surfaceVariant,
   },
   rowBody: {
     flex: 1,
@@ -422,22 +502,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTitleUnread: {
-    color: C.primary,
+    color: C.ink,
   },
   rowTitleRead: {
-    color: `${C.primary}99`,
+    color: `${C.ink}99`,
   },
   rowTimestampWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     flexShrink: 0,
   },
-  unreadDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.secondary,
+  // 8px dot, right of timestamp
+  unreadDotView: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.unreadDot,
   },
   rowTimestamp: {
     fontSize: 10,
@@ -451,6 +532,26 @@ const styles = StyleSheet.create({
   },
   rowDescriptionRead: {
     opacity: 0.7,
+  },
+
+  // ── Footer ────────────────────────────────────────────────────────────────────
+  footerDivider: {
+    height: 1,
+    backgroundColor: C.outlineVariant,
+    opacity: 0.4,
+  },
+  footer: {
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerPressed: {
+    opacity: 0.65,
+  },
+  footerText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.accentGreen,
   },
 
   // ── Empty ─────────────────────────────────────────────────────────────────────

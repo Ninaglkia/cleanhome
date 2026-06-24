@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Sentry from "@sentry/react-native";
+import { router } from "expo-router";
 
 interface Props {
   children: React.ReactNode;
@@ -51,6 +52,15 @@ export default class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  handleHome = () => {
+    this.setState({ hasError: false, error: null });
+    try {
+      router.replace("/");
+    } catch {
+      /* navigation may not be ready — Riprova is the fallback */
+    }
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -85,6 +95,9 @@ export default class ErrorBoundary extends Component<Props, State> {
               <Text style={styles.retryText}>Riprova</Text>
             </Pressable>
           </View>
+          <Pressable onPress={this.handleHome} hitSlop={8} style={{ marginTop: 16 }}>
+            <Text style={styles.homeLink}>Torna alla home</Text>
+          </Pressable>
         </View>
       );
     }
@@ -139,5 +152,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#fff",
+  },
+  homeLink: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#006b55",
+    textDecorationLine: "underline",
   },
 });
