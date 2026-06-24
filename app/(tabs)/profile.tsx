@@ -368,6 +368,9 @@ interface CleanerViewProps {
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
+  onVerifyPhone: () => void;
+  phoneVerified?: boolean;
+  phone?: string;
   // Coach mark refs — measureInWindow gives screen-absolute coords for the Modal overlay
   avatarSectionRef?: React.RefObject<View | null>;
   editProfileRef?: React.RefObject<View | null>;
@@ -394,6 +397,9 @@ function CleanerView({
   onSwitchRole,
   onSignOut,
   onDeleteAccount,
+  onVerifyPhone,
+  phoneVerified,
+  phone,
   avatarSectionRef,
   editProfileRef,
   listingRef,
@@ -536,6 +542,19 @@ function CleanerView({
               cardStyle
             />
           </View>
+          <MenuRow
+            icon="phone-portrait-outline"
+            label={phoneVerified ? "Telefono verificato" : "Verifica il telefono"}
+            sublabel={
+              phoneVerified
+                ? phone ? `+39 ${phone}` : "Numero verificato"
+                : "Obbligatorio per ricevere richieste"
+            }
+            onPress={phoneVerified ? () => {} : onVerifyPhone}
+            iconBgColor={phoneVerified ? "#dcfce7" : C.surfaceLow}
+            iconColor={phoneVerified ? "#16a34a" : C.secondary}
+            cardStyle
+          />
         </View>
 
         {/* LEGALE */}
@@ -606,6 +625,9 @@ interface ClientViewProps {
   onSwitchRole: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
+  onVerifyPhone: () => void;
+  phoneVerified?: boolean;
+  phone?: string;
   // Coach mark refs — measureInWindow gives screen-absolute coords for the Modal overlay
   avatarSectionRef?: React.RefObject<View | null>;
   editProfileRef?: React.RefObject<View | null>;
@@ -629,6 +651,9 @@ function ClientView({
   onSwitchRole,
   onSignOut,
   onDeleteAccount,
+  onVerifyPhone,
+  phoneVerified,
+  phone,
   avatarSectionRef,
   editProfileRef,
   propertiesRef,
@@ -708,6 +733,19 @@ function ClientView({
               cardStyle
             />
           </View>
+          <MenuRow
+            icon="phone-portrait-outline"
+            label={phoneVerified ? "Telefono verificato" : "Verifica il telefono"}
+            sublabel={
+              phoneVerified
+                ? phone ? `+39 ${phone}` : "Numero verificato"
+                : "Aggiungi e verifica il tuo numero"
+            }
+            onPress={phoneVerified ? () => {} : onVerifyPhone}
+            iconBgColor={phoneVerified ? "#dcfce7" : C.cleanerIconBg}
+            iconColor={phoneVerified ? "#16a34a" : C.cleanerPrimary}
+            cardStyle
+          />
           <View ref={propertiesRef}>
             <MenuRow
               icon="home-outline"
@@ -1069,6 +1107,15 @@ export default function ProfileScreen() {
     router.push("/listings");
   }, [router]);
 
+  const handleVerifyPhone = useCallback(() => {
+    router.push("/verify-phone");
+  }, [router]);
+
+  const phoneVerified =
+    (profile as Record<string, unknown> | null)?.["phone_verified"] as boolean | undefined;
+  const phone =
+    (profile as Record<string, unknown> | null)?.["phone"] as string | undefined;
+
   const initials = profile?.full_name
     ? profile.full_name
         .split(" ")
@@ -1128,6 +1175,9 @@ export default function ProfileScreen() {
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
+              onVerifyPhone={handleVerifyPhone}
+              phoneVerified={phoneVerified}
+              phone={phone}
               avatarSectionRef={avatarSectionRef}
               editProfileRef={editProfileRef}
               listingRef={listingRef}
@@ -1152,6 +1202,9 @@ export default function ProfileScreen() {
               onSwitchRole={handleSwitchRole}
               onSignOut={handleSignOut}
               onDeleteAccount={handleDeleteAccount}
+              onVerifyPhone={handleVerifyPhone}
+              phoneVerified={phoneVerified}
+              phone={phone}
               avatarSectionRef={avatarSectionRef}
               editProfileRef={editProfileRef}
               propertiesRef={propertiesRef}
