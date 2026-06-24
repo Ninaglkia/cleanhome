@@ -65,8 +65,8 @@ const LAST_KNOWN_REGION_KEY = "cleanhome.last_known_region";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
-// Card dimensions — 260px wide with 16px gap, peek of next card visible
-const CARD_WIDTH = 260;
+// Card dimensions — 236px wide with 16px gap, peek of next card visible
+const CARD_WIDTH = 236;
 const CARD_GAP = 12;
 const CARD_SIDE_PADDING = 20;
 
@@ -272,6 +272,19 @@ interface PriceMarkerProps {
   onMarkerPress: (index: number) => void;
 }
 
+const priceMarkerStyles = StyleSheet.create({
+  triangle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 7,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    alignSelf: "center",
+  },
+});
+
 const PriceMarker = React.memo(function PriceMarker({ price, selected, index, onMarkerPress }: PriceMarkerProps) {
   const scale = useSharedValue(1);
 
@@ -279,67 +292,56 @@ const PriceMarker = React.memo(function PriceMarker({ price, selected, index, on
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     scale.value = withSpring(0.92, SpringConfig.press);
-  };
+  }, [scale]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     scale.value = withSpring(1, SpringConfig.press);
-  };
+  }, [scale]);
 
   const handlePress = useCallback(() => onMarkerPress(index), [onMarkerPress, index]);
 
-  // Stitch spec: bg-primary-container (#1a3a35) default, bg-secondary (#006b55) selected
-  // rounded-full px-4 py-1.5, border-2 border-white, shadow-xl
+  const priceLabel = price != null ? (selected ? `★ €${price}` : `€${price}`) : "—";
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      activeOpacity={1}
     >
-      <Animated.View style={animatedStyle}>
+      <Animated.View style={[animatedStyle, { alignItems: "center" }]}>
         <View
           style={{
-            backgroundColor: selected ? C.secondary : C.primaryContainer,
-            borderRadius: 9999,
-            paddingHorizontal: 16,
-            paddingVertical: 6,
-            borderWidth: 2,
-            borderColor: "#ffffff",
-            shadowColor: "#022420",
+            backgroundColor: selected ? "#14342b" : "#ffffff",
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 12,
+            shadowColor: "#14342b",
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: selected ? 0.22 : 0.12,
-            shadowRadius: selected ? 10 : 6,
+            shadowOpacity: selected ? 0.35 : 0.2,
+            shadowRadius: 8,
             elevation: selected ? 8 : 4,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: selected ? 6 : 0,
           }}
         >
           <Text
             style={{
-              color: "#ffffff",
+              color: selected ? "#ffffff" : "#14342b",
               fontSize: 13,
               fontWeight: "800",
-              letterSpacing: 0.2,
             }}
           >
-            {price != null ? `€${price}/ora` : "Tariffa su richiesta"}
+            {priceLabel}
           </Text>
-          {selected && (
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: "#ffffff",
-              }}
-            />
-          )}
         </View>
+        <View
+          style={[
+            priceMarkerStyles.triangle,
+            { borderTopColor: selected ? "#14342b" : "#ffffff" },
+          ]}
+        />
       </Animated.View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -379,12 +381,13 @@ const MapCleanerCard = React.memo(function MapCleanerCard({ cleaner, index, onMa
     .toUpperCase()
     .slice(0, 2);
 
+  const handleBookPress = useCallback(() => onCleanerPress(cleaner.id), [onCleanerPress, cleaner.id]);
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      activeOpacity={1}
       style={{ width: CARD_WIDTH }}
     >
       <Animated.View
@@ -404,106 +407,65 @@ const MapCleanerCard = React.memo(function MapCleanerCard({ cleaner, index, onMa
           },
         ]}
       >
-        <View style={{ padding: 16, borderRadius: 12, overflow: "hidden" }}>
-          {/* Photo + info row */}
-          <View style={{ flexDirection: "row", gap: 16 }}>
-            {/* Square photo — 112x112 rounded-md */}
-            <View style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
-              {cleaner.avatar_url ? (
-                <ExpoImage
-                  source={{ uri: thumbUrl(cleaner.avatar_url, 120) }}
-                  style={{ width: 112, height: 112, borderRadius: 8 }}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 112,
-                    height: 112,
-                    borderRadius: 8,
-                    backgroundColor: C.surfaceContainerHigh,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: C.onSurfaceVariant,
-                      fontSize: 28,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {initials}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Info column */}
-            <View style={{ flex: 1, justifyContent: "center" }}>
-              {/* Star rating */}
+        <View style={{ padding: 14, borderRadius: 12, overflow: "hidden" }}>
+          {/* Avatar + info row */}
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center", marginBottom: 12 }}>
+            {/* Avatar 46x46 */}
+            {cleaner.avatar_url ? (
+              <ExpoImage
+                source={{ uri: thumbUrl(cleaner.avatar_url, 60) }}
+                style={{ width: 46, height: 46, borderRadius: 14, flexShrink: 0 }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            ) : (
               <View
                 style={{
-                  flexDirection: "row",
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  backgroundColor: "#1f7a5c",
                   alignItems: "center",
-                  gap: 4,
-                  marginBottom: 4,
+                  justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                <Ionicons name="star" size={13} color={C.secondary} />
                 <Text
                   style={{
-                    fontSize: 12,
-                    fontWeight: "700",
-                    color: C.secondary,
+                    color: "#ffffff",
+                    fontSize: 16,
+                    fontWeight: "800",
                   }}
                 >
-                  {(cleaner.avg_rating ?? 0).toFixed(1)}
+                  {initials}
                 </Text>
               </View>
+            )}
 
-              {/* Name — font-headline style */}
+            {/* Name + rating + distance */}
+            <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: "700",
-                  color: C.primary,
-                  letterSpacing: -0.3,
-                  marginBottom: 2,
-                  lineHeight: 22,
+                  color: "#14342b",
+                  marginBottom: 3,
                 }}
                 numberOfLines={1}
               >
                 {cleaner.full_name}
               </Text>
-
-              {/* Specialty / bio */}
               <Text
                 style={{
                   fontSize: 12,
                   color: C.onSurfaceVariant,
-                  lineHeight: 16,
                 }}
-                numberOfLines={1}
               >
-                {cleaner.bio ??
-                  (cleaner.city
-                    ? `Professionista a ${cleaner.city}`
-                    : "Pulizie professionali")}
+                {`⭐ ${(cleaner.avg_rating ?? 0).toFixed(1)}`}
+                {cleaner.distance_km != null ? `  •  ${cleaner.distance_km.toFixed(1)} km` : ""}
               </Text>
             </View>
           </View>
-
-          {/* Divider */}
-          <View
-            style={{
-              height: 1,
-              backgroundColor: C.surfaceContainer,
-              marginTop: 16,
-              marginBottom: 14,
-            }}
-          />
 
           {/* Rate + CTA row */}
           <View
@@ -513,56 +475,43 @@ const MapCleanerCard = React.memo(function MapCleanerCard({ cleaner, index, onMa
               justifyContent: "space-between",
             }}
           >
-            <View>
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: "700",
-                  color: C.onSurfaceVariant,
-                  letterSpacing: 0.8,
-                  textTransform: "uppercase",
-                  marginBottom: 2,
-                }}
-              >
-                Tariffa oraria
-              </Text>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "700",
-                  color: C.primary,
-                  letterSpacing: -0.3,
-                }}
-              >
-                €{cleaner.hourly_rate?.toFixed(2) ?? "—"}
-              </Text>
-            </View>
-
-            {/* "View Profile" CTA — bg-primary when selected, bg-surface-container-high otherwise */}
-            <TouchableOpacity
-              onPress={() => onCleanerPress(cleaner.id)}
-              activeOpacity={0.85}
+            <Text
               style={{
-                backgroundColor: isSelected ? C.primary : C.surfaceContainerHigh,
-                borderRadius: 10,
-                paddingVertical: 12,
-                paddingHorizontal: 20,
+                fontSize: 15,
+                fontWeight: "700",
+                color: "#14342b",
               }}
+            >
+              {cleaner.hourly_rate != null ? `€${cleaner.hourly_rate}/ora` : "—"}
+            </Text>
+
+            {/* "Prenota" CTA */}
+            <Pressable
+              onPress={handleBookPress}
+              style={({ pressed }) => ({
+                backgroundColor: "#14342b",
+                borderRadius: 8,
+                height: 34,
+                paddingHorizontal: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.8 : 1,
+              })}
             >
               <Text
                 style={{
-                  color: isSelected ? "#ffffff" : C.primary,
+                  color: "#3ddc97",
                   fontSize: 13,
-                  fontWeight: "600",
+                  fontWeight: "700",
                 }}
               >
-                Vedi profilo
+                Prenota
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Animated.View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -1247,11 +1196,14 @@ export default function HomeScreen() {
         // Resolve the typed city to coordinates, then do the spatial search.
         const geo = await geocodeCityWithGoogle(city);
         if (geo) {
-          setRegion((r) => ({
-            ...r,
-            latitude: geo.lat,
-            longitude: geo.lng,
-          }));
+          setRegion((r) => {
+            const next = { ...r, latitude: geo.lat, longitude: geo.lng };
+            // A controlled `region` prop alone is unreliable on iOS — the
+            // camera often won't move on a state change. Drive it imperatively
+            // (same pattern used for GPS/marker focus elsewhere in this file).
+            mapRef.current?.animateToRegion(next, 600);
+            return next;
+          });
           await loadCleanersAtPoint(geo.lat, geo.lng);
         } else {
           // Fallback: keep legacy text-based search so users still see
@@ -1579,7 +1531,7 @@ export default function HomeScreen() {
                 lineHeight: 12,
               }}
             >
-              Scopri
+              Posizione
             </Text>
             <TextInput
               ref={searchInputRef}
@@ -1988,68 +1940,111 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Filter pill button ── */}
-      {/* Compact floating pill that replaces the horizontal chip bar. Tapping
-          opens the filter bottom-sheet. Shows a badge with active filter count. */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setFilterSheetOpen(true)}
-        accessibilityLabel="Apri filtri"
-        accessibilityRole="button"
+      {/* ── Unified segment pill: [Filtri | Lista/Mappa] ── */}
+      <View
         style={{
           position: "absolute",
           top: insets.top + (properties.length > 0 ? 136 : 72),
           left: 16,
+          right: 16,
           zIndex: 18,
-          backgroundColor: "rgba(255,255,255,0.92)",
-          borderRadius: 9999,
-          paddingHorizontal: 16,
-          paddingVertical: 8,
           flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
+          backgroundColor: "rgba(255,255,255,0.94)",
+          borderRadius: 9999,
+          padding: 4,
           shadowColor: C.primary,
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 6,
+          shadowOpacity: 0.10,
+          shadowRadius: 14,
+          elevation: 8,
         }}
       >
-        <Ionicons name="options-outline" size={15} color={C.primary} />
-        <Text
-          style={{
-            fontSize: 13,
-            fontWeight: "700",
-            color: C.primary,
-          }}
+        {/* Left half — Filtri */}
+        <Pressable
+          onPress={() => setFilterSheetOpen(true)}
+          accessibilityLabel="Apri filtri"
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            paddingVertical: 10,
+            borderRadius: 9999,
+            backgroundColor: "#f5f5f5",
+            opacity: pressed ? 0.75 : 1,
+          })}
         >
-          Filtri
-        </Text>
-        {hasActiveFilters && (
-          <View
+          <Ionicons name="options-outline" size={15} color="#14342b" />
+          <Text
             style={{
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              backgroundColor: C.secondary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginLeft: 2,
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#14342b",
             }}
           >
-            <Text
+            Filtri
+          </Text>
+          {hasActiveFilters && (
+            <View
               style={{
-                color: "#ffffff",
-                fontSize: 10,
-                fontWeight: "800",
-                lineHeight: 12,
+                minWidth: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: "#3ddc97",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 4,
               }}
             >
-              {activeFilterCount}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
+              <Text
+                style={{
+                  color: "#ffffff",
+                  fontSize: 10,
+                  fontWeight: "800",
+                  lineHeight: 12,
+                }}
+              >
+                {activeFilterCount}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+
+        {/* Right half — Lista/Mappa toggle */}
+        <Pressable
+          onPress={() => setViewMode(viewMode === "map" ? "list" : "map")}
+          accessibilityLabel={viewMode === "map" ? "Passa a lista" : "Passa a mappa"}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            paddingVertical: 10,
+            borderRadius: 9999,
+            backgroundColor: viewMode === "map" ? "#14342b" : "#f5f5f5",
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Ionicons
+            name={viewMode === "map" ? "list-outline" : "map-outline"}
+            size={15}
+            color={viewMode === "map" ? "#ffffff" : "#14342b"}
+          />
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: viewMode === "map" ? "#ffffff" : "#14342b",
+            }}
+          >
+            {viewMode === "map" ? "Lista" : "Mappa"}
+          </Text>
+        </Pressable>
+      </View>
 
       {/* ── Filter bottom-sheet modal ── */}
       <Modal
@@ -2384,7 +2379,7 @@ export default function HomeScreen() {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: Colors.surface,
+          backgroundColor: "#ffffff",
           alignItems: "center",
           justifyContent: "center",
           zIndex: 15,
@@ -2418,7 +2413,7 @@ export default function HomeScreen() {
           } catch {}
         }}
       >
-        <Ionicons name="navigate" size={20} color={Colors.secondary} />
+        <Ionicons name="paper-plane" size={20} color="#3ddc97" />
       </TouchableOpacity>
 
       {/* ── GPS permission denied banner ── */}
@@ -2457,69 +2452,6 @@ export default function HomeScreen() {
           <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
         </Pressable>
       )}
-
-      {/* ── Mappa / Lista toggle pill ── */}
-      {/* Always visible above the tab bar, centered horizontally. */}
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          bottom: TAB_BAR_HEIGHT + 8,
-          left: 0,
-          right: 0,
-          zIndex: 16,
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            backgroundColor: "rgba(255,255,255,0.92)",
-            borderRadius: 9999,
-            padding: 3,
-            shadowColor: C.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.10,
-            shadowRadius: 12,
-            elevation: 8,
-          }}
-        >
-          {(["map", "list"] as const).map((mode) => {
-            const isActive = viewMode === mode;
-            return (
-              <TouchableOpacity
-                key={mode}
-                onPress={() => setViewMode(mode)}
-                activeOpacity={0.85}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 9999,
-                  backgroundColor: isActive ? C.primary : "transparent",
-                }}
-              >
-                <Ionicons
-                  name={mode === "map" ? "map-outline" : "list-outline"}
-                  size={15}
-                  color={isActive ? "#ffffff" : C.onSurfaceVariant}
-                />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "700",
-                    color: isActive ? "#ffffff" : C.onSurfaceVariant,
-                  }}
-                >
-                  {mode === "map" ? "Mappa" : "Lista"}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
 
       {/* ── List view — visible when viewMode === "list" ── */}
       {viewMode === "list" && !loading && (
@@ -3163,6 +3095,17 @@ export default function HomeScreen() {
           // not swallow touches in the empty horizontal space to the right of
           // the last visible card. Touches on actual card children still work
           // because box-none only suppresses self-hit-testing, not children.
+          <>
+          {filteredCleaners.length > 0 && (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 8 }}>
+              <Text style={{ color: "#14342b", fontWeight: "600", fontSize: 15 }}>
+                {filteredCleaners.length} {filteredCleaners.length === 1 ? "pulitore" : "pulitori"} disponibili
+              </Text>
+              <Pressable hitSlop={8} onPress={() => { /* TODO: ordina */ }}>
+                <Text style={{ color: "#3ddc97", fontWeight: "600", fontSize: 14 }}>Ordina</Text>
+              </Pressable>
+            </View>
+          )}
           <FlatList
             ref={flatListRef}
             data={filteredCleaners}
@@ -3202,6 +3145,7 @@ export default function HomeScreen() {
               />
             )}
           />
+          </>
         )}
       </View>
       )}
