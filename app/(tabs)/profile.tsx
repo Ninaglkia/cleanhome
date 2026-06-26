@@ -8,7 +8,7 @@ import {
   Alert,
   StatusBar,
   ScrollView,
-  // Switch nativo rimosso — usiamo AnimatedToggle
+  // Switch nativo rimosso — usiamo ProfileToggle
   StyleSheet,
   ActivityIndicator,
   Image,
@@ -30,7 +30,6 @@ import Animated, {
   withRepeat,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AnimatedToggle } from "../../components/AnimatedToggle";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
@@ -41,6 +40,22 @@ import { NotificationBell } from "../../components/NotificationBell";
 import { CleanerPayoutSection } from "../../components/CleanerPayoutSection";
 import { ProfileStatsStrip } from "../../components/profile/ProfileStatsStrip";
 import { useIdentityVerification } from "../../lib/hooks/useIdentityVerification";
+import {
+  IconProfile,
+  IconAnnunci,
+  IconIdentita,
+  IconTelefono,
+  IconPrivacy,
+  IconTermini,
+  IconEsci,
+  IconElimina,
+  IconProfileCaldo,
+  IconTelefonoCaldo,
+  IconCasa,
+  IconCarta,
+} from "../../components/profile/MenuIcons";
+import { ProfileToggle } from "../../components/profile/ProfileToggle";
+import Svg, { Path } from "react-native-svg";
 
 const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
@@ -280,27 +295,22 @@ const C = {
 // ─── Menu row ─────────────────────────────────────────────────────────────────
 
 interface MenuRowProps {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  iconNode: React.ReactNode;
   label: string;
   sublabel?: string;
   onPress: () => void;
   danger?: boolean;
   loading?: boolean;
-  iconBgColor?: string;
-  iconColor?: string;
 }
 
 function MenuRow({
-  icon,
+  iconNode,
   label,
   sublabel,
   onPress,
   danger = false,
   loading = false,
-  iconBgColor,
-  iconColor,
-  cardStyle = false,
-}: MenuRowProps & { cardStyle?: boolean }) {
+}: MenuRowProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -308,46 +318,94 @@ function MenuRow({
       accessibilityLabel={sublabel ? `${label}. ${sublabel}` : label}
       accessibilityHint={danger ? "Azione irreversibile" : undefined}
       style={({ pressed }) => [
-        styles.menuRow,
-        cardStyle && styles.menuRowCard,
-        pressed && (cardStyle ? styles.menuRowCardPressed : styles.menuRowPressed),
+        newMenuRowStyles.row,
+        pressed && newMenuRowStyles.rowPressed,
       ]}
     >
-      <View
-        style={[
-          styles.menuRowIconBox,
-          { backgroundColor: danger ? C.errorContainer : (iconBgColor || C.surfaceLow) },
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={20}
-          color={danger ? C.error : (iconColor || C.primary)}
-        />
-      </View>
+      {/* icon tile — già include il gradiente */}
+      {iconNode}
 
-      <View style={styles.menuRowBody}>
+      <View style={newMenuRowStyles.body}>
         <Text
           style={[
-            styles.menuRowLabel,
-            { color: danger ? C.error : C.primary },
+            newMenuRowStyles.label,
+            danger && newMenuRowStyles.labelDanger,
           ]}
         >
           {label}
         </Text>
         {sublabel ? (
-          <Text style={styles.menuRowSublabel}>{sublabel}</Text>
+          <Text style={newMenuRowStyles.sublabel}>{sublabel}</Text>
         ) : null}
       </View>
 
       {loading ? (
-        <ActivityIndicator size="small" color={C.outline} />
+        <ActivityIndicator size="small" color="#C2CCC7" />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color={C.outlineVariant} />
+        <Svg width={20} height={20} viewBox="0 0 24 24">
+          <Path
+            d="M9 6l6 6-6 6"
+            stroke={danger ? "#E7A9A3" : "#C2CCC7"}
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </Svg>
       )}
     </Pressable>
   );
 }
+
+const newMenuRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+  },
+  rowPressed: { opacity: 0.75 },
+  body: { flex: 1 },
+  label: { fontSize: 16, fontWeight: "700", color: "#16221D" },
+  labelDanger: { color: "#E0382B" },
+  sublabel: { fontSize: 13, color: "#8A968F", fontWeight: "500", marginTop: 1 },
+});
+
+// ─── Section card styles ──────────────────────────────────────────────────────
+
+const menuSectionCardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginBottom: 22,
+    shadowColor: "rgba(20,40,30,0.08)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F0F3F1",
+  },
+  dividerCaldo: {
+    height: 1,
+    backgroundColor: "#F3ECE1",
+  },
+});
+
+const newSectionHeader = StyleSheet.create({
+  label: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginHorizontal: 4,
+    marginBottom: 10,
+    marginTop: 0,
+  },
+});
 
 // ─── Client profile view ──────────────────────────────────────────────────────
 
@@ -478,14 +536,9 @@ function CleanerView({
       <ProfileStatsStrip userId={cleanerId} role="cleaner" />
 
       {/* ── Toggle compatto ── */}
-      <View style={[compactToggleStyles.row, { backgroundColor: "#e6f4f1" }]}>
-        <Text style={[compactToggleStyles.label, { color: C.secondary }]}>Modalità Professionista</Text>
-        <AnimatedToggle
-          value={true}
-          onValueChange={() => onSwitchRole()}
-          activeColor="#4fc4a3"
-          inactiveColor="#D4A574"
-        />
+      <View style={[compactToggleStyles.row, { backgroundColor: "#EAF6F0" }]}>
+        <Text style={[compactToggleStyles.label, { color: "#0E7C5B" }]}>Modalità Professionista</Text>
+        <ProfileToggle mode="cleaner" onPress={onSwitchRole} />
       </View>
 
       {/* ── Sezione pagamenti / Stripe Connect ── */}
@@ -498,38 +551,37 @@ function CleanerView({
       {/* ── Menu rows con sezioni ── */}
       <View style={sectionStyles.container}>
         {/* GESTIONE */}
-        <Text style={sectionStyles.header}>GESTIONE</Text>
-        <View style={clientStyles.menuSection}>
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+          GESTIONE
+        </Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <View ref={editProfileRef}>
             <MenuRow
-              icon="person-outline"
+              iconNode={<IconProfile />}
               label="Modifica Profilo"
               sublabel="Gestisci le tue informazioni personali"
               onPress={onEditProfile}
-              iconBgColor={C.surfaceLow}
-              iconColor={C.secondary}
-              cardStyle
             />
           </View>
+          <View style={menuSectionCardStyles.divider} />
           <View ref={listingRef}>
             <MenuRow
-              icon="megaphone-outline"
+              iconNode={<IconAnnunci />}
               label="I miei annunci"
               sublabel="Gestisci i tuoi annunci e zone di copertura"
               onPress={onListing}
-              iconBgColor={C.surfaceLow}
-              iconColor={C.secondary}
-              cardStyle
             />
           </View>
         </View>
 
         {/* VERIFICHE */}
-        <Text style={sectionStyles.header}>VERIFICHE</Text>
-        <View style={clientStyles.menuSection}>
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+          VERIFICHE
+        </Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <View ref={documentsRef}>
             <MenuRow
-              icon="shield-checkmark-outline"
+              iconNode={<IconIdentita />}
               label="Verifica identità"
               sublabel={
                 isIdentityVerified
@@ -537,13 +589,11 @@ function CleanerView({
                   : "Completa la verifica per ricevere pagamenti"
               }
               onPress={onDocuments}
-              iconBgColor={isIdentityVerified ? "#dcfce7" : C.surfaceLow}
-              iconColor={isIdentityVerified ? "#16a34a" : C.secondary}
-              cardStyle
             />
           </View>
+          <View style={menuSectionCardStyles.divider} />
           <MenuRow
-            icon="phone-portrait-outline"
+            iconNode={<IconTelefono />}
             label={phoneVerified ? "Telefono verificato" : "Verifica il telefono"}
             sublabel={
               phoneVerified
@@ -551,56 +601,49 @@ function CleanerView({
                 : "Obbligatorio per ricevere richieste"
             }
             onPress={phoneVerified ? () => {} : onVerifyPhone}
-            iconBgColor={phoneVerified ? "#dcfce7" : C.surfaceLow}
-            iconColor={phoneVerified ? "#16a34a" : C.secondary}
-            cardStyle
           />
         </View>
 
         {/* LEGALE */}
-        <Text style={sectionStyles.header}>LEGALE</Text>
-        <View style={clientStyles.menuSection}>
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+          LEGALE
+        </Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <MenuRow
-            icon="shield-checkmark-outline"
+            iconNode={<IconPrivacy />}
             label="Privacy e Legale"
             sublabel="Termini, condizioni e gestione dati"
             onPress={onPrivacy}
-            iconBgColor={C.surfaceLow}
-            iconColor={C.secondary}
-            cardStyle
           />
+          <View style={menuSectionCardStyles.divider} />
           <MenuRow
-            icon="document-text-outline"
+            iconNode={<IconTermini />}
             label="Termini e Condizioni"
             sublabel="Termini di servizio e condizioni d'uso"
             onPress={onLegal}
-            iconBgColor={C.surfaceLow}
-            iconColor={C.secondary}
-            cardStyle
           />
         </View>
       </View>
 
       {/* ── Zona Account ── */}
       <View style={dangerStyles.section}>
-        <Text style={dangerStyles.sectionLabel}>ACCOUNT</Text>
-
-        <MenuRow
-          icon="log-out-outline"
-          label="Esci dall'account"
-          sublabel="Termina la sessione su questo dispositivo"
-          onPress={onSignOut}
-          cardStyle
-        />
-
-        <MenuRow
-          icon="trash-outline"
-          label="Elimina account"
-          sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
-          onPress={onDeleteAccount}
-          danger
-          cardStyle
-        />
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", marginLeft: 4 }]}>ACCOUNT</Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 0 }]}>
+          <MenuRow
+            iconNode={<IconEsci />}
+            label="Esci dall'account"
+            sublabel="Termina la sessione su questo dispositivo"
+            onPress={onSignOut}
+          />
+          <View style={menuSectionCardStyles.divider} />
+          <MenuRow
+            iconNode={<IconElimina />}
+            label="Elimina account"
+            sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
+            onPress={onDeleteAccount}
+            danger
+          />
+        </View>
       </View>
 
     </>
@@ -707,34 +750,29 @@ function ClientView({
       <ProfileStatsStrip userId={clientId} role="client" />
 
       {/* ── Toggle compatto ── */}
-      <View style={[compactToggleStyles.row, { backgroundColor: "#f5ebe0" }]}>
-        <Text style={[compactToggleStyles.label, { color: C.cleanerPrimary }]}>Modalità Cliente</Text>
-        <AnimatedToggle
-          value={false}
-          onValueChange={() => onSwitchRole()}
-          activeColor="#4fc4a3"
-          inactiveColor="#D4A574"
-        />
+      <View style={[compactToggleStyles.row, { backgroundColor: "#F4E7D6" }]}>
+        <Text style={[compactToggleStyles.label, { color: "#8A5A2E" }]}>Modalità Cliente</Text>
+        <ProfileToggle mode="client" onPress={onSwitchRole} />
       </View>
 
       {/* ── Menu CLIENTE con sezioni ── */}
       <View style={sectionStyles.container}>
         {/* GESTIONE */}
-        <Text style={[sectionStyles.header, { color: C.cleanerPrimary }]}>GESTIONE</Text>
-        <View style={clientStyles.menuSection}>
+        <Text style={[newSectionHeader.label, { color: "#A9743F", paddingHorizontal: 24 }]}>
+          GESTIONE
+        </Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <View ref={editProfileRef}>
             <MenuRow
-              icon="person-outline"
+              iconNode={<IconProfileCaldo />}
               label="Modifica Profilo"
               sublabel="Gestisci le tue informazioni personali"
               onPress={onEditProfile}
-              iconBgColor={C.cleanerIconBg}
-              iconColor={C.cleanerPrimary}
-              cardStyle
             />
           </View>
+          <View style={menuSectionCardStyles.dividerCaldo} />
           <MenuRow
-            icon="phone-portrait-outline"
+            iconNode={<IconTelefonoCaldo />}
             label={phoneVerified ? "Telefono verificato" : "Verifica il telefono"}
             sublabel={
               phoneVerified
@@ -742,69 +780,60 @@ function ClientView({
                 : "Aggiungi e verifica il tuo numero"
             }
             onPress={phoneVerified ? () => {} : onVerifyPhone}
-            iconBgColor={phoneVerified ? "#dcfce7" : C.cleanerIconBg}
-            iconColor={phoneVerified ? "#16a34a" : C.cleanerPrimary}
-            cardStyle
           />
+          <View style={menuSectionCardStyles.dividerCaldo} />
           <View ref={propertiesRef}>
             <MenuRow
-              icon="home-outline"
+              iconNode={<IconCasa />}
               label="Le mie case"
               sublabel="Salva gli indirizzi che usi più spesso"
               onPress={onProperties}
-              iconBgColor={C.cleanerIconBg}
-              iconColor={C.cleanerPrimary}
-              cardStyle
             />
           </View>
+          <View style={menuSectionCardStyles.dividerCaldo} />
           <View ref={paymentRef}>
             <MenuRow
-              icon="card-outline"
+              iconNode={<IconCarta />}
               label="Metodo di Pagamento"
               sublabel="Gestisci le tue carte di pagamento"
               onPress={onBankData}
-              iconBgColor={C.cleanerIconBg}
-              iconColor={C.cleanerPrimary}
-              cardStyle
             />
           </View>
         </View>
 
         {/* LEGALE */}
-        <Text style={[sectionStyles.header, { color: C.cleanerPrimary }]}>LEGALE</Text>
-        <View style={clientStyles.menuSection}>
+        <Text style={[newSectionHeader.label, { color: "#A9743F", paddingHorizontal: 24 }]}>
+          LEGALE
+        </Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <MenuRow
-            icon="shield-checkmark-outline"
+            iconNode={<IconPrivacy />}
             label="Privacy e Legale"
             sublabel="Termini, condizioni e gestione dati"
             onPress={onPrivacy}
-            iconBgColor={C.cleanerIconBg}
-            iconColor={C.cleanerPrimary}
-            cardStyle
           />
         </View>
       </View>
 
       {/* ── Zona Account ── */}
       <View style={dangerStyles.section}>
-        <Text style={dangerStyles.sectionLabel}>ACCOUNT</Text>
-
-        <MenuRow
-          icon="log-out-outline"
-          label="Esci dall'account"
-          sublabel="Termina la sessione su questo dispositivo"
-          onPress={onSignOut}
-          cardStyle
-        />
-
-        <MenuRow
-          icon="trash-outline"
-          label="Elimina account"
-          sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
-          onPress={onDeleteAccount}
-          danger
-          cardStyle
-        />
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", marginLeft: 4 }]}>ACCOUNT</Text>
+        <View style={[menuSectionCardStyles.card, { marginHorizontal: 0 }]}>
+          <MenuRow
+            iconNode={<IconEsci />}
+            label="Esci dall'account"
+            sublabel="Termina la sessione su questo dispositivo"
+            onPress={onSignOut}
+          />
+          <View style={menuSectionCardStyles.dividerCaldo} />
+          <MenuRow
+            iconNode={<IconElimina />}
+            label="Elimina account"
+            sublabel="Cancellazione definitiva e irreversibile dei tuoi dati"
+            onPress={onDeleteAccount}
+            danger
+          />
+        </View>
       </View>
 
     </>
