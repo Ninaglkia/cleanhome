@@ -782,6 +782,12 @@ export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
   const searchInputRef = useRef<TextInput>(null);
+  // True once a saved property (or manual city search) has anchored the map.
+  // Once set, the async GPS strategy (Phase B/C) must NOT override the region:
+  // a client with a house in Milano wants Milano cleaners even if the phone
+  // (or the iOS simulator, which reports San Francisco) is physically
+  // elsewhere. Guards the GPS race that stomped the property selection.
+  const propertyAnchoredRef = useRef(false);
 
   const [cleaners, setCleaners] = useState<CleanerProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -966,6 +972,7 @@ export default function HomeScreen() {
       const newPrimaryId = nextIds[0] ?? null;
       if (newPrimaryId !== primaryPropertyId && property.id === newPrimaryId) {
         if (property.latitude != null && property.longitude != null) {
+          propertyAnchoredRef.current = true;
           setRegion({
             latitude: property.latitude,
             longitude: property.longitude,
@@ -1110,6 +1117,10 @@ export default function HomeScreen() {
 
       setGpsPermissionDenied(false);
 
+      // A saved property already anchored the map (Milano) — GPS must not
+      // override it. Bail out of the whole strategy.
+      if (propertyAnchoredRef.current) return;
+
       // ── Phase B: getLastKnownPositionAsync (near-instant OS cache) ──────
       if (!gotRealPosition) {
         try {
@@ -1138,6 +1149,9 @@ export default function HomeScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
+        // A property may have anchored the map while GPS was resolving — if so,
+        // honour the property and discard this (possibly distant) GPS fix.
+        if (propertyAnchoredRef.current) return;
         const r: Region = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
@@ -1176,6 +1190,9 @@ export default function HomeScreen() {
     if (!selectedProperty) return;
     const { latitude, longitude } = selectedProperty;
     if (latitude == null || longitude == null) return;
+    // Mark the map as property-anchored so the async GPS strategy stops
+    // overriding it (fixes the race that re-centred on the device location).
+    propertyAnchoredRef.current = true;
     setRegion({
       latitude,
       longitude,
@@ -1196,6 +1213,8 @@ export default function HomeScreen() {
         // Resolve the typed city to coordinates, then do the spatial search.
         const geo = await geocodeCityWithGoogle(city);
         if (geo) {
+          // Manual search wins over GPS for the rest of the session.
+          propertyAnchoredRef.current = true;
           setRegion((r) => {
             const next = { ...r, latitude: geo.lat, longitude: geo.lng };
             // A controlled `region` prop alone is unreliable on iOS — the
@@ -1600,7 +1619,7 @@ export default function HomeScreen() {
               <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
             </TouchableOpacity>
           )}
-          <NotificationBell color="#022420" size={36} />
+          <NotificationBell color="#022420" />
         </View>
       </Animated.View>
 
