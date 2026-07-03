@@ -24,7 +24,9 @@ export interface ProfileStatsStripProps {
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
 const CLEANER_BG = "#F0F9F6";
-const CLIENT_BG = "#FAF6F1";
+// Client converged onto the green Pulitori identity (design audit 2026-06-23):
+// same mint-tinted surface as the cleaner side, no more warm beige.
+const CLIENT_BG = "#F0F9F6";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

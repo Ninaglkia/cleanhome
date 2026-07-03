@@ -4,7 +4,6 @@ import LottieView from "lottie-react-native";
 import {
   View,
   Text,
-  Pressable,
   Alert,
   StatusBar,
   ScrollView,
@@ -15,6 +14,7 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import CoachMarkOverlay, {
   CoachMarkStep,
 } from "../../components/CoachMarks/CoachMarkOverlay";
@@ -49,8 +49,6 @@ import {
   IconTermini,
   IconEsci,
   IconElimina,
-  IconProfileCaldo,
-  IconTelefonoCaldo,
   IconCasa,
   IconCarta,
 } from "../../components/profile/MenuIcons";
@@ -731,17 +729,17 @@ function ClientView({
             avatarUrl={avatarUrl}
             initials={initials}
             size={88}
-            backgroundColor="#6f4627"
+            backgroundColor="#006b55"
             initialsColor="#ffffff"
             borderRadius={999}
             uploading={avatarUploading}
           />
           <View style={styles.editBadge}>
-            <Ionicons name="camera-outline" size={12} color="#6f4627" />
+            <Ionicons name="camera-outline" size={12} color="#022420" />
           </View>
         </Pressable>
         <Text style={styles.heroName}>{fullName}</Text>
-        <Text style={[styles.heroRole, { color: C.cleanerPrimary }]}>
+        <Text style={[styles.heroRole, { color: "#0E7C5B" }]}>
           CLIENTE
         </Text>
       </View>
@@ -750,29 +748,29 @@ function ClientView({
       <ProfileStatsStrip userId={clientId} role="client" />
 
       {/* ── Toggle compatto ── */}
-      <View style={[compactToggleStyles.row, { backgroundColor: "#F4E7D6" }]}>
-        <Text style={[compactToggleStyles.label, { color: "#8A5A2E" }]}>Modalità Cliente</Text>
+      <View style={[compactToggleStyles.row, { backgroundColor: "#EAF6F0" }]}>
+        <Text style={[compactToggleStyles.label, { color: "#0E7C5B" }]}>Modalità Cliente</Text>
         <ProfileToggle mode="client" onPress={onSwitchRole} />
       </View>
 
       {/* ── Menu CLIENTE con sezioni ── */}
       <View style={sectionStyles.container}>
         {/* GESTIONE */}
-        <Text style={[newSectionHeader.label, { color: "#A9743F", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
           GESTIONE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
           <View ref={editProfileRef}>
             <MenuRow
-              iconNode={<IconProfileCaldo />}
+              iconNode={<IconProfile />}
               label="Modifica Profilo"
               sublabel="Gestisci le tue informazioni personali"
               onPress={onEditProfile}
             />
           </View>
-          <View style={menuSectionCardStyles.dividerCaldo} />
+          <View style={menuSectionCardStyles.divider} />
           <MenuRow
-            iconNode={<IconTelefonoCaldo />}
+            iconNode={<IconTelefono />}
             label={phoneVerified ? "Telefono verificato" : "Verifica il telefono"}
             sublabel={
               phoneVerified
@@ -781,7 +779,7 @@ function ClientView({
             }
             onPress={phoneVerified ? () => {} : onVerifyPhone}
           />
-          <View style={menuSectionCardStyles.dividerCaldo} />
+          <View style={menuSectionCardStyles.divider} />
           <View ref={propertiesRef}>
             <MenuRow
               iconNode={<IconCasa />}
@@ -790,7 +788,7 @@ function ClientView({
               onPress={onProperties}
             />
           </View>
-          <View style={menuSectionCardStyles.dividerCaldo} />
+          <View style={menuSectionCardStyles.divider} />
           <View ref={paymentRef}>
             <MenuRow
               iconNode={<IconCarta />}
@@ -802,7 +800,7 @@ function ClientView({
         </View>
 
         {/* LEGALE */}
-        <Text style={[newSectionHeader.label, { color: "#A9743F", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
           LEGALE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -825,7 +823,7 @@ function ClientView({
             sublabel="Termina la sessione su questo dispositivo"
             onPress={onSignOut}
           />
-          <View style={menuSectionCardStyles.dividerCaldo} />
+          <View style={menuSectionCardStyles.divider} />
           <MenuRow
             iconNode={<IconElimina />}
             label="Elimina account"
