@@ -122,6 +122,7 @@ supabase/             functions/ (Edge), migrations/
 
 **Conventions:**
 - Styling: NativeWind only. No inline StyleSheet (except Reanimated style props).
+- **Pressable: ALWAYS import from `components/ui/AppPressable`, never from react-native.** NativeWind v4 silently drops function-style props (`style={({ pressed }) => ...}`) on the core Pressable — components render completely unstyled (nativewind#1105). The wrapper resolves the function before NativeWind sees it.
 - Tokens: `lib/theme.ts`. Never hardcoded colors.
 - Routing: expo-router file-based.
 - Payments: Stripe Payment Intents, escrow model (immediate auto-capture to platform balance, transfer to cleaner on client confirmation or 48h auto-confirm cron).
