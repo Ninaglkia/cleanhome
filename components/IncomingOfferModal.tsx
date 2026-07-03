@@ -1,5 +1,12 @@
 import React, { useEffect } from "react";
-import { Modal, View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
+import { Pressable } from "./ui/AppPressable";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import Animated, {

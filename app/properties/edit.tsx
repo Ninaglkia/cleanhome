@@ -21,7 +21,6 @@ import {
   TextInput,
   StyleSheet,
   ScrollView,
-  Pressable,
   ActivityIndicator,
   Alert,
   StatusBar,
@@ -30,6 +29,7 @@ import {
   Switch,
   Image,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";

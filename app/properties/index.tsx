@@ -13,12 +13,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   ActivityIndicator,
   RefreshControl,
   StatusBar,
   Alert,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";

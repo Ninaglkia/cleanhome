@@ -2,12 +2,12 @@ import { useCallback, useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Linking,
 } from "react-native";
+import { Pressable } from "../../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";

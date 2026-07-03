@@ -20,11 +20,11 @@ import {
   View,
   Text,
   Image,
-  Pressable,
   StyleSheet,
   Modal,
   Dimensions,
 } from "react-native";
+import { Pressable } from "./ui/AppPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   useSharedValue,

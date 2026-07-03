@@ -3,11 +3,11 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   StatusBar,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

@@ -4,11 +4,11 @@ import {
   Text,
   Image,
   FlatList,
-  Pressable,
   StatusBar,
   StyleSheet,
   RefreshControl,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

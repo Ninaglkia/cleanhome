@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  Pressable,
   TextInput,
   StyleSheet,
   Platform,
@@ -15,6 +14,7 @@ import {
   Linking,
   Switch,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 // Loaded lazily so the bundle still works in Expo Go (no native rebuild).
 let ImagePicker: any = null;
 try {

@@ -2,11 +2,11 @@ import { useCallback, useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   Alert,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { Pressable } from "./ui/AppPressable";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { supabase } from "../lib/supabase";

@@ -1,5 +1,10 @@
 import React, { Component, ErrorInfo } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+} from "react-native";
+import { Pressable } from "./ui/AppPressable";
 import { Ionicons } from "@expo/vector-icons";
 import * as Sentry from "@sentry/react-native";
 import { router } from "expo-router";

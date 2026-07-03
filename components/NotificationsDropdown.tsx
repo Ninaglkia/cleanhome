@@ -4,11 +4,11 @@ import {
   View,
   Text,
   FlatList,
-  Pressable,
   StyleSheet,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
+import { Pressable } from "./ui/AppPressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

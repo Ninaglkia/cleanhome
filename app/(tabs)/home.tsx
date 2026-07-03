@@ -10,7 +10,6 @@ import {
   Platform,
   Alert,
   Modal,
-  Pressable,
   ScrollView,
   Switch,
   Linking,
@@ -18,6 +17,7 @@ import {
   StyleSheet,
   PanResponder,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";

@@ -28,11 +28,11 @@ import { useEffect, useCallback, useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Dimensions,
   Modal,
 } from "react-native";
+import { Pressable } from "../ui/AppPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   useSharedValue,

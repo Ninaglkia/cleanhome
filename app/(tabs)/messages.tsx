@@ -3,12 +3,12 @@ import {
   View,
   Text,
   FlatList,
-  Pressable,
   ActivityIndicator,
   StatusBar,
   StyleSheet,
   RefreshControl,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";

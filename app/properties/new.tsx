@@ -21,7 +21,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -29,6 +28,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import MapView from "react-native-maps";
 import * as Location from "expo-location";
 import Animated, {

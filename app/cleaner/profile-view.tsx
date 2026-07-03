@@ -3,13 +3,13 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   StatusBar,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
   Share,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";

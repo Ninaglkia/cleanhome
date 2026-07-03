@@ -5,13 +5,13 @@ import { thumbUrl } from "../../lib/thumbUrl";
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   ScrollView,
   RefreshControl,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
