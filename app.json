@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleanhome.app",
-      "buildNumber": "10",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:cleanhomeapp.com",
