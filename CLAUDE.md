@@ -11,7 +11,9 @@
 - **Build:** Always use dev build (`com.cleanhome.app`), NEVER Expo Go
 - **Branch:** `main`
 - **Language:** Italian for conversation + UI text, English for code/comments/commits
-- **Current goal:** Finish checkout UI polish + submit TestFlight. **No new features.**
+- **Current goal (updated 2026-08-04):** two open tracks, **no new features** until both close:
+  1. **Design sweep "Pulitori"** — converge UI onto the green identity (`lib/design/pulitori.ts`, `PColor`). Done so far: `app/(tabs)/home.tsx`, `app/properties/new.tsx`, `app/booking/[id]/match.tsx`, `app/booking/[id]/waiting.tsx`. Client profile converged 2026-07-03 (`9030d4a`).
+  2. **Checkout polish + TestFlight submit** — see §6.
 
 **Fixed constants (do NOT ask):**
 - Site: `cleanhomeapp.com` (`/privacy`, `/terms` live)
@@ -54,6 +56,8 @@ Before asking "what's X?": check this file → grep code → memory. Only if not
 - `superpowers:verification-before-completion` → before final commit of a milestone
 
 For everything else: **just work**. One sentence rationale before invoking any skill/agent: *"Using X because Y."* If Y is weak, skip it.
+
+> **Precedence:** this section **overrides** the global memory rule *"Always use Superpowers — not optional"* **for this project only**. Elsewhere the global rule still applies. Don't try to reconcile them — here, conditional wins.
 
 ### 2.3 Cache diagnosis BEFORE code
 If user says "I don't see the changes" / "app didn't update" AND code on `main` is correct:
@@ -138,11 +142,16 @@ supabase/             functions/ (Edge), migrations/
 - `lib/types.ts` — TypeScript types
 - `supabase/functions/` — Edge Functions (stripe-*, etc.)
 
-**Env (`.env.local`, never commit):**
+**Env (`.env.local`, never commit) — full list, verified 2026-08-04:**
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_GOOGLE_PLACES_API_KEY`
 - `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_SECRET_KEY` (Edge Functions only)
+- `EXPO_PUBLIC_STRIPE_LISTING_PRICE_ID` (recurring €4.99/month "Annuncio aggiuntivo")
+- `EXPO_PUBLIC_SENTRY_DSN`
+- `STRIPE_SECRET_KEY` (Edge Functions only, no `EXPO_PUBLIC_` prefix — set via `supabase secrets set`)
+
+⚠️ `.env.local` is currently on **Stripe TEST keys**. Swap to LIVE before the TestFlight/production build (§6.2).
 
 ---
 
@@ -154,31 +163,40 @@ supabase/             functions/ (Edge), migrations/
 
 ---
 
-## 6. Current Focus: Checkout UI + TestFlight
+## 6. Current Focus: Pulitori Design Sweep + Checkout UI + TestFlight
 
 ### 6.1 Checkout UI — polish checklist
+*Status audited against the code on 2026-08-04. Don't re-check by eye — the evidence is in brackets.*
+
+**Done:**
+- [x] Stripe error state: user-friendly message, NOT raw `error.message` — `lib/friendlyPaymentError.ts`, used 3× in `app/booking/new.tsx`
+- [x] KeyboardAvoidingView on inputs — 4 occurrences in `app/booking/new.tsx`
+- [x] Safe area top+bottom respected — 3 occurrences
+- [x] Debug logs safe — all 4 remaining `console.log` (2 in `lib/realtime-tracking.ts`, 1 in `app/listings/index.tsx`, 1 in `lib/friendlyPaymentError.ts`) are `__DEV__`-guarded
+
+**Still open — confirmed missing:**
+- [ ] **Loading state on "Paga" (prevent double tap)** — `app/booking/new.tsx:1604` only has `disabled={!canProceed()}`, which is a *validation* guard. No submitting state → double tap is possible. **Highest risk item: it can double-charge.**
+- [ ] **Payment success screen + "Torna home"** — today it's `Alert.alert` → `router.replace("/(tabs)/bookings")` (`new.tsx:765-780`). Route `app/booking/[id]/waiting.tsx` exists and is used at `new.tsx:772`.
+- [ ] **8 hardcoded hex colors in checkout** — violates §4 "never hardcoded colors". Lines in `app/booking/new.tsx`: 942 `#d7fff1`, 1403 `#f59e0b`, 1521 `#fef3c7`, 1530 + 1535 `#b45309`, 1539 `#92400e`, 1577 `#dc2626`, 1578 `#9a6c00`. Move to `lib/theme.ts` / `PColor`.
+
+**Not yet audited (needs a visual pass, not grep):**
 - [ ] Primary CTA: same color/height across all steps
-- [ ] Visible loading state on "Paga" (prevent double tap)
-- [ ] Stripe error state: user-friendly message, NOT raw `error.message`
 - [ ] Spacing coherent (4px grid, container padding 16/20)
-- [ ] KeyboardAvoidingView on email/notes inputs
 - [ ] Back button handled (no crash if user exits mid-payment)
-- [ ] Payment confirmation: success screen + "Torna home"
 - [ ] Typography aligned with `lib/theme.ts` tokens
-- [ ] Safe area top+bottom respected
 - [ ] Dark mode coherent (if active)
 
 ### 6.2 TestFlight — submit checklist
 
 **Pre-build:**
-- [ ] `app.json`: `version` bumped, `ios.buildNumber` incremented
-- [ ] `ios.bundleIdentifier` = `com.cleanhome.app` (don't change after first submit)
-- [ ] Icon 1024x1024 PNG, no alpha
+- [x] `ios.bundleIdentifier` = `com.cleanhome.app` (don't change after first submit) — verified in `app.json:18`
+- [x] Permission strings (`NSCameraUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSPhotoLibraryUsageDescription`) in Italian, clear — `app.json:144-146`
+- [x] Debug `console.log` with sensitive data removed — all remaining ones are `__DEV__`-guarded (see §6.1)
+- [x] Icon — holographic app icon shipped 2026-06-26 (`85ccb56`); **re-verify 1024×1024 PNG with no alpha before submit**
+- [ ] `app.json`: bump `version` only (currently `1.0.0`). **Do NOT touch `buildNumber` / `versionCode`** — EAS auto-increments them, see Versioning policy below. Current: iOS build 14, Android versionCode 3.
 - [ ] Final splash screen
 - [ ] `privacy` + `terms` URLs point to cleanhomeapp.com
-- [ ] Permission strings (`NSCameraUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSPhotoLibraryUsageDescription`) in Italian, clear
-- [ ] Debug `console.log` with sensitive data removed
-- [ ] `.env` with PRODUCTION Stripe + Supabase prod keys
+- [ ] `.env` with PRODUCTION Stripe + Supabase prod keys — **currently TEST**, see §4
 
 **Build:**
 - [ ] Apple Developer account active (€99/year)
@@ -195,9 +213,32 @@ supabase/             functions/ (Edge), migrations/
 - iOS `buildNumber` + Android `versionCode` are **per-platform** build counters, auto-bumped by EAS (`autoIncrement: true` in eas.json production profile). They do NOT need to match each other — each only needs to be higher than the last build uploaded to its store. Don't hand-edit them.
 
 ### 6.3 Open items (update at end of every session)
-- 2026-06-01: full production-readiness audit + fixes (commits `de45197`, `e758360`, `2e4f2d4`). booking_date column alignment, escrow payout precondition, error/loading/empty states, availability sync, app.json dedup, jest+pricing tests. tsc 0 / tests 7-7 / sims clean.
-- Pending PROD rollout (needs go): OTA + deploy 7 edge fns (incl. escrow) + apply migrations (cron work_done, notifications RLS dedup).
-- Open decisions: filter chip UI on home, cleaner availability toggle UX.
+
+**Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
+
+**Shipped log:**
+- **2026-06-01** — full production-readiness audit + fixes (`de45197`, `e758360`, `2e4f2d4`): booking_date column alignment, escrow payout precondition, error/loading/empty states, availability sync, app.json dedup, jest+pricing tests. tsc 0 / tests 7-7 / sims clean.
+- **2026-06-24** — phone verification via Twilio SMS OTP (`e80b21e`), dispatch: SMS only for cleaner requests + push for the rest (`14216fb`), hourly rate with review-unlocked leveling (`54e1871`), map search + filters refinement (`90234da`), anchored notification dropdown + ErrorBoundary escape hatch (`f759066`), Deliveroo-style incoming-offer modal (`713e5d8`).
+- **2026-06-26** — profile redesign: gradient icon tiles + filled SVG icons + gradient toggle (`eacd0b1`); holographic app icon matching the splash (`85ccb56`).
+- **2026-07-03** — map anchored to saved property + GPS race guard (`550fd01`), gesture-driven dual-mode profile toggle (`c66fa4c`), iOS buildNumber → 14 (`148032c`), all function-style Pressables routed through `AppPressable` (`8b95a00`), client profile converged onto green Pulitori identity (`9030d4a`), AppPressable rule documented (`7e0f3d3`).
+
+**Blocked / needs your go:**
+- **PROD rollout still pending since 2026-06-01** (needs explicit go): OTA + deploy 7 Edge Functions (incl. escrow) + apply migrations (cron `work_done`, notifications RLS dedup). ⚠️ **Deployment state on Supabase was NOT verified** in this update — check against the live project before assuming anything.
+
+**Open decisions:**
+- Filter chip UI on home.
+- Cleaner availability toggle UX.
+- Which screens are next in the Pulitori design sweep (§1).
+
+---
+
+### 6.4 Keeping this file honest
+
+This file went **1 month stale** (last updated 2026-07-03, audited 2026-08-04): §6.1/§6.2 had items already done still unchecked, §6.3 was missing 15 commits, and §1 claimed "no new features" while June–July shipped several.
+
+Root cause: every other rule here leaves a trace (tsc output, commit messages, `AppPressable` imports) — this one doesn't, so it's the only one that silently slips.
+
+**Fix:** when a session ends with a commit, add one line to the "Shipped log" in §6.3 *in the same commit as the code*. If a checklist box in §6.1/§6.2 became true, flip it in that same commit. Not a separate "docs:" commit later — that's the one that never happens.
 
 ---
 
@@ -207,4 +248,4 @@ supabase/             functions/ (Edge), migrations/
 - No architectural refactor
 - No new libraries (every dependency = TestFlight build risk)
 - No "improvements" not explicitly requested
-- Only: checkout visual polish + what's needed to pass Apple review
+- Only: Pulitori design sweep on existing screens + checkout visual polish + what's needed to pass Apple review
