@@ -12,7 +12,9 @@ import { Pressable } from "./ui/AppPressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
+import { Colors } from "../lib/theme";
+import { PColor, PBorder } from "../lib/design/pulitori";
 import {
   useNotifications,
   type AppNotification,
@@ -22,34 +24,26 @@ import {
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const C = {
-  background: "#f6faf9",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  surfaceContainerHigh: "#e5e9e8",
-  surfaceVariant: "#dfe3e2",
-  /** Ink — main text / header title */
-  ink: "#14342b",
-  /** Accent green — CTA text, footer, mark-read button */
-  accentGreen: "#1f7a5c",
-  /** Icon bg green — check squircle bg */
-  accentGreenIcon: "#1f8a5b",
-  /** Unread row bg */
-  unreadRowBg: "#f3fbf7",
-  /** Unread dot */
-  unreadDot: "#1f8a5b",
-  /** Amber icon */
-  amberIcon: "#d99a2b",
-  /** Amber icon bg */
-  amberBg: "#fff3df",
-  /** Blue icon */
-  blueIcon: "#3a6fb0",
-  /** Blue icon bg */
-  blueBg: "#eaf0fb",
-  error: "#ba1a1a",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
+  background: PColor.canvas,
+  surface: PColor.white,
+  surfaceLow: PColor.canvas2,
+  surfaceContainerHigh: PColor.canvas2,
+  surfaceVariant: PColor.canvas2,
+  ink: PColor.ink,
+  accentGreen: PColor.accent,
+  accentGreenIcon: PColor.accent,
+  unreadRowBg: PColor.cardSelected,
+  unreadDot: PColor.accent,
+  // Routine categories share the same sage treatment; glyphs carry the meaning.
+  amberIcon: PColor.accent,
+  amberBg: PColor.mintPale,
+  blueIcon: PColor.accent,
+  blueBg: PColor.mintPale,
+  error: Colors.error,
+  onSurface: PColor.ink,
+  onSurfaceVariant: PColor.body,
+  outline: PColor.muted,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 const PANEL_HORIZONTAL_MARGIN = 12;
@@ -98,9 +92,9 @@ function getIconConfig(type: NotificationType): IconConfig {
   switch (iconCategory(type)) {
     case "confirm":
       return {
-        name: "checkmark",
-        iconColor: "#ffffff",
-        bgColor: C.accentGreenIcon,
+        name: "checkmark-circle-outline",
+        iconColor: C.accentGreenIcon,
+        bgColor: PColor.mintPale,
       };
     case "reminder":
       return {
@@ -118,8 +112,8 @@ function getIconConfig(type: NotificationType): IconConfig {
     default:
       return {
         name: "chatbubble-outline",
-        iconColor: C.onSurfaceVariant,
-        bgColor: C.surfaceContainerHigh,
+        iconColor: C.accentGreen,
+        bgColor: PColor.mintPale,
       };
   }
 }
@@ -146,6 +140,7 @@ interface RowProps {
 }
 
 const NotificationRow = ({ item, onPress }: RowProps) => {
+  const reducedMotion = useReducedMotion();
   const isUnread = !item.read_at;
   const iconConfig = getIconConfig(item.type);
 
@@ -154,7 +149,7 @@ const NotificationRow = ({ item, onPress }: RowProps) => {
   }, [item.id, item.link_path, onPress]);
 
   return (
-    <Animated.View entering={FadeInDown.springify().damping(20)}>
+    <Animated.View entering={reducedMotion ? undefined : FadeInDown.duration(180)}>
       <Pressable
         onPress={handlePress}
         style={({ pressed }) => [
@@ -165,7 +160,7 @@ const NotificationRow = ({ item, onPress }: RowProps) => {
         accessibilityLabel={`Notifica: ${item.title}`}
         accessibilityRole="button"
       >
-        {/* Squircle icon — 40x40 radius 11 */}
+        {/* Shared outline tile — 44x44 radius 12. */}
         <View
           style={[
             styles.rowIcon,
@@ -174,7 +169,7 @@ const NotificationRow = ({ item, onPress }: RowProps) => {
         >
           <Ionicons
             name={iconConfig.name}
-            size={18}
+            size={22}
             color={iconConfig.iconColor}
           />
         </View>
@@ -402,12 +397,14 @@ const styles = StyleSheet.create({
     width: PANEL_WIDTH,
     maxHeight: 480,
     backgroundColor: C.surface,
-    borderRadius: 22,
-    shadowColor: "#022420",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
+    shadowColor: PColor.ink,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowRadius: 16,
+    elevation: 6,
     overflow: "hidden",
   },
 
@@ -421,13 +418,13 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   panelTitle: {
-    fontFamily: "System",
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.ink,
     letterSpacing: -0.3,
   },
   markAllBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -477,11 +474,11 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: 0.75,
   },
-  // Squircle 40x40 radius 11
+  // Shared 44px sage tile
   rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -505,7 +502,7 @@ const styles = StyleSheet.create({
     color: C.ink,
   },
   rowTitleRead: {
-    color: `${C.ink}99`,
+    color: PColor.body,
   },
   rowTimestampWrap: {
     flexDirection: "row",
@@ -521,8 +518,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.unreadDot,
   },
   rowTimestamp: {
-    fontSize: 10,
-    color: `${C.onSurfaceVariant}99`,
+    fontSize: 11,
+    color: PColor.body2,
     fontWeight: "500",
   },
   rowDescription: {

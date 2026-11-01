@@ -12,7 +12,9 @@ import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import Animated, { FadeInDown, Layout, useReducedMotion } from "react-native-reanimated";
+import { Colors } from "../../lib/theme";
+import { PColor, PBorder } from "../../lib/design/pulitori";
 import { useAuth } from "../../lib/auth";
 import {
   useNotifications,
@@ -24,19 +26,19 @@ import {
 // ─── Design tokens (Stitch) ───────────────────────────────────────────────────
 
 const C = {
-  background: "#f6faf9",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  surfaceContainerHigh: "#e5e9e8",
-  surfaceVariant: "#dfe3e2",
-  primary: "#022420",
-  secondary: "#006b55",
-  error: "#ba1a1a",
-  errorLight: "#fce8e8",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
+  background: PColor.canvas,
+  surface: PColor.white,
+  surfaceLow: PColor.canvas2,
+  surfaceContainerHigh: PColor.canvas2,
+  surfaceVariant: PColor.canvas2,
+  primary: PColor.ink,
+  secondary: PColor.accent,
+  error: Colors.error,
+  errorLight: Colors.errorLight,
+  onSurface: PColor.ink,
+  onSurfaceVariant: PColor.body,
+  outline: PColor.muted,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -114,6 +116,7 @@ interface NotificationCardProps {
 }
 
 const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
+  const reducedMotion = useReducedMotion();
   const iconName = getTypeIcon(item.type);
   const isUnread = !item.read_at;
 
@@ -122,7 +125,7 @@ const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
   }, [item.id, item.link_path, onPress]);
 
   return (
-    <Animated.View entering={FadeInDown.springify().damping(20)} layout={Layout.springify()}>
+    <Animated.View entering={reducedMotion ? undefined : FadeInDown.duration(180)} layout={reducedMotion ? undefined : Layout.duration(180)}>
       <Pressable
         onPress={handlePress}
         style={({ pressed }) => [
@@ -142,8 +145,8 @@ const NotificationCard = ({ item, onPress }: NotificationCardProps) => {
         >
           <Ionicons
             name={iconName}
-            size={24}
-            color={isUnread ? C.secondary : C.primary}
+            size={22}
+            color={C.secondary}
           />
         </View>
 
@@ -442,7 +445,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 4,
   },
@@ -457,17 +460,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   topBarBrand: {
-    fontFamily: "NotoSerif_700Bold",
     fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.primary,
     letterSpacing: -0.3,
   },
   bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
 
   // ── Editorial header ──────────────────────────────────────────────────────────
   editorialHeader: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
@@ -506,17 +507,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: C.secondary,
     textTransform: "uppercase",
-    letterSpacing: 2.5,
+    letterSpacing: 1.2,
     marginBottom: 4,
   },
   headlineText: {
-    fontFamily: "NotoSerif_700Bold",
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.8,
   },
   markAllBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -533,9 +534,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginHorizontal: 24,
+    marginHorizontal: 20,
     marginBottom: 12,
-    backgroundColor: "#fce8e8",
+    backgroundColor: C.errorLight,
     borderRadius: 12,
     padding: 14,
     borderLeftWidth: 3,
@@ -548,6 +549,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   retryBtn: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -565,23 +568,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   filtersList: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     gap: 10,
     paddingBottom: 4,
   },
   filterChip: {
-    paddingHorizontal: 22,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 9999,
-    backgroundColor: C.surfaceContainerHigh,
+    backgroundColor: C.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   filterChipActive: {
     backgroundColor: C.primary,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: C.primary,
   },
   filterChipText: {
     fontSize: 13,
@@ -600,16 +603,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     minHeight: 80,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   cardUnread: {
     backgroundColor: C.surface,
     borderLeftWidth: 4,
     borderLeftColor: C.secondary,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 2,
   },
   cardRead: {
     backgroundColor: C.surfaceLow,
@@ -618,18 +618,18 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   iconCircleUnread: {
-    backgroundColor: `${C.secondary}1A`,
+    backgroundColor: PColor.mintPale,
   },
   iconCircleRead: {
-    backgroundColor: C.surfaceVariant,
+    backgroundColor: PColor.mintPale,
   },
   cardContent: {
     flex: 1,
@@ -648,11 +648,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitleUnread: {
-    fontFamily: "NotoSerif_700Bold",
     color: C.primary,
   },
   cardTitleRead: {
-    color: `${C.primary}99`,
+    color: PColor.body,
   },
   timestampWrap: {
     flexDirection: "row",
@@ -669,10 +668,10 @@ const styles = StyleSheet.create({
   cardTimestamp: {
     fontSize: 11,
     fontWeight: "500",
-    color: `${C.onSurfaceVariant}99`,
+    color: PColor.body2,
   },
   cardTimestampRead: {
-    color: `${C.onSurfaceVariant}66`,
+    color: PColor.body2,
   },
   cardDescription: {
     fontSize: 13,
@@ -701,7 +700,7 @@ const styles = StyleSheet.create({
 
   // ── List ──────────────────────────────────────────────────────────────────────
   listContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
 

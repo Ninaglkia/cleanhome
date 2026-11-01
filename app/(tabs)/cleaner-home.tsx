@@ -40,17 +40,19 @@ import { useCountdown } from "../../lib/hooks/useCountdown";
 import { measureInWindow } from "../../lib/measureInWindow";
 import { NotificationBell } from "../../components/NotificationBell";
 import IncomingOfferModal from "../../components/IncomingOfferModal";
+import { Colors } from "../../lib/theme";
+import { PColor, PBorder } from "../../lib/design/pulitori";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
-const PRIMARY = "#006b55";
-const PRIMARY_CONTAINER = "#022420";
-const ON_SURFACE = "#181c1c";
-const ON_SURFACE_VARIANT = "#414846";
-const SURFACE = "#f6faf9";
-const SURFACE_LOW = "#f0f4f3";
-const OUTLINE = "#717976";
-const CLEANER_LIGHT = "#e6f4f1";
+const PRIMARY = Colors.secondary;
+const PRIMARY_CONTAINER = Colors.primary;
+const ON_SURFACE = Colors.text;
+const ON_SURFACE_VARIANT = Colors.textSecondary;
+const SURFACE = Colors.background;
+const SURFACE_LOW = Colors.backgroundAlt;
+const OUTLINE = Colors.textTertiary;
+const CLEANER_LIGHT = Colors.accentLight;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,7 +77,7 @@ function StatCard({ value, label, iconName, iconColor, iconBg }: StatCardProps) 
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconCircle, { backgroundColor: iconBg }]}>
-        <Ionicons name={iconName} size={20} color={iconColor} />
+        <Ionicons name={iconName} size={22} color={iconColor} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -768,8 +770,8 @@ export default function CleanerHomeScreen() {
             value={stats.inAttesa}
             label="In attesa"
             iconName="alert-circle-outline"
-            iconColor="#006b55"
-            iconBg="#e6f4f1"
+            iconColor={PColor.accent}
+            iconBg={PColor.mintPale}
           />
           <StatCard
             value={stats.attive}
@@ -782,8 +784,8 @@ export default function CleanerHomeScreen() {
             value={stats.completate}
             label="Completate"
             iconName="checkmark-circle-outline"
-            iconColor="#16a34a"
-            iconBg="#f0fdf4"
+            iconColor={PColor.accent}
+            iconBg={PColor.mintPale}
           />
         </View>
 
@@ -1053,11 +1055,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 20,
     marginTop: 8,
-    shadowColor: PRIMARY_CONTAINER,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 4,
   },
   emptyCtaText: {
     fontSize: 13,
@@ -1071,7 +1068,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 24,
-    backgroundColor: "rgba(246,250,249,0.9)",
+    backgroundColor: SURFACE,
   },
   headerTop: {
     flexDirection: "row",
@@ -1082,8 +1079,7 @@ const styles = StyleSheet.create({
   brandLogo: {
     fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: "#181c1c",
+    color: PColor.ink,
     letterSpacing: -0.3,
   },
   avatarPhoto: {
@@ -1119,7 +1115,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
     marginTop: 4,
     marginBottom: 8,
   },
@@ -1130,29 +1126,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 10,
     alignItems: "center",
-    shadowColor: "rgba(0,107,85,0.06)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   statIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 22,
+    fontWeight: "700",
     color: ON_SURFACE,
     letterSpacing: -0.8,
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: "700",
     color: ON_SURFACE_VARIANT,
     letterSpacing: 0.8,
@@ -1296,11 +1289,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 9999,
     backgroundColor: PRIMARY_CONTAINER,
-    shadowColor: PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
     overflow: "hidden",
   },
   btnAcceptText: {

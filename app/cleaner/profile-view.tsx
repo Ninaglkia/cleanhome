@@ -20,16 +20,16 @@ import { CleanerProfile, Review } from "../../lib/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRIMARY = "#022420";
-const PRIMARY_CONTAINER = "#1a3a35";
-const SECONDARY = "#006b55";
-const SECONDARY_CONTAINER = "#82f4d1";
-const SURFACE = "#f6faf9";
-const SURFACE_LOW = "#f0f4f3";
-const ON_SURFACE = "#181c1c";
-const ON_SURFACE_VARIANT = "#414846";
-const OUTLINE = "#717976";
-const OUTLINE_VARIANT = "#c1c8c5";
+const PRIMARY = Colors.primary;
+const PRIMARY_CONTAINER = Colors.primaryContainer;
+const SECONDARY = Colors.secondary;
+const SECONDARY_CONTAINER = Colors.secondaryContainer;
+const SURFACE = Colors.background;
+const SURFACE_LOW = Colors.surfaceLow;
+const ON_SURFACE = Colors.text;
+const ON_SURFACE_VARIANT = Colors.textSecondary;
+const OUTLINE = Colors.textTertiary;
+const OUTLINE_VARIANT = Colors.outlineVariant;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const PHOTO_HEIGHT = 340;
@@ -55,7 +55,7 @@ function StarRow({ rating, reviewCount }: StarRowProps) {
               : "star-outline"
           }
           size={16}
-          color="#006b55"
+          color={Colors.secondary}
         />
       ))}
       <Text style={styles.starRatingText}>{rating}</Text>
@@ -76,7 +76,7 @@ function ServiceRow({ name, price, duration }: ServiceRowProps) {
   return (
     <View style={styles.serviceRow}>
       <View style={styles.serviceIconWrap}>
-        <Ionicons name="sparkles-outline" size={18} color="#022420" />
+        <Ionicons name="home-outline" size={22} color={Colors.primary} />
       </View>
       <View style={styles.serviceBody}>
         <Text style={styles.serviceName}>{name}</Text>
@@ -240,7 +240,7 @@ export default function CleanerProfileViewScreen() {
               accessibilityLabel="Indietro"
               accessibilityRole="button"
             >
-              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Ionicons name="chevron-back" size={22} color="#fff" />
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -353,7 +353,7 @@ export default function CleanerProfileViewScreen() {
                   key={i}
                   name={i <= Math.round(displayRating) ? "star" : "star-outline"}
                   size={12}
-                  color="#006b55"
+                  color={Colors.secondary}
                 />
               ))}
             </View>
@@ -364,7 +364,7 @@ export default function CleanerProfileViewScreen() {
             </Text>
           </View>
           <Text style={styles.reviewsPreviewCta}>Leggi tutte le recensioni</Text>
-          <Ionicons name="chevron-forward" size={18} color="#022420" />
+          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
         </Pressable>
       </ScrollView>
 
@@ -412,13 +412,13 @@ const styles = StyleSheet.create({
   },
   heroPhoto: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#1a3a35",
+    backgroundColor: Colors.primaryContainer,
     alignItems: "center",
     justifyContent: "center",
   },
   heroPhotoGradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#022420",
+    backgroundColor: Colors.primary,
     opacity: 0.7,
   },
   heroPhotoIcon: {
@@ -440,17 +440,17 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
   shareButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
     justifyContent: "center",
@@ -486,8 +486,8 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   heroName: {
-    fontSize: 30,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "700",
     color: "#fff",
     letterSpacing: -0.8,
   },
@@ -515,17 +515,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 22,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     zIndex: 5,
   },
   bioTagline: {
     fontSize: 18,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: "#022420",
+    color: Colors.primary,
     marginBottom: 10,
     letterSpacing: -0.2,
   },
@@ -550,7 +549,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#022420",
+    color: Colors.primary,
     letterSpacing: -0.5,
   },
   statLabel: {
@@ -587,7 +586,7 @@ const styles = StyleSheet.create({
   sectionLink: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#022420",
+    color: Colors.primary,
   },
 
   // ── Services ──────────────────────────────────────────────────────────────────
@@ -605,13 +604,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    gap: 14,
+    gap: 12,
   },
   serviceIconWrap: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: "#f0f4f3",
+    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -631,12 +630,12 @@ const styles = StyleSheet.create({
   servicePrice: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#022420",
+    color: Colors.primary,
   },
   serviceDivider: {
     height: 1,
     backgroundColor: Colors.borderLight,
-    marginLeft: 70,
+    marginLeft: 72,
   },
 
   // ── Trust badges ──────────────────────────────────────────────────────────────
@@ -669,7 +668,7 @@ const styles = StyleSheet.create({
   reviewsPreviewCard: {
     marginHorizontal: 20,
     marginTop: 28,
-    backgroundColor: "#f0f4f3",
+    backgroundColor: Colors.surfaceLow,
     borderRadius: 18,
     padding: 18,
     flexDirection: "row",
@@ -683,7 +682,7 @@ const styles = StyleSheet.create({
   reviewsPreviewRating: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#022420",
+    color: Colors.primary,
     letterSpacing: -0.5,
   },
   reviewsPreviewStars: {
@@ -698,7 +697,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: "#1a3a35",
+    color: Colors.primaryContainer,
   },
 
   // ── Floating bar ──────────────────────────────────────────────────────────────
@@ -711,10 +710,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 20,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   floatingBarInner: {
     flexDirection: "row",
@@ -731,17 +730,17 @@ const styles = StyleSheet.create({
   floatingRate: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#022420",
+    color: Colors.primary,
     letterSpacing: -0.5,
   },
   bookNowBtn: {
     backgroundColor: Colors.secondary,
     borderRadius: 16,
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
     overflow: "hidden",
   },
   bookNowBtnText: {

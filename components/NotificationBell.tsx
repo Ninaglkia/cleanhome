@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Pressable, Text, StyleSheet } from "react-native";
-import Svg, { Defs, LinearGradient, Stop, Path, Circle, Ellipse } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import { PColor } from "../lib/design/pulitori";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -17,89 +18,22 @@ import { NotificationsDropdown } from "./NotificationsDropdown";
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface NotificationBellProps {
-  /** Icon and badge accent color. Defaults to "#022420" (client theme). */
+  /** Outline icon color. Defaults to the shared green ink. */
   color?: string;
   /** Hit area size for the pressable. Defaults to 46. */
   size?: number;
 }
 
-// ─── Bell SVG — premium filled bell with inner highlight ─────────────────────
+// ─── Shared outline glyph ─────────────────────────────────────────────────────
 
 function BellGlyph({ color, size }: { color: string; size: number }) {
-  // Bell body sits inside a viewBox of 24×24, scaled to `size`
-  // A subtle linear gradient overlaid gives the illusion of 3D depth:
-  // top-left highlight → transparent → slight bottom shadow.
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Defs>
-        {/* Inner highlight: top-left is a bit lighter, giving the bell depth */}
-        <LinearGradient id="bell_shine" x1="0.15" y1="0" x2="0.85" y2="1">
-          <Stop offset="0" stopColor="#ffffff" stopOpacity="0.32" />
-          <Stop offset="0.5" stopColor="#ffffff" stopOpacity="0" />
-          <Stop offset="1" stopColor="#000000" stopOpacity="0.10" />
-        </LinearGradient>
-      </Defs>
-
-      {/* Bell body — filled, rounded dome with flared skirt */}
-      <Path
-        d={[
-          // Dome: arc from left shoulder to right shoulder
-          "M12 2.5",
-          "C8.2 2.5 5.2 5.6 5.2 9.4",
-          // Left side down along the body
-          "L5.2 14.8",
-          // Left skirt flare
-          "C5.2 15.6 4.4 16.2 3.6 16.5",
-          "C3.0 16.8 2.8 17.4 3.0 17.9",
-          "C3.2 18.4 3.7 18.7 4.2 18.7",
-          "L19.8 18.7",
-          // Right skirt and up
-          "C20.3 18.7 20.8 18.4 21.0 17.9",
-          "C21.2 17.4 21.0 16.8 20.4 16.5",
-          "C19.6 16.2 18.8 15.6 18.8 14.8",
-          "L18.8 9.4",
-          "C18.8 5.6 15.8 2.5 12 2.5Z",
-        ].join(" ")}
-        fill={color}
-      />
-      {/* Highlight overlay on the bell body */}
-      <Path
-        d={[
-          "M12 2.5",
-          "C8.2 2.5 5.2 5.6 5.2 9.4",
-          "L5.2 14.8",
-          "C5.2 15.6 4.4 16.2 3.6 16.5",
-          "C3.0 16.8 2.8 17.4 3.0 17.9",
-          "C3.2 18.4 3.7 18.7 4.2 18.7",
-          "L19.8 18.7",
-          "C20.3 18.7 20.8 18.4 21.0 17.9",
-          "C21.2 17.4 21.0 16.8 20.4 16.5",
-          "C19.6 16.2 18.8 15.6 18.8 14.8",
-          "L18.8 9.4",
-          "C18.8 5.6 15.8 2.5 12 2.5Z",
-        ].join(" ")}
-        fill="url(#bell_shine)"
-      />
-
-      {/* Clapper / ringer — dome at the bottom */}
-      <Path
-        d="M10.1 19.8a2.1 2.1 0 0 0 3.8 0Z"
-        fill={color}
-      />
-
-      {/* Stem / hook at the top */}
-      <Circle cx="12" cy="2.5" r="1.3" fill={color} />
-
-      {/* Small specular highlight dot — top-left of dome, reads as glossy 3D */}
-      <Ellipse cx="9" cy="7.5" rx="1.4" ry="0.9" fill="#ffffff" opacity="0.35" />
-    </Svg>
-  );
+  return <Ionicons name="notifications-outline" size={size} color={color} accessible={false} />;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotificationBell({
-  color = "#022420",
+  color = PColor.ink,
   size = 46,
 }: NotificationBellProps) {
   const { user } = useAuth();
@@ -202,8 +136,8 @@ export function NotificationBell({
   const badgeLabel = count > 9 ? "9+" : count > 0 ? String(count) : null;
   const dropdownTopOffset = anchorBottom;
 
-  // The glyph occupies ~60% of the hit-area for a bold, present feel
-  const glyph = Math.round(size * 0.60);
+  // Match the 22px outline family while retaining the existing hit-area API.
+  const glyph = Math.round(size * (22 / 46));
 
   return (
     <>
@@ -260,15 +194,15 @@ const styles = StyleSheet.create({
     height: 19,
     paddingHorizontal: 5,
     borderRadius: 10,
-    backgroundColor: "#E0382B",
+    backgroundColor: PColor.error,
     alignItems: "center",
     justifyContent: "center",
     // White ring around badge so it pops on any background
     borderWidth: 2,
-    borderColor: "#ffffff",
+    borderColor: PColor.white,
   },
   badgeText: {
-    color: "#ffffff",
+    color: PColor.white,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: -0.2,

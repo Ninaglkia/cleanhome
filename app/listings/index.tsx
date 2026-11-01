@@ -26,22 +26,24 @@ import {
   deleteListing,
 } from "../../lib/api";
 import { NotificationBell } from "../../components/NotificationBell";
+import { Colors } from "../../lib/theme";
+import { PColor } from "../../lib/design/pulitori";
 import { supabase } from "../../lib/supabase";
 import type { CleanerListing } from "../../lib/types";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
-  primary: "#022420",
-  secondary: "#006b55",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  background: "#f6faf9",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
+  primary: Colors.primary,
+  secondary: Colors.secondary,
+  surface: Colors.surface,
+  surfaceLow: Colors.backgroundAlt,
+  background: Colors.background,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outline: Colors.textTertiary,
   danger: "#b3261e",
   warning: "#b45309",
-  success: "#006b55",
+  success: Colors.secondary,
 };
 
 
@@ -593,7 +595,7 @@ export default function MyListingsScreen() {
               </Text>
               <View
                 style={{
-                  backgroundColor: "#006b55",
+                  backgroundColor: C.secondary,
                   paddingHorizontal: 14,
                   paddingVertical: 7,
                   borderRadius: 999,
@@ -652,7 +654,7 @@ function ListingCard({
           borderRadius: 22,
           overflow: "hidden",
           marginBottom: 16,
-          shadowColor: "#022420",
+          shadowColor: PColor.ink,
           shadowOpacity: 0.08,
           shadowRadius: 14,
           shadowOffset: { width: 0, height: 6 },
@@ -972,14 +974,14 @@ function EmptyState({
       </Text>
       <View
         style={{
-          backgroundColor: "#006b55",
+          backgroundColor: C.secondary,
           borderRadius: 999,
           opacity: creating ? 0.5 : 1,
-          shadowColor: "#006b55",
-          shadowOpacity: 0.22,
+          shadowColor: PColor.ink,
+          shadowOpacity: 0.06,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
-          elevation: 6,
+          elevation: 2,
           overflow: "hidden",
         }}
       >
@@ -1076,7 +1078,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 14,
     ...({
-      shadowColor: "#022420",
+      shadowColor: PColor.ink,
       shadowOpacity: 0.07,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
@@ -1219,16 +1221,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#006b55",
+    backgroundColor: C.secondary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 999,
     gap: 8,
-    shadowColor: "#006b55",
-    shadowOpacity: 0.3,
+    shadowColor: PColor.ink,
+    shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    elevation: 2,
   },
   emptyCtaText: {
     fontSize: 15,
@@ -1236,14 +1238,14 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   headerAddBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#006b55",
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: C.secondary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#006b55",
-    shadowOpacity: 0.2,
+    shadowColor: PColor.ink,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,

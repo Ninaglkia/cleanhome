@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { usePhoneVerification } from "../lib/hooks/usePhoneVerification";
+import { Colors } from "../lib/theme";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,22 +23,22 @@ const OTP_LENGTH = 6;
 // ─── Local design tokens (match profile.tsx C palette) ────────────────────────
 
 const C = {
-  background: "#f8fbfa",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  primary: "#022420",
-  secondary: "#006b55",
-  outlineVariant: "#c1c8c5",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  error: "#ba1a1a",
-  errorContainer: "#ffdad6",
-  success: "#16a34a",
-  successLight: "#dcfce7",
-  border: "#d4e4e0",
-  text: "#0f1f1d",
-  textSecondary: "#4a6660",
-  textTertiary: "#8aaca6",
+  background: Colors.background,
+  surface: Colors.surface,
+  surfaceLow: Colors.surfaceLow,
+  primary: Colors.primary,
+  secondary: Colors.secondary,
+  outlineVariant: Colors.outlineVariant,
+  onSurfaceVariant: Colors.textSecondary,
+  outline: Colors.textTertiary,
+  error: Colors.error,
+  errorContainer: Colors.errorLight,
+  success: Colors.success,
+  successLight: Colors.successLight,
+  border: Colors.border,
+  text: Colors.text,
+  textSecondary: Colors.textSecondary,
+  textTertiary: Colors.textTertiary,
 } as const;
 
 // ─── OTP box ──────────────────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ export default function VerifyPhoneScreen() {
       <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
         <View style={styles.successContainer}>
           <View style={styles.successIconWrap}>
-            <Ionicons name="checkmark-circle" size={72} color={C.success} />
+            <Ionicons name="checkmark-circle-outline" size={56} color={C.success} />
           </View>
           <Text style={styles.successTitle}>Telefono verificato</Text>
           <Text style={styles.successSubtext}>
@@ -301,7 +302,7 @@ export default function VerifyPhoneScreen() {
             accessibilityRole="button"
             accessibilityLabel="Indietro"
           >
-            <Ionicons name="arrow-back" size={20} color={C.text} />
+            <Ionicons name="chevron-back" size={22} color={C.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Verifica telefono</Text>
           <View style={styles.headerSpacer} />
@@ -479,12 +480,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headerSpacer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 13,
     backgroundColor: C.surface,
     alignItems: "center",
@@ -571,11 +572,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
-    shadowColor: C.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   primaryBtnDisabled: {
     backgroundColor: C.outlineVariant,
@@ -631,6 +632,8 @@ const styles = StyleSheet.create({
 
   // ── Resend ───────────────────────────────────────────────────────────────────
   resendBtn: {
+    minHeight: 44,
+    justifyContent: "center",
     alignItems: "center",
     paddingVertical: 12,
   },
@@ -654,7 +657,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#dcfce7",
+    backgroundColor: C.successLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,

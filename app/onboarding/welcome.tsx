@@ -1,43 +1,40 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
   Image,
-  Pressable,
   StyleSheet,
   Dimensions,
   StatusBar,
   FlatList,
   ViewToken,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { markCleanerOnboarded } from "../../lib/api";
+import { Colors } from "../../lib/theme";
 import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
 } from "react-native-reanimated";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const C = {
-  bg: "#f0f4f3",
-  surface: "#ffffff",
-  primary: "#022420",
-  secondary: "#006b55",
-  mint: "#4fc4a3",
-  mintDark: "#1a3a35",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outlineVariant: "#c1c8c5",
+  bg: Colors.background,
+  surface: Colors.surface,
+  primary: Colors.primary,
+  secondary: Colors.secondary,
+  mint: Colors.accent,
+  mintDark: Colors.primary,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 const ROLES = [
@@ -190,35 +187,11 @@ export default function OnboardingScreen() {
 
   const isLastSlide = activeIndex === SLIDES.length - 1;
 
-  // Button pulse animation
+  // Tactile feedback only; the primary action stays still while idle.
   const btnScale = useSharedValue(1);
-  const btnGlow = useSharedValue(0.3);
-
-  useEffect(() => {
-    // Gentle pulse loop
-    btnScale.value = withRepeat(
-      withSequence(
-        withTiming(1.03, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1, // infinite
-      true
-    );
-    btnGlow.value = withRepeat(
-      withSequence(
-        withTiming(0.5, { duration: 1200 }),
-        withTiming(0.25, { duration: 1200 })
-      ),
-      -1,
-      true
-    );
-    // btnScale / btnGlow are Reanimated shared values — stable refs, no deps needed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const btnAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: btnScale.value }],
-    shadowOpacity: btnGlow.value,
   }));
 
   const handleBtnPressIn = useCallback(() => {
@@ -227,7 +200,7 @@ export default function OnboardingScreen() {
   }, []);
 
   const handleBtnPressOut = useCallback(() => {
-    btnScale.value = withSpring(1.03, { damping: 15, stiffness: 300 });
+    btnScale.value = withSpring(1, { damping: 15, stiffness: 300 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -248,7 +221,7 @@ export default function OnboardingScreen() {
             accessibilityLabel="Torna indietro"
           >
             <View style={styles.backBtnInner}>
-              <Ionicons name="arrow-back" size={20} color={C.primary} />
+              <Ionicons name="chevron-back" size={22} color={C.primary} />
               <Text style={styles.backText}>Indietro</Text>
             </View>
           </Pressable>
@@ -303,7 +276,7 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        {/* CTA button — animated pulse + scale on press.
+        {/* CTA button — scale feedback on press.
             Inner View wraps the row content to avoid the iOS Pressable+flex-row
             layout bug when Pressable carries flexDirection:"row" with 2 children. */}
         <Animated.View style={[styles.ctaOuter, isLastSlide && styles.ctaOuterLast, btnAnimStyle]}>
@@ -344,8 +317,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     height: 48,
   },
-  brand: { fontSize: 22, fontWeight: "900", color: C.primary },
-  backBtn: { paddingVertical: 4 },
+  brand: { fontSize: 22, fontWeight: "700", color: C.primary },
+  backBtn: { minHeight: 44, justifyContent: "center", paddingVertical: 4 },
   backBtnInner: { flexDirection: "row", alignItems: "center", gap: 6 },
   backText: { fontSize: 15, fontWeight: "600", color: C.primary },
 
@@ -388,11 +361,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: "700",
     color: C.primary,
     textAlign: "center",
-    lineHeight: 38,
+    lineHeight: 34,
     letterSpacing: -0.5,
     marginBottom: 16,
   },
@@ -446,7 +419,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 56,
     backgroundColor: C.mint,
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: "hidden",
   },
   ctaOuterLast: {

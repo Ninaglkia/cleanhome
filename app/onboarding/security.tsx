@@ -13,17 +13,18 @@ import {
   View,
   Text,
   Image,
-  Pressable,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
+import { Colors } from "../../lib/theme";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -37,17 +38,17 @@ import Animated, {
 const ONBOARDING_SEEN_KEY = "cleanhome.onboarding_seen";
 
 const C = {
-  bg: "#f6faf9",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  primary: "#022420",
-  primaryContainer: "#1a3a35",
-  secondary: "#006b55",
-  accent: "#00c896",
-  accentLight: "#e8fdf7",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outlineVariant: "#c1c8c5",
+  bg: Colors.background,
+  surface: Colors.surface,
+  surfaceLow: Colors.surfaceLow,
+  primary: Colors.primary,
+  primaryContainer: Colors.primaryContainer,
+  secondary: Colors.secondary,
+  accent: Colors.accent,
+  accentLight: Colors.accentLight,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 interface BulletProps {
@@ -80,7 +81,7 @@ function Bullet({ icon, title, description, delay }: BulletProps) {
   return (
     <Animated.View style={[styles.bullet, animStyle]}>
       <View style={styles.bulletIcon}>
-        <Ionicons name={icon} size={20} color={C.secondary} />
+        <Ionicons name={icon} size={22} color={C.secondary} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.bulletTitle}>{title}</Text>
@@ -162,7 +163,7 @@ export default function SecurityScreen() {
       {/* ── Brand bar (centered, back button absolute) ── */}
       <View style={styles.brandBar}>
         <Pressable onPress={handleBack} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={C.primary} />
+          <Ionicons name="chevron-back" size={22} color={C.primary} />
         </Pressable>
         <View style={styles.brandCenter}>
           <Image
@@ -273,12 +274,13 @@ const styles = StyleSheet.create({
   },
 
   brandBar: {
-    height: 36,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
   backBtn: {
+    width: 44,
     position: "absolute",
     left: 0,
     top: 0,
@@ -290,7 +292,7 @@ const styles = StyleSheet.create({
   brandLogo: { width: 26, height: 26, borderRadius: 6 },
   brandText: {
     fontSize: 20,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.3,
   },
@@ -309,11 +311,11 @@ const styles = StyleSheet.create({
   },
   heroCircleGlow: {
     position: "absolute",
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: C.accentLight,
-    opacity: 0.6,
+    opacity: 0.3,
   },
   lottie: {
     width: 240,
@@ -333,10 +335,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   headline: {
-    fontSize: 34,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: "700",
     color: C.primary,
-    lineHeight: 40,
+    lineHeight: 34,
     letterSpacing: -0.8,
     marginBottom: 12,
   },
@@ -364,9 +366,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   bulletIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: C.accentLight,
     alignItems: "center",
     justifyContent: "center",
@@ -415,16 +417,16 @@ const styles = StyleSheet.create({
   ctaBtn: {
     width: "100%",
     backgroundColor: C.primary,
-    borderRadius: 28,
+    borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 28,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#011a17",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
   ctaText: {
     fontSize: 17,

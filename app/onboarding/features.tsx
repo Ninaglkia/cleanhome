@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
+import { Colors } from "../../lib/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
 import Animated, {
@@ -23,15 +24,15 @@ import Animated, {
 } from "react-native-reanimated";
 
 const C = {
-  bg: "#f6faf9",
-  surface: "#ffffff",
-  primary: "#022420",
-  secondary: "#006b55",
-  accent: "#00c896",
-  accentLight: "#e8fdf7",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outlineVariant: "#c1c8c5",
+  bg: Colors.background,
+  surface: Colors.surface,
+  primary: Colors.primary,
+  secondary: Colors.secondary,
+  accent: Colors.accent,
+  accentLight: Colors.accentLight,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 export default function FeaturesScreen() {
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
 
   // --- Brand bar (unified across features/security/login) ---
   brandBar: {
-    height: 36,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   brandLogo: { width: 26, height: 26, borderRadius: 6 },
   brandText: {
     fontSize: 20,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.3,
   },
@@ -200,11 +201,11 @@ const styles = StyleSheet.create({
   },
   heroCircleGlow: {
     position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
     backgroundColor: C.accentLight,
-    opacity: 0.6,
+    opacity: 0.3,
   },
   lottie: {
     width: 320,
@@ -224,10 +225,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   headline: {
-    fontSize: 34,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: "700",
     color: C.primary,
-    lineHeight: 40,
+    lineHeight: 34,
     letterSpacing: -0.8,
     marginBottom: 12,
   },
@@ -268,16 +269,16 @@ const styles = StyleSheet.create({
   ctaBtn: {
     width: "100%",
     backgroundColor: C.primary,
-    borderRadius: 28,
+    borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 28,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#011a17",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
     marginBottom: 4,
   },
   ctaText: {

@@ -7,7 +7,7 @@
 //
 // Premium visual redesign: SVG hero illustrations per step, micro-interactions
 // on type tiles, staggered card entrances, animated segmented progress bar,
-// and a glow CTA with sparkle icon on the final step.
+// and a clear primary CTA with tactile press feedback.
 //
 // Editing existing properties still goes through /properties/edit — this
 // route is creation-only and will redirect any incoming `id` param there.
@@ -39,6 +39,7 @@ import Animated, {
   FadeOut,
   interpolate,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -48,13 +49,10 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, {
   Circle,
-  Defs,
   Line,
   Path,
   Polygon,
-  RadialGradient,
   Rect,
-  Stop,
 } from "react-native-svg";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -77,8 +75,8 @@ const PROPERTY_TYPES: {
   sub: string;
   tint: string;
 }[] = [
-  { id: "apartment",  icon: "business-outline",     label: "Appartamento",              sub: "Airbnb o casa vacanza",  tint: "#006b55" },
-  { id: "house",      icon: "home-outline",         label: "Casa indipendente / Villa", sub: "Singola con esterni",    tint: "#0d7d6c" },
+  { id: "apartment",  icon: "business-outline",     label: "Appartamento",              sub: "Airbnb o casa vacanza",  tint: Colors.secondary },
+  { id: "house",      icon: "home-outline",         label: "Casa indipendente / Villa", sub: "Singola con esterni",    tint: Colors.secondary },
 ];
 
 const FREQUENCIES: {
@@ -180,48 +178,41 @@ function HeroStep1() {
     <View style={heroStyles.container}>
       <Animated.View style={houseStyle}>
         <Svg width={100} height={88} viewBox="0 0 100 88">
-          <Defs>
-            <RadialGradient id="houseBg" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor="#00c896" stopOpacity="0.18" />
-              <Stop offset="100%" stopColor="#006b55" stopOpacity="0.04" />
-            </RadialGradient>
-          </Defs>
-          {/* Base circle glow */}
-          <Circle cx="50" cy="50" r="44" fill="url(#houseBg)" />
+          <Circle cx="50" cy="50" r="44" fill={Colors.accentLight} />
           {/* Roof */}
-          <Polygon points="50,14 82,42 18,42" fill="#006b55" opacity={0.9} />
-          <Polygon points="50,14 82,42 18,42" fill="none" stroke="#00c896" strokeWidth="1.5" opacity={0.6} />
+          <Polygon points="50,14 82,42 18,42" fill={Colors.secondary} opacity={0.9} />
+          <Polygon points="50,14 82,42 18,42" fill="none" stroke={Colors.accent} strokeWidth="1.5" opacity={0.6} />
           {/* Chimney */}
-          <Rect x="62" y="22" width="7" height="14" rx="1" fill="#022420" opacity={0.7} />
+          <Rect x="62" y="22" width="7" height="14" rx="1" fill={Colors.primary} opacity={0.7} />
           {/* Walls */}
-          <Rect x="22" y="42" width="56" height="34" rx="3" fill="#e8fdf7" />
-          <Rect x="22" y="42" width="56" height="34" rx="3" fill="none" stroke="#006b55" strokeWidth="1.5" opacity={0.5} />
+          <Rect x="22" y="42" width="56" height="34" rx="3" fill={Colors.accentLight} />
+          <Rect x="22" y="42" width="56" height="34" rx="3" fill="none" stroke={Colors.secondary} strokeWidth="1.5" opacity={0.5} />
           {/* Door */}
-          <Rect x="42" y="58" width="16" height="18" rx="2" fill="#006b55" opacity={0.8} />
-          <Circle cx="55" cy="67" r="1.5" fill="#00c896" />
+          <Rect x="42" y="58" width="16" height="18" rx="2" fill={Colors.secondary} opacity={0.8} />
+          <Circle cx="55" cy="67" r="1.5" fill={Colors.accent} />
           {/* Windows */}
-          <Rect x="27" y="50" width="12" height="10" rx="2" fill="#00c896" opacity={0.3} />
-          <Rect x="61" y="50" width="12" height="10" rx="2" fill="#00c896" opacity={0.3} />
-          <Line x1="33" y1="50" x2="33" y2="60" stroke="#006b55" strokeWidth="1" opacity={0.4} />
-          <Line x1="27" y1="55" x2="39" y2="55" stroke="#006b55" strokeWidth="1" opacity={0.4} />
-          <Line x1="67" y1="50" x2="67" y2="60" stroke="#006b55" strokeWidth="1" opacity={0.4} />
-          <Line x1="61" y1="55" x2="73" y2="55" stroke="#006b55" strokeWidth="1" opacity={0.4} />
+          <Rect x="27" y="50" width="12" height="10" rx="2" fill={Colors.accent} opacity={0.3} />
+          <Rect x="61" y="50" width="12" height="10" rx="2" fill={Colors.accent} opacity={0.3} />
+          <Line x1="33" y1="50" x2="33" y2="60" stroke={Colors.secondary} strokeWidth="1" opacity={0.4} />
+          <Line x1="27" y1="55" x2="39" y2="55" stroke={Colors.secondary} strokeWidth="1" opacity={0.4} />
+          <Line x1="67" y1="50" x2="67" y2="60" stroke={Colors.secondary} strokeWidth="1" opacity={0.4} />
+          <Line x1="61" y1="55" x2="73" y2="55" stroke={Colors.secondary} strokeWidth="1" opacity={0.4} />
         </Svg>
       </Animated.View>
       {/* Sparkles */}
       <Animated.View style={[heroStyles.spark, { top: 8, right: 32 }, s1Style]}>
         <Svg width={14} height={14} viewBox="0 0 14 14">
-          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#00c896" />
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill={Colors.accent} />
         </Svg>
       </Animated.View>
       <Animated.View style={[heroStyles.spark, { top: 20, left: 28 }, s2Style]}>
         <Svg width={10} height={10} viewBox="0 0 14 14">
-          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#00c896" opacity={0.7} />
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill={Colors.accent} opacity={0.7} />
         </Svg>
       </Animated.View>
       <Animated.View style={[heroStyles.spark, { bottom: 14, right: 20 }, s3Style]}>
         <Svg width={8} height={8} viewBox="0 0 14 14">
-          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill="#006b55" opacity={0.8} />
+          <Path d="M7 1 L7.8 5.8 L12 7 L7.8 8.2 L7 13 L6.2 8.2 L2 7 L6.2 5.8 Z" fill={Colors.secondary} opacity={0.8} />
         </Svg>
       </Animated.View>
     </View>
@@ -252,7 +243,7 @@ function HeroCalCell({ index, even }: { index: number; even: boolean }) {
   }, [index, opacity]);
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    backgroundColor: even ? "#00c896" : "#006b55",
+    backgroundColor: even ? Colors.accent : Colors.secondary,
   }));
   return <Animated.View style={[heroStyles.calCell, animStyle]} />;
 }
@@ -297,35 +288,18 @@ function HeroStep3({ propertyType }: { propertyType: PropertyType | null }) {
     }
   };
 
-  const tintForType = () => {
-    switch (propertyType) {
-      case "office":     return "#3a7bd5";
-      case "restaurant": return "#e85d4f";
-      case "bnb":        return "#b85ca0";
-      case "shop":       return "#d97a3a";
-      case "house":      return "#0d7d6c";
-      case "villa":      return "#1f8a5b";
-      default:           return "#006b55";
-    }
-  };
-
-  const tint = tintForType();
+  // The category is conveyed by its icon and copy, within one brand palette.
+  const tint = Colors.secondary;
 
   return (
     <View style={heroStyles.container}>
       <Animated.View entering={FadeIn.duration(280)} style={floatStyle}>
         <Svg width={110} height={96} viewBox="0 0 110 96">
-          <Defs>
-            <RadialGradient id="step3Bg" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={tint} stopOpacity="0.15" />
-              <Stop offset="100%" stopColor={tint} stopOpacity="0.03" />
-            </RadialGradient>
-          </Defs>
-          <Circle cx="55" cy="48" r="44" fill="url(#step3Bg)" />
+          <Circle cx="55" cy="48" r="44" fill={Colors.accentLight} />
           {/* Outer ring */}
           <Circle cx="55" cy="48" r="36" fill="none" stroke={tint} strokeWidth="1" strokeDasharray="4 6" opacity={0.4} />
           {/* Inner card */}
-          <Rect x="28" y="26" width="54" height="44" rx="10" fill="#fff" stroke={tint} strokeWidth="1.5" opacity={0.9} />
+          <Rect x="28" y="26" width="54" height="44" rx="10" fill={Colors.surface} stroke={tint} strokeWidth="1.5" opacity={0.9} />
           {/* Icon placeholder rects — decorative */}
           <Rect x="36" y="36" width="18" height="4" rx="2" fill={tint} opacity={0.5} />
           <Rect x="36" y="44" width="30" height="3" rx="1.5" fill={tint} opacity={0.25} />
@@ -336,10 +310,10 @@ function HeroStep3({ propertyType }: { propertyType: PropertyType | null }) {
           <Rect x="28" y="66" width="54" height="4" rx="0" fill={tint} opacity={0.15} />
           {/* Checkmark top-right */}
           <Circle cx="74" cy="32" r="8" fill={tint} opacity={0.9} />
-          <Path d="M70 32 L73 35 L78 29" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M70 32 L73 35 L78 29" stroke={Colors.surface} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </Animated.View>
-      <View style={[heroStyles.iconBadge, { backgroundColor: `${tint}18` }]}>
+      <View style={[heroStyles.iconBadge, { backgroundColor: Colors.accentLight }]}>
         <Ionicons name={iconForType()} size={16} color={tint} />
       </View>
     </View>
@@ -391,7 +365,7 @@ function HeroStep4({ validated }: { validated: boolean }) {
   }));
   const pinStyle = useAnimatedStyle(() => ({ transform: [{ scale: pinScale.value }] }));
 
-  const pinColor = validated ? "#00c896" : "#006b55";
+  const pinColor = validated ? Colors.accent : Colors.secondary;
 
   return (
     <View style={heroStyles.container}>
@@ -406,7 +380,7 @@ function HeroStep4({ validated }: { validated: boolean }) {
             d="M26 2 C12.7 2 2 12.7 2 26 C2 42 26 62 26 62 C26 62 50 42 50 26 C50 12.7 39.3 2 26 2 Z"
             fill={pinColor}
           />
-          <Circle cx="26" cy="26" r="10" fill="#fff" opacity={0.9} />
+          <Circle cx="26" cy="26" r="10" fill={Colors.surface} opacity={0.9} />
           {validated && (
             <Path d="M20 26 L24 30 L32 21" stroke={pinColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           )}
@@ -982,10 +956,10 @@ function TypeCard({
         accessibilityLabel={`${label}, ${sub}`}
         style={[
           styles.typeCard,
-          selected && { borderColor: tint, borderWidth: 2, backgroundColor: `${tint}0e` },
+          selected && { borderColor: tint, borderWidth: 2, backgroundColor: Colors.surfaceElevated },
         ]}
       >
-        <Animated.View style={[styles.typeIconCircle, { backgroundColor: `${tint}1a` }, iconStyle]}>
+        <Animated.View style={[styles.typeIconCircle, { backgroundColor: Colors.accentLight }, iconStyle]}>
           <Ionicons name={icon} size={26} color={tint} />
         </Animated.View>
         <Text style={styles.typeLabel} numberOfLines={2}>{label}</Text>
@@ -1236,7 +1210,7 @@ function YesNoToggle({
   );
 }
 
-// ─── Premium CTA ─────────────────────────────────────────────────────
+// ─── Primary CTA ─────────────────────────────────────────────────────
 
 function PremiumCTA({
   step, saving, canAdvance, missingHint, onPress,
@@ -1247,10 +1221,9 @@ function PremiumCTA({
   missingHint: string;
   onPress: () => void;
 }) {
-  const scale       = useSharedValue(0.92);
-  const glowOp      = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
+  const scale       = useSharedValue(reducedMotion ? 1 : 0.98);
   const pressScale  = useSharedValue(1);
-  const sparkRot    = useSharedValue(0);
   const shakeX      = useSharedValue(0);
   const hintOp      = useSharedValue(0);
   const [hintVisible, setHintVisible] = useState(false);
@@ -1259,30 +1232,14 @@ function PremiumCTA({
 
   // Entrance animation
   useEffect(() => {
-    scale.value = withSpring(1.0, { damping: 14, stiffness: 200 });
-    glowOp.value = withSequence(
-      withTiming(0.6, { duration: 300 }),
-      withTiming(0.15, { duration: 300 }),
-    );
-    if (isLast) {
-      sparkRot.value = withRepeat(
-        withTiming(360, { duration: 2400, easing: Easing.linear }),
-        -1,
-        false,
-      );
-    }
-    return () => { cancelAnimation(sparkRot); };
-  }, [scale, glowOp, sparkRot, isLast]);
-
-  // Re-animate glow when canAdvance flips true → user just satisfied the step
-  useEffect(() => {
-    if (canAdvance) {
-      glowOp.value = withSequence(
-        withTiming(0.7, { duration: 250 }),
-        withTiming(0.2, { duration: 350 }),
-      );
-    }
-  }, [canAdvance, glowOp]);
+    scale.value = reducedMotion ? 1 : withTiming(1, { duration: 180 });
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(pressScale);
+      cancelAnimation(shakeX);
+      cancelAnimation(hintOp);
+    };
+  }, [scale, pressScale, shakeX, hintOp, reducedMotion]);
 
   // Cleanup hint timer on unmount
   useEffect(() => {
@@ -1295,19 +1252,13 @@ function PremiumCTA({
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pressScale.value }, { translateX: shakeX.value }],
   }));
-  const glowStyle  = useAnimatedStyle(() => ({
-    opacity: canAdvance ? glowOp.value : 0,
-  }));
-  const sparkStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sparkRot.value}deg` }],
-  }));
   const hintStyle  = useAnimatedStyle(() => ({ opacity: hintOp.value }));
 
   const triggerShake = () => {
     // Mount the hint, fade it in, run the shake, then fade it out after 1.8s.
     setHintVisible(true);
     hintOp.value = withTiming(1, { duration: 160 });
-    shakeX.value = withSequence(
+    shakeX.value = reducedMotion ? 0 : withSequence(
       withTiming(-10, { duration: 55 }),
       withTiming(10, { duration: 55 }),
       withTiming(-8, { duration: 50 }),
@@ -1333,26 +1284,24 @@ function PremiumCTA({
   };
 
   const handlePressIn = () => {
-    if (!saving) pressScale.value = withSpring(0.97, SPRING_SNAPPY);
+    if (!saving) pressScale.value = reducedMotion ? 1 : withSpring(0.97, SPRING_SNAPPY);
   };
   const handlePressOut = () => {
-    pressScale.value = withSpring(1.0, SPRING_SNAPPY);
+    pressScale.value = reducedMotion ? 1 : withSpring(1.0, SPRING_SNAPPY);
   };
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(220)}
+      entering={reducedMotion ? undefined : FadeInDown.duration(180)}
       style={[styles.ctaWrap, wrapStyle]}
     >
       {/* Reminder shown when the user taps the CTA before satisfying the step */}
       {hintVisible && (
         <Animated.View style={[styles.ctaHint, hintStyle]} pointerEvents="none">
-          <Ionicons name="alert-circle" size={14} color="#c95c5c" />
+          <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
           <Text style={styles.ctaHintTxt}>{missingHint}</Text>
         </Animated.View>
       )}
-      {/* Glow layer behind button (only when CTA is enabled) */}
-      <Animated.View style={[styles.ctaGlow, glowStyle]} />
       <Animated.View style={[pressStyle, styles.cta, !canAdvance && styles.ctaDisabled]}>
         <Pressable
           onPress={handlePress}
@@ -1372,14 +1321,7 @@ function PremiumCTA({
           {isLast ? (saving ? "Salvo…" : "Crea casa") : "Avanti"}
         </Text>
         {!saving && isLast && canAdvance && (
-          <Animated.View style={sparkStyle} pointerEvents="none">
-            <Svg width={18} height={18} viewBox="0 0 18 18">
-              <Path
-                d="M9 1 L10.2 7.2 L16 9 L10.2 10.8 L9 17 L7.8 10.8 L2 9 L7.8 7.2 Z"
-                fill="#fff"
-              />
-            </Svg>
-          </Animated.View>
+          <Ionicons name="checkmark-done-outline" size={18} color={Colors.textOnDark} pointerEvents="none" />
         )}
         {!saving && !isLast && canAdvance && (
           <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -2165,7 +2107,7 @@ export function MapPicker({
               paddingBottom: 20,
               shadowColor: "#062a23",
               shadowOffset: { width: 0, height: 20 },
-              shadowOpacity: 0.25,
+              shadowOpacity: 0.06,
               shadowRadius: 50,
               elevation: 20,
               zIndex: 20,
@@ -2638,7 +2580,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: Colors.textSecondary,
-    fontStyle: "italic",
   },
   errorHint: {
     marginTop: 8,
@@ -2827,29 +2768,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     position: "relative",
   },
-  ctaGlow: {
-    position: "absolute",
-    top: 12,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.accent,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 0,
-  },
   cta: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.secondary,
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    backgroundColor: Colors.primary,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
@@ -3049,7 +2971,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     shadowColor: "#022420",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -3107,7 +3029,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 13,
     color: Colors.textSecondary,
-    fontStyle: "italic",
   },
   mapSearchRow: {
     flexDirection: "row",

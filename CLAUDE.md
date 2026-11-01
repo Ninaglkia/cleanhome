@@ -219,6 +219,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — completed remaining icon/typography/CTA presentation pass on notifications, property/listing forms, onboarding, phone verification and public cleaner profiles; native Casa icon built and installed on iPhone16Pro simulator, Home icon visually verified.
 - **2026-11-01** — unified forest/sage palette and navigation for both roles; consistent outline menu icons, quiet profile/stat cards and typography; bookings, messages, support, payments, invoices and documents presentation aligned without business logic changes.
 - **2026-11-01** — profile mode toggle now reveals the destination color behind the moving thumb during drag/tap; cancellation rollback, external role sync and switch accessibility preserved.
 - **2026-11-01** — approved Casa logo with mint doorway; shared vector master for iOS/Android icons and splash; launch zoom and gentle motion, reduced-motion support; minimum launch gate reduced to 1.7 seconds.

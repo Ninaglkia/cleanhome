@@ -8,12 +8,10 @@
 //
 // Design notes:
 //  - Cards display a live completion state computed from the DB on focus
-//  - The first PENDING card pulses softly + shows a finger-pointer hint
-//    so the eye is drawn to "what to do next"
+//  - The first PENDING card has a steady brand accent and next-step label
 //  - Tapping a card navigates to the relevant section; returning here
 //    triggers a refresh so completed items flip to "Fatto" automatically
 //  - When everything is green the big CTA flips to "Vai alla dashboard"
-//    and the pulse stops
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,10 +20,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   ActivityIndicator,
   StatusBar,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -33,14 +31,9 @@ import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
-  withSequence,
   withTiming,
   withDelay,
   withSpring,
-  Easing,
-  interpolateColor,
-  cancelAnimation,
 } from "react-native-reanimated";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
@@ -173,7 +166,7 @@ export default function CleanerSetupChecklistScreen() {
   const total = STEPS.length;
   const allDone = completedCount === total;
 
-  // Index of the first pending step — this is what pulses
+  // Index of the first pending step — this receives the next-step accent
   const nextPendingIndex = useMemo(
     () => STEPS.findIndex((s) => !status[s.key]),
     [status]
@@ -295,7 +288,7 @@ export default function CleanerSetupChecklistScreen() {
           />
           {allDone ? (
             <>
-              <Ionicons name="rocket" size={20} color="#fff" pointerEvents="none" />
+              <Ionicons name="arrow-forward" size={20} color="#fff" pointerEvents="none" />
               <Text style={styles.finishBtnTextPrimary} pointerEvents="none">Vai alla dashboard</Text>
             </>
           ) : (
@@ -330,12 +323,6 @@ function StepCard({
   const entranceOpacity = useSharedValue(0);
   const entranceTranslate = useSharedValue(20);
 
-  // Pulse animation — only active when this is the "next" pending step
-  const pulse = useSharedValue(0);
-
-  // Finger pointer bounce — hint to tap
-  const fingerX = useSharedValue(0);
-
   useEffect(() => {
     entranceOpacity.value = withDelay(
       entranceDelay,
@@ -350,61 +337,9 @@ function StepCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entranceDelay]);
 
-  useEffect(() => {
-    if (isNext && !done) {
-      // Continuous breathing pulse on the highlighted card
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 900, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-      // Finger "tap" bounce
-      fingerX.value = withRepeat(
-        withSequence(
-          withTiming(0, { duration: 600 }),
-          withTiming(-6, { duration: 350, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 350, easing: Easing.in(Easing.quad) }),
-          withTiming(-6, { duration: 350, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 350, easing: Easing.in(Easing.quad) })
-        ),
-        -1,
-        false
-      );
-    } else {
-      pulse.value = withTiming(0, { duration: 300 });
-      fingerX.value = withTiming(0, { duration: 300 });
-    }
-    return () => {
-      cancelAnimation(pulse);
-      cancelAnimation(fingerX);
-    };
-    // Reanimated shared values are stable refs — no need to list as deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNext, done]);
-
   const entranceStyle = useAnimatedStyle(() => ({
     opacity: entranceOpacity.value,
     transform: [{ translateY: entranceTranslate.value }],
-  }));
-
-  // Pulse: border color + shadow opacity interpolated
-  const pulseStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(
-      pulse.value,
-      [0, 1],
-      [done ? Colors.success : Colors.borderLight, Colors.secondary]
-    ),
-    shadowOpacity: 0.06 + pulse.value * 0.14,
-    shadowRadius: 10 + pulse.value * 14,
-    transform: [{ scale: 1 + pulse.value * 0.015 }],
-  }));
-
-  const fingerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: fingerX.value }],
-    opacity: isNext && !done ? 1 : 0,
   }));
 
   return (
@@ -420,7 +355,7 @@ function StepCard({
           style={[
             styles.card,
             done && styles.cardDone,
-            pulseStyle,
+            isNext && !done && styles.cardNext,
           ]}
         >
           {/* Icon circle */}
@@ -464,13 +399,13 @@ function StepCard({
             {!done && (
               <View style={styles.cardCtaRow}>
                 <Text style={styles.cardCtaText}>{step.ctaLabel}</Text>
-                <Animated.View style={fingerStyle}>
+                {isNext && (
                   <Ionicons
                     name="arrow-forward"
                     size={16}
                     color={Colors.secondary}
                   />
-                </Animated.View>
+                )}
               </View>
             )}
           </View>
@@ -612,19 +547,23 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.borderLight,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardNext: {
+    backgroundColor: Colors.surfaceElevated,
+    borderColor: Colors.secondary,
   },
   cardDone: {
     backgroundColor: Colors.successLight,
     borderColor: Colors.success,
   },
   cardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
     backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",

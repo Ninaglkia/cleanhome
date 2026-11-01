@@ -69,21 +69,23 @@ import {
 import { supabase } from "../../lib/supabase";
 import { useStripe } from "@stripe/stripe-react-native";
 import type { SubscriptionStatus } from "../../lib/types";
+import { Colors } from "../../lib/theme";
+import { PColor } from "../../lib/design/pulitori";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 
 const C = {
-  primary: "#022420",
-  secondary: "#006b55",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  background: "#f6faf9",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
-  primaryContainer: "#1a3a35",
-  accent: "#00c896",
+  primary: Colors.primary,
+  secondary: Colors.secondary,
+  surface: Colors.surface,
+  surfaceLow: Colors.backgroundAlt,
+  background: Colors.background,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outline: Colors.textTertiary,
+  outlineVariant: Colors.outlineVariant,
+  primaryContainer: Colors.primaryContainer,
+  accent: Colors.accent,
 } as const;
 
 const MAP_CIRCLE_FILL = "#006b5540";
@@ -743,8 +745,8 @@ function PriceSlider({ priceEur, onPriceChange, maxAllowed = PRICE_MAX, onLocked
                   backgroundColor: "#ffffff",
                   alignItems: "center",
                   justifyContent: "center",
-                  shadowColor: C.secondary,
-                  shadowOpacity: 0.3,
+                  shadowColor: PColor.ink,
+                  shadowOpacity: 0.06,
                   shadowRadius: 4,
                   shadowOffset: { width: 0, height: 1 },
                 },
@@ -3715,7 +3717,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.onSurface,
     letterSpacing: -0.3,
   },
@@ -3746,7 +3747,7 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   coverImage: {
@@ -4139,11 +4140,11 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: C.primary,
-        shadowOpacity: 0.18,
+        shadowOpacity: 0.06,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
 
@@ -4241,12 +4242,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     ...Platform.select({
       ios: {
-        shadowColor: C.secondary,
-        shadowOpacity: 0.22,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   addZoneButtonPressed: {
@@ -4356,12 +4357,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
-        shadowOpacity: 0.22,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       },
-      android: { elevation: 8 },
+      android: { elevation: 2 },
     }),
   },
   saveButtonPressed: {
@@ -4462,12 +4463,12 @@ const styles = StyleSheet.create({
     height: 50,
     ...Platform.select({
       ios: {
-        shadowColor: C.secondary,
-        shadowOpacity: 0.22,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   drawConfirmButtonDisabled: {
@@ -4547,12 +4548,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenSearchInput: {
@@ -4569,12 +4570,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenSearchRow: {
@@ -4627,7 +4628,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 13,
     color: C.onSurfaceVariant,
-    fontStyle: "italic",
   },
   zoneKmSummary: {
     flexDirection: "row",
@@ -4657,12 +4657,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#006b55",
-        shadowOpacity: 0.18,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   mapLocateButton: {
@@ -4678,11 +4678,11 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: C.primary,
-        shadowOpacity: 0.18,
+        shadowOpacity: 0.06,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenLocateButton: {
@@ -4699,7 +4699,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -4726,12 +4726,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: C.secondary,
-        shadowOpacity: 0.28,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   mapDrawTriggerText: {
@@ -4750,7 +4750,7 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#006b55",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
@@ -4785,11 +4785,11 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: C.primary,
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.06,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenDrawActionsRow: {
@@ -4811,12 +4811,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     ...Platform.select({
       ios: {
-        shadowColor: C.secondary,
-        shadowOpacity: 0.3,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenModeToggle: {
@@ -4833,7 +4833,7 @@ const styles = StyleSheet.create({
     gap: 4,
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.08,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
@@ -4876,7 +4876,7 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#006b55",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
@@ -4910,12 +4910,12 @@ const styles = StyleSheet.create({
     borderColor: C.secondary,
     ...Platform.select({
       ios: {
-        shadowColor: "#006b55",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.12,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenMoveCircleButtonActive: {
@@ -4951,12 +4951,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
-        shadowOpacity: 0.16,
+        shadowColor: PColor.ink,
+        shadowOpacity: 0.06,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
   fullscreenLockBadgeText: {
@@ -4976,12 +4976,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     ...Platform.select({
       ios: {
-        shadowColor: "#022420",
+        shadowColor: PColor.ink,
         shadowOpacity: 0.1,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
     }),
   },
 

@@ -120,9 +120,9 @@ export default function CleanerDetailScreen() {
           accessibilityLabel="Indietro"
           accessibilityRole="button"
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
             backgroundColor: Colors.surface,
             alignItems: "center",
             justifyContent: "center",
@@ -133,7 +133,7 @@ export default function CleanerDetailScreen() {
             elevation: 2,
           }}
         >
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <Text
           style={{
@@ -146,7 +146,7 @@ export default function CleanerDetailScreen() {
         >
           Profilo
         </Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
@@ -166,10 +166,10 @@ export default function CleanerDetailScreen() {
               overflow: "hidden",
               backgroundColor: Colors.surface,
               shadowColor: Colors.primary,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.12,
-              shadowRadius: 14,
-              elevation: 4,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 6,
+              elevation: 2,
             }}
           >
             <Image
@@ -200,10 +200,10 @@ export default function CleanerDetailScreen() {
               justifyContent: "center",
               marginBottom: 16,
               shadowColor: Colors.primary,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 16,
-              elevation: 8,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 6,
+              elevation: 2,
               overflow: "hidden",
             }}
           >
@@ -236,9 +236,9 @@ export default function CleanerDetailScreen() {
             </Text>
             {cleaner.stripe_identity_status === "verified" && (
               <Ionicons
-                name="checkmark-circle"
+                name="checkmark-circle-outline"
                 size={18}
-                color="#006b55"
+                color={Colors.secondary}
                 accessibilityLabel="Identità verificata da Stripe"
               />
             )}
@@ -455,7 +455,7 @@ export default function CleanerDetailScreen() {
                     alignItems: "center",
                   }}
                 >
-                  <Ionicons name="checkmark-circle" size={14} color={Colors.secondary} />
+                  <Ionicons name="checkmark-circle-outline" size={14} color={Colors.secondary} />
                   <Text
                     style={{
                       fontSize: 13,
@@ -656,10 +656,10 @@ export default function CleanerDetailScreen() {
           paddingTop: 16,
           paddingBottom: Math.max(insets.bottom, 16),
           shadowColor: Colors.primary,
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 16,
-          elevation: 10,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 3,
         }}
       >
         <TouchableOpacity
