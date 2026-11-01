@@ -1,6 +1,8 @@
 # CleanHome RN — Project Rules
 
 > Read this file at the start of EVERY session. Don't skip sections.
+>
+> **Working with Codex (since 2026-11-01):** rules in @AGENTS.md, tasks and messages in `BACHECA.md` (outside git). Read the board at the start of every session and before merging/pushing.
 
 ---
 
