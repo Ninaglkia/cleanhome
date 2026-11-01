@@ -10,12 +10,13 @@ LogBox.ignoreLogs([
 ]);
 import ErrorBoundary from "../components/ErrorBoundary";
 import HoloSplash from "../components/splash/HoloSplash";
+import { BrandColor, SPLASH_MIN_DURATION_MS } from "../lib/design/brand";
 import * as SplashScreen from "expo-splash-screen";
 import * as Sentry from "@sentry/react-native";
 
 // Keep the native splash up until the JS UI (the HoloSplash gate) is ready,
 // then hide it from the root layout. Without this the native splash would
-// cover the holographic splash for logged-in users (index.tsx, which used to
+// cover the animated brand splash for logged-in users (index.tsx, which used to
 // call hideAsync, no longer mounts for them).
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -131,18 +132,18 @@ export default function RootLayout() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const router = useRouter();
 
-  // Minimum time the holographic splash stays on screen on every cold launch.
+  // Minimum time the brand splash stays on screen on every cold launch.
   // Without this, the auth redirect below fires the instant the session
   // resolves (~instant for a logged-in user) and the splash never plays.
   const [splashMinElapsed, setSplashMinElapsed] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setSplashMinElapsed(true), 2600);
+    const t = setTimeout(() => setSplashMinElapsed(true), SPLASH_MIN_DURATION_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // Replay the holographic splash when the user returns from background after
+  // Replay the brand splash when the user returns from background after
   // more than 60 seconds. We reset splashMinElapsed → false, which causes the
-  // gate below to show HoloSplash again; after 2.6 s it flips back to true and
+  // gate below to show HoloSplash again; after 1.7 s it flips back to true and
   // the user lands on their current screen (hasRedirected stays true, so no
   // extra auth redirect fires).
   const backgroundedAt = useRef<number | null>(null);
@@ -160,7 +161,7 @@ export default function RootLayout() {
           // Replay: reset the gate. Auth state stays intact; hasRedirected
           // stays true so no unwanted re-redirect fires.
           setSplashMinElapsed(false);
-          setTimeout(() => setSplashMinElapsed(true), 2600);
+          setTimeout(() => setSplashMinElapsed(true), SPLASH_MIN_DURATION_MS);
         }
         backgroundedAt.current = null;
       }
@@ -173,7 +174,7 @@ export default function RootLayout() {
 
   // Hide the native splash with a brief delay so the HoloSplash background
   // has time to paint its first frame before the native layer fades out.
-  // Both backgrounds share the same dark green (#04140f), so the crossfade
+  // Both backgrounds use the brand forest green, so the crossfade
   // is imperceptible — the user experiences a single continuous splash.
   useEffect(() => {
     const t = setTimeout(() => {
@@ -262,7 +263,7 @@ export default function RootLayout() {
   const prevUser = useRef<string | null>(null);
   useEffect(() => {
     // Hold the redirect until the splash has had its minimum on-screen time,
-    // so the holographic splash actually plays before routing to a dashboard.
+    // so the brand splash actually plays before routing to a dashboard.
     if (isLoading || isProfileLoading || !splashMinElapsed) return;
 
     // Reset redirect flag when user changes (login/logout)
@@ -603,12 +604,12 @@ export default function RootLayout() {
     upsertActiveRole(user.id, role, fullName).catch(() => {});
   };
 
-  // Holographic splash: shown on every cold launch while auth resolves AND
+  // Brand splash: shown on every cold launch while auth resolves AND
   // for a minimum time, so it always plays before the dashboard redirect.
   // Also replayed after foreground resume > 60 s (see AppState listener above).
   if (isLoading || (user && isProfileLoading && !profile) || !splashMinElapsed) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#04140f" }}>
+      <View style={{ flex: 1, backgroundColor: BrandColor.background }}>
         <HoloSplash shouldExit={false} onExitComplete={() => {}} />
       </View>
     );

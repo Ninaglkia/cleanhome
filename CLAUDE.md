@@ -219,6 +219,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-01** — approved Casa logo with mint doorway; shared vector master for iOS/Android icons and splash; launch zoom and gentle motion, reduced-motion support; minimum launch gate reduced to 1.7 seconds.
 - **2026-06-01** — full production-readiness audit + fixes (`de45197`, `e758360`, `2e4f2d4`): booking_date column alignment, escrow payout precondition, error/loading/empty states, availability sync, app.json dedup, jest+pricing tests. tsc 0 / tests 7-7 / sims clean.
 - **2026-06-24** — phone verification via Twilio SMS OTP (`e80b21e`), dispatch: SMS only for cleaner requests + push for the rest (`14216fb`), hourly rate with review-unlocked leveling (`54e1871`), map search + filters refinement (`90234da`), anchored notification dropdown + ErrorBoundary escape hatch (`f759066`), Deliveroo-style incoming-offer modal (`713e5d8`).
 - **2026-06-26** — profile redesign: gradient icon tiles + filled SVG icons + gradient toggle (`eacd0b1`); holographic app icon matching the splash (`85ccb56`).
