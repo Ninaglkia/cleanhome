@@ -19,6 +19,7 @@ import { useStripe } from "@stripe/stripe-react-native";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 import { Colors, Spacing, Radius, Shadows } from "../../lib/theme";
+import { PColor } from "../../lib/design/pulitori";
 import { sendPushNotification, NotificationMessages } from "../../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
@@ -925,13 +926,13 @@ export default function NewBookingScreen() {
                     <Ionicons
                       name="home"
                       size={16}
-                      color={selected ? "#fff" : Colors.secondary}
+                      color={selected ? Colors.textOnDark : Colors.secondary}
                     />
                     <Text
                       style={{
                         fontSize: 14,
                         fontWeight: "800",
-                        color: selected ? "#fff" : Colors.text,
+                        color: selected ? Colors.textOnDark : Colors.text,
                         flex: 1,
                       }}
                       numberOfLines={1}
@@ -945,7 +946,7 @@ export default function NewBookingScreen() {
                   <Text
                     style={{
                       fontSize: 12,
-                      color: selected ? "#d7fff1" : Colors.textSecondary,
+                      color: selected ? Colors.textOnDarkTertiary : Colors.textSecondary,
                       lineHeight: 16,
                     }}
                     numberOfLines={2}
@@ -1162,14 +1163,14 @@ export default function NewBookingScreen() {
                     <Ionicons
                       name={p.icon}
                       size={22}
-                      color={selected ? "#fff" : Colors.secondary}
+                      color={selected ? Colors.textOnDark : Colors.secondary}
                       style={{ marginBottom: 6 }}
                     />
                     <Text
                       style={{
                         fontSize: 13,
                         fontWeight: "800",
-                        color: selected ? "#fff" : Colors.text,
+                        color: selected ? Colors.textOnDark : Colors.text,
                         marginBottom: 2,
                       }}
                     >
@@ -1383,7 +1384,7 @@ export default function NewBookingScreen() {
             >
               {/* Checkbox top-right */}
               <View style={[s.checkCircle, isSelected && s.checkCircleSelected]}>
-                {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                {isSelected && <Ionicons name="checkmark" size={14} color={Colors.textOnDark} />}
               </View>
 
               {/* Avatar */}
@@ -1406,7 +1407,7 @@ export default function NewBookingScreen() {
                   {listing.cleaner_name}
                 </Text>
                 <View style={s.cleanerMeta}>
-                  <Ionicons name="star" size={12} color="#f59e0b" />
+                  <Ionicons name="star" size={12} color={PColor.star} />
                   <Text style={s.cleanerMetaText}>{stars}</Text>
                   <Text style={s.cleanerMetaDot}>·</Text>
                   <Text style={s.cleanerMetaText}>
@@ -1524,7 +1525,7 @@ export default function NewBookingScreen() {
             marginTop: 12,
             padding: 14,
             borderRadius: 14,
-            backgroundColor: "#fef3c7",
+            backgroundColor: Colors.warningLight,
             flexDirection: "row",
             alignItems: "flex-start",
             gap: 10,
@@ -1533,16 +1534,16 @@ export default function NewBookingScreen() {
           <Ionicons
             name="alert-circle"
             size={20}
-            color="#b45309"
+            color={Colors.warningText}
             style={{ marginTop: 1 }}
           />
           <View style={{ flex: 1 }}>
             <Text
-              style={{ fontSize: 13, fontWeight: "800", color: "#b45309", marginBottom: 2 }}
+              style={{ fontSize: 13, fontWeight: "800", color: Colors.warningText, marginBottom: 2 }}
             >
               Questo professionista non può ancora ricevere pagamenti
             </Text>
-            <Text style={{ fontSize: 12, color: "#92400e", lineHeight: 17 }}>
+            <Text style={{ fontSize: 12, color: Colors.warningTextStrong, lineHeight: 17 }}>
               Sta completando la verifica Stripe. Riprova più tardi o scegli un
               altro professionista nella mappa.
             </Text>
@@ -1580,8 +1581,8 @@ export default function NewBookingScreen() {
               name={availableCount === 0 ? "alert-circle" : availableCount < 3 ? "warning" : "checkmark-circle"}
               size={18}
               color={
-                availableCount === 0 ? "#dc2626" :
-                  availableCount < 3 ? "#9a6c00" :
+                availableCount === 0 ? Colors.error :
+                  availableCount < 3 ? Colors.warningText :
                     Colors.success
               }
             />

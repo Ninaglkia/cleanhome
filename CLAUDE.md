@@ -180,7 +180,7 @@ supabase/             functions/ (Edge), migrations/
 - [x] **Loading state on "Paga" (prevent double tap)** — DONE 2026-11-02: synchronous `lib/singleFlight.ts` lock + `paymentDone` keeps CTA disabled after success. Server-side Idempotency-Key still open (needs edge deploy).
   - (old note) — `app/booking/new.tsx:1604` only has `disabled={!canProceed()}`, which is a *validation* guard. No submitting state → double tap is possible. **Highest risk item: it can double-charge.**
 - [ ] **Payment success screen + "Torna home"** — today it's `Alert.alert` → `router.replace("/(tabs)/bookings")` (`new.tsx:765-780`). Route `app/booking/[id]/waiting.tsx` exists and is used at `new.tsx:772`.
-- [ ] **8 hardcoded hex colors in checkout** — violates §4 "never hardcoded colors". Lines in `app/booking/new.tsx`: 942 `#d7fff1`, 1403 `#f59e0b`, 1521 `#fef3c7`, 1530 + 1535 `#b45309`, 1539 `#92400e`, 1577 `#dc2626`, 1578 `#9a6c00`. Move to `lib/theme.ts` / `PColor`.
+- [x] **8 hardcoded hex colors in checkout** — DONE 2026-11-02: all hex in `app/booking/new.tsx` → `Colors.*` / `PColor.star`; new tokens `warningText`, `warningTextStrong` in `lib/theme.ts`.
 
 **Not yet audited (needs a visual pass, not grep):**
 - [ ] Primary CTA: same color/height across all steps
@@ -220,6 +220,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — checkout has zero hardcoded colors: 13 hex literals in `app/booking/new.tsx` moved to theme tokens (+2 amber text tokens).
 - **2026-11-02** — checkout "Paga" can no longer start two payments: synchronous single-flight lock (`lib/singleFlight.ts`, 3 tests) around `handleSubmit`, CTA stays disabled after a successful PaymentSheet. tsc 0, jest 38/38.
 - **2026-11-02** — city search now shows a tappable local municipality dropdown while typing; selection recenters the map, with keyboard/clear/submit handling and stale-result guards. Added attributed municipality data and search tests; all35 tests pass.
 - **2026-11-02** — fixed profile statistic label fitting and reduced the remaining role-toggle halo; color reveal and gesture behavior unchanged.

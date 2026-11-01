@@ -37,6 +37,8 @@ export const Colors = {
   successLight: PColor.mintPale,
   warning: "#d97706",
   warningLight: "#fef3c7",
+  warningText: "#b45309",       // readable amber text/icons on warningLight
+  warningTextStrong: "#92400e", // body text on warningLight
   error: "#dc2626",
   errorLight: "#fee2e2",
   info: "#2563eb",
