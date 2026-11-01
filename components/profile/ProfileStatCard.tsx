@@ -23,7 +23,12 @@ export function ProfileStatCard({
       <Text style={statStyles.value} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
-      <Text style={statStyles.label} numberOfLines={1}>
+      <Text
+        style={statStyles.label}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
         {label}
       </Text>
       {subtitle != null ? (
@@ -57,12 +62,13 @@ const statStyles = StyleSheet.create({
     textAlign: "center",
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 16,
     fontWeight: "600",
     color: PColor.body,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.1,
+    alignSelf: "stretch",
     textAlign: "center",
   },
   subtitle: {

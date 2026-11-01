@@ -174,7 +174,7 @@ export function ProfileToggle({
 
   const haloStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [CLIENT_HALO, PRO_HALO]),
-    opacity: bloom.value * 0.5,
+    opacity: bloom.value * 0.15,
     transform: [{ scale: 0.7 + bloom.value * 0.9 }],
   }))
 
@@ -343,10 +343,10 @@ const styles = StyleSheet.create({
     // by the gradient panels above.
     backgroundColor: '#1a1a1a',
     // Shadow color is set dynamically (halo of active role)
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
   },
   knob: {
     position: 'absolute',
@@ -360,9 +360,9 @@ const styles = StyleSheet.create({
     // Knob shadow for lift illusion
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   halo: {
     position: 'absolute',
