@@ -1,0 +1,18 @@
+{
+  "source": "RP92/comuni-italiani",
+  "sourceUrl": "https://github.com/RP92/comuni-italiani",
+  "downloadUrl": "https://raw.githubusercontent.com/RP92/comuni-italiani/main/data/comuni.json",
+  "downloadedAt": "2026-11-01T23:04:03.651531+00:00",
+  "sourceSha256": "9282acf2abba92039721ea44f430029d46fa4b1b8b24974ab97f6c4fff890a3b",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "ISTAT; Garda Informatica — Database dei comuni italiani; RP92/comuni-italiani",
+  "changes": "Selected municipality identifiers, Italian names, province/region, population and rounded coordinates; excluded invalid or missing coordinates. No address or personal data included.",
+  "sourceRows": 7896,
+  "includedRows": 7893,
+  "excludedNames": [
+    "Lirio",
+    "Castegnero",
+    "Nanto"
+  ]
+}

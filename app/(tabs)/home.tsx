@@ -16,6 +16,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   PanResponder,
+  Keyboard,
+  useWindowDimensions,
+  type KeyboardEvent,
 } from "react-native";
 import { Pressable } from "../../components/ui/AppPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -57,6 +60,12 @@ import { START_TOUR_KEY } from "../(auth)/welcome-rocket";
 import { NotificationBell } from "../../components/NotificationBell";
 import { Image as ExpoImage } from "expo-image";
 import { thumbUrl } from "../../lib/thumbUrl";
+import italianCities from "../../lib/data/italian-cities.json";
+import { createCitySearchIndex, normalizeCityQuery, searchCitySuggestions, type ItalianCity } from "../../lib/citySearch";
+import { CitySuggestions } from "../../components/search/CitySuggestions";
+
+// Local names are normalized and population-ranked once, outside React renders.
+const CITY_SEARCH_INDEX = createCitySearchIndex(italianCities);
 
 // AsyncStorage key for caching the last map region the user was on.
 // Used to restore the map to the correct position instantly on cold start,
@@ -81,17 +90,17 @@ const DEFAULT_REGION: Region = {
 // ─── Stitch design tokens (client theme — dark green) ─────────────────────────
 
 const C = {
-  primary: "#022420",
-  primaryContainer: "#1a3a35",
-  secondary: "#006b55",
-  onPrimary: "#ffffff",
-  surface: "#f6faf9",
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainer: "#ebefee",
-  surfaceContainerHigh: "#e5e9e8",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outlineVariant: "#c1c8c5",
+  primary: Colors.primary,
+  primaryContainer: Colors.primaryContainer,
+  secondary: Colors.secondary,
+  onPrimary: Colors.textOnDark,
+  surface: Colors.background,
+  surfaceContainerLowest: Colors.surface,
+  surfaceContainer: Colors.backgroundAlt,
+  surfaceContainerHigh: Colors.surfaceLow,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outlineVariant: Colors.outlineVariant,
 } as const;
 
 // ─── Filter design tokens (Pulitori handoff) ─────────────────────────────────
@@ -779,6 +788,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
   const searchInputRef = useRef<TextInput>(null);
@@ -806,8 +816,29 @@ export default function HomeScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  // Ref for debounce timer — auto-submits city search 600ms after user stops typing
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Free-text geocoding runs only on explicit submit, never while typing.
+  const manualCitySearchRef = useRef(0);
+  const manualCityAbortRef = useRef<AbortController | null>(null);
+  const cleanerRequestRef = useRef(0);
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+  const citySuggestions = useMemo(
+    () => searchCitySuggestions(searchText, CITY_SEARCH_INDEX),
+    [searchText],
+  );
+
+  useEffect(() => {
+    const show = (event: KeyboardEvent) => setKeyboardTop(event.endCoordinates.screenY);
+    const showSub = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", show);
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardTop(null);
+      setSearchFocused(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      manualCityAbortRef.current?.abort();
+    };
+  }, []);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   // True when the user has explicitly denied foreground location permission.
   // Drives the "Attiva GPS" banner so they can navigate to Settings.
@@ -990,16 +1021,17 @@ export default function HomeScreen() {
   const searchExpanded = useSharedValue(0);
 
   const searchBarStyle = useAnimatedStyle(() => ({
-    shadowOpacity: interpolate(searchExpanded.value, [0, 1], [0.08, 0.18], Extrapolation.CLAMP),
+    shadowOpacity: interpolate(searchExpanded.value, [0, 1], [0.04, 0.07], Extrapolation.CLAMP),
   }));
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
   // Geocode a free-text city name to { lat, lng } via Google Geocoding
-  // API. Used when the user types a city in the header search bar.
+  // API. Used only for an explicitly submitted query without a local match.
   const geocodeCityWithGoogle = useCallback(
     async (
-      city: string
+      city: string,
+      signal?: AbortSignal,
     ): Promise<{ lat: number; lng: number } | null> => {
       const key = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "";
       if (!key) return null;
@@ -1007,7 +1039,8 @@ export default function HomeScreen() {
         const res = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
             city + ", Italia"
-          )}&language=it&region=it&key=${key}`
+          )}&language=it&region=it&key=${key}`,
+          { signal },
         );
         const data = (await res.json()) as {
           status: string;
@@ -1032,10 +1065,12 @@ export default function HomeScreen() {
   // working unchanged.
   const loadCleanersAtPoint = useCallback(
     async (lat: number, lng: number) => {
+      const request = ++cleanerRequestRef.current;
       setLoading(true);
       setLoadError(false);
       try {
         const rows = await searchListingsNearPoint(lat, lng);
+        if (request !== cleanerRequestRef.current) return;
         const adapted: CleanerProfile[] = rows.map((r) => ({
           // Keep the LISTING id on `id` so navigation can target the
           // specific listing card the customer clicked.
@@ -1059,10 +1094,11 @@ export default function HomeScreen() {
         setCleaners(adapted);
         setSelectedIndex(0);
       } catch {
+        if (request !== cleanerRequestRef.current) return;
         setCleaners([]);
         setLoadError(true);
       } finally {
-        setLoading(false);
+        if (request === cleanerRequestRef.current) setLoading(false);
       }
     },
     []
@@ -1203,44 +1239,108 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProperty?.id]);
 
+  const cancelPendingCitySearch = useCallback(() => {
+    manualCitySearchRef.current += 1;
+    manualCityAbortRef.current?.abort();
+    manualCityAbortRef.current = null;
+    setSearchLoading(false);
+  }, []);
+
+  const dismissCitySuggestions = useCallback(() => {
+    setSearchFocused(false);
+    searchInputRef.current?.blur();
+    Keyboard.dismiss();
+    searchExpanded.value = withTiming(0, { duration: 160 });
+  }, [searchExpanded]);
+
   const handleSearch = useCallback(
     async (city: string) => {
+      cancelPendingCitySearch();
+      const query = city.trim();
       setSearchText(city);
-      setSearchFocused(false);
-      if (!city.trim()) return;
+      if (!query) return;
+      const request = manualCitySearchRef.current;
+      const controller = new AbortController();
+      manualCityAbortRef.current = controller;
+      dismissCitySuggestions();
       setSearchLoading(true);
       try {
-        // Resolve the typed city to coordinates, then do the spatial search.
-        const geo = await geocodeCityWithGoogle(city);
+        // Only an explicit free-text submit can call the remote fallback.
+        const geo = await geocodeCityWithGoogle(query, controller.signal);
+        if (request !== manualCitySearchRef.current || controller.signal.aborted) return;
         if (geo) {
-          // Manual search wins over GPS for the rest of the session.
           propertyAnchoredRef.current = true;
           setRegion((r) => {
             const next = { ...r, latitude: geo.lat, longitude: geo.lng };
-            // A controlled `region` prop alone is unreliable on iOS — the
-            // camera often won't move on a state change. Drive it imperatively
-            // (same pattern used for GPS/marker focus elsewhere in this file).
             mapRef.current?.animateToRegion(next, 600);
+            persistRegion(next);
             return next;
           });
           await loadCleanersAtPoint(geo.lat, geo.lng);
         } else {
-          // Fallback: keep legacy text-based search so users still see
-          // something if geocoding fails (e.g. no API key set in dev).
+          const cleanerRequest = ++cleanerRequestRef.current;
+          setLoading(true);
+          setLoadError(false);
           try {
-            const results = await searchCleaners(city);
+            const results = await searchCleaners(query);
+            if (request !== manualCitySearchRef.current || cleanerRequest !== cleanerRequestRef.current) return;
             setCleaners(results);
             setSelectedIndex(0);
           } catch {
-            setCleaners([]);
+            if (request === manualCitySearchRef.current && cleanerRequest === cleanerRequestRef.current) {
+              setCleaners([]);
+              setLoadError(true);
+            }
+          } finally {
+            if (cleanerRequest === cleanerRequestRef.current) setLoading(false);
           }
         }
       } finally {
-        setSearchLoading(false);
+        if (request === manualCitySearchRef.current) {
+          manualCityAbortRef.current = null;
+          setSearchLoading(false);
+        }
       }
     },
-    [geocodeCityWithGoogle, loadCleanersAtPoint]
+    [cancelPendingCitySearch, dismissCitySuggestions, geocodeCityWithGoogle, loadCleanersAtPoint, persistRegion],
   );
+
+  const handleSelectCity = useCallback((city: ItalianCity) => {
+    cancelPendingCitySearch();
+    setSearchText(city.name);
+    dismissCitySuggestions();
+    // Explicit city selection always wins over the asynchronous GPS strategy.
+    propertyAnchoredRef.current = true;
+    const next: Region = {
+      latitude: city.latitude,
+      longitude: city.longitude,
+      latitudeDelta: 0.08,
+      longitudeDelta: 0.08,
+    };
+    setRegion(next);
+    persistRegion(next);
+    mapRef.current?.animateToRegion(next, 500);
+    void loadCleanersAtPoint(city.latitude, city.longitude);
+  }, [cancelPendingCitySearch, dismissCitySuggestions, loadCleanersAtPoint, persistRegion]);
+
+  const handleCityQueryChange = useCallback((text: string) => {
+    cancelPendingCitySearch();
+    setSearchText(text);
+    setSearchFocused(true);
+  }, [cancelPendingCitySearch]);
+
+  const handleSubmitCitySearch = useCallback(() => {
+    if (normalizeCityQuery(searchText).length < 2) return;
+    const bestMatch = citySuggestions[0];
+    if (bestMatch) handleSelectCity(bestMatch);
+    else void handleSearch(searchText);
+  }, [searchText, citySuggestions, handleSelectCity, handleSearch]);
+
+  const handleClearCitySearch = useCallback(() => {
+    cancelPendingCitySearch();
+    setSearchText("");
+    dismissCitySuggestions();
+  }, [cancelPendingCitySearch, dismissCitySuggestions]);
 
   // ── Client-side filters ────────────────────────────────────────────────────
   // The geo query already constrains by zone; here we additionally filter the
@@ -1435,6 +1535,7 @@ export default function HomeScreen() {
         showsMyLocationButton={false}
         showsCompass={false}
         rotateEnabled={false}
+        onPress={dismissCitySuggestions}
       >
         {filteredCleaners.map((cleaner, index) => (
           <Marker
@@ -1488,140 +1589,94 @@ export default function HomeScreen() {
         ))}
       </MapView>
 
-      {/* ── Floating header pill (Stitch spec) ── */}
-      {/* bg-white/80 backdrop-blur rounded-full mx-4 mt-4 shadow-2xl */}
-      <Animated.View
-        ref={searchBarRef}
-        style={[
-          searchBarStyle,
-          {
-            position: "absolute",
-            top: insets.top + 8,
-            left: 16,
-            right: 16,
-            zIndex: 20,
-            backgroundColor: "rgba(255, 255, 255, 0.88)",
-            borderRadius: 9999,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 8,
-            paddingVertical: 8,
-            shadowColor: "#022420",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.07,
-            shadowRadius: 24,
-            elevation: 12,
-          },
-        ]}
+      {/* One overlay owns both the field and its list, keeping iOS row taps inside its bounds. */}
+      <View
+        pointerEvents="box-none"
+        style={{ position: "absolute", top: insets.top + 8, left: 16, right: 16, zIndex: 30 }}
       >
-        {/* Left: search icon + Discovery/Explore label */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          {/* Search icon / loading indicator — focuses the TextInput next to it */}
-          <TouchableOpacity
-            onPress={() => searchInputRef.current?.focus()}
-            activeOpacity={0.75}
-            accessibilityLabel="Cerca città"
-            accessibilityRole="button"
-            style={{
-              width: 40,
-              height: 40,
+        <Animated.View
+          ref={searchBarRef}
+          style={[
+            searchBarStyle,
+            {
+              backgroundColor: Colors.surface,
               borderRadius: 20,
+              borderWidth: 1,
+              borderColor: Colors.border,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {searchLoading ? (
-              <ActivityIndicator size={14} color={C.secondary} />
-            ) : (
-              <Ionicons name="search" size={20} color="#022420" />
-            )}
-          </TouchableOpacity>
-
-          {/* Discovery / Explore text stack */}
-          <View style={{ flexDirection: "column" }}>
-            <Text
-              style={{
-                fontSize: 9,
-                fontWeight: "700",
-                color: "rgba(2,36,32,0.4)",
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                lineHeight: 12,
-              }}
+              paddingHorizontal: 8,
+              paddingVertical: 8,
+              shadowColor: Colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowRadius: 14,
+              elevation: 4,
+            },
+          ]}
+        >
+          <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Pressable
+              onPress={() => searchInputRef.current?.focus()}
+              accessibilityLabel="Cerca città"
+              accessibilityRole="button"
+              style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
             >
-              Posizione
-            </Text>
-            <TextInput
-              ref={searchInputRef}
-              style={{
-                fontSize: 18,
-                fontWeight: "700",
-                color: "#022420",
-                padding: 0,
-                margin: 0,
-                lineHeight: 22,
-                minWidth: 120,
-              }}
-              placeholder="Cerca città"
-              placeholderTextColor="rgba(2,36,32,0.4)"
-              value={searchText}
-              onChangeText={(text) => {
-                setSearchText(text);
-                // Cancel any pending debounce
-                if (searchDebounceRef.current) {
-                  clearTimeout(searchDebounceRef.current);
-                }
-                if (text.trim().length > 0) {
-                  // Auto-submit 600ms after user stops typing
-                  searchDebounceRef.current = setTimeout(() => {
-                    void handleSearch(text);
-                  }, 600);
-                }
-              }}
-              onSubmitEditing={() => {
-                // Manual submit — cancel debounce to avoid double-search
-                if (searchDebounceRef.current) {
-                  clearTimeout(searchDebounceRef.current);
-                  searchDebounceRef.current = null;
-                }
-                void handleSearch(searchText);
-              }}
-              onFocus={() => {
-                setSearchFocused(true);
-                searchExpanded.value = withTiming(1, { duration: 200 });
-              }}
-              onBlur={() => {
-                setSearchFocused(false);
-                searchExpanded.value = withTiming(0, { duration: 200 });
-              }}
-              returnKeyType="search"
-              autoCorrect={false}
-            />
+              {searchLoading
+                ? <ActivityIndicator size="small" color={Colors.secondary} />
+                : <Ionicons name="search-outline" size={21} color={Colors.secondary} />}
+            </Pressable>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 12, fontWeight: "500", color: Colors.textTertiary, marginBottom: 1 }}>
+                Città
+              </Text>
+              <TextInput
+                ref={searchInputRef}
+                style={{ fontSize: 16, fontWeight: "600", color: Colors.text, padding: 0, margin: 0, minHeight: 24 }}
+                placeholder="Cerca città"
+                placeholderTextColor={Colors.textTertiary}
+                accessibilityLabel="Cerca un comune italiano"
+                value={searchText}
+                onChangeText={handleCityQueryChange}
+                onSubmitEditing={handleSubmitCitySearch}
+                onFocus={() => {
+                  setSearchFocused(true);
+                  searchExpanded.value = withTiming(1, { duration: 160 });
+                }}
+                onBlur={() => {
+                  // Do not remove the list before its pressed row receives onPress.
+                  // Selection, map taps and actual keyboard dismissal close it.
+                  searchExpanded.value = withTiming(0, { duration: 160 });
+                }}
+                returnKeyType="search"
+                blurOnSubmit={false}
+                autoCorrect={false}
+                autoCapitalize="words"
+              />
+            </View>
           </View>
-        </View>
-
-        {/* Right: clear (if text) + notification bell */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          {searchText.length > 0 && (
-            <TouchableOpacity
-              onPress={() => {
-                // Cancel debounce + clear loading
-                if (searchDebounceRef.current) {
-                  clearTimeout(searchDebounceRef.current);
-                  searchDebounceRef.current = null;
-                }
-                setSearchLoading(false);
-                void handleSearch("");
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
-            </TouchableOpacity>
-          )}
-          <NotificationBell color="#022420" />
-        </View>
-      </Animated.View>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {searchText.length > 0 && (
+              <Pressable
+                onPress={handleClearCitySearch}
+                accessibilityLabel="Cancella ricerca città"
+                accessibilityRole="button"
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="close-outline" size={20} color={Colors.textTertiary} />
+              </Pressable>
+            )}
+            <NotificationBell color={Colors.primary} />
+          </View>
+        </Animated.View>
+        {searchFocused && (
+          <CitySuggestions
+            query={searchText}
+            cities={citySuggestions}
+            maxHeight={Math.max(96, Math.min(428, (keyboardTop ?? windowHeight) - insets.top - 88))}
+            onSelect={handleSelectCity}
+          />
+        )}
+      </View>
 
       {/* ── Amazon-style property picker pill ── */}
       {/* Sits right under the search bar. Tapping opens a sheet with the

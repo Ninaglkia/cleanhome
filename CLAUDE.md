@@ -219,6 +219,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — city search now shows a tappable local municipality dropdown while typing; selection recenters the map, with keyboard/clear/submit handling and stale-result guards. Added attributed municipality data and search tests; all35 tests pass.
 - **2026-11-02** — fixed profile statistic label fitting and reduced the remaining role-toggle halo; color reveal and gesture behavior unchanged.
 - **2026-11-02** — completed remaining icon/typography/CTA presentation pass on notifications, property/listing forms, onboarding, phone verification and public cleaner profiles; native Casa icon built and installed on iPhone16Pro simulator, Home icon visually verified.
 - **2026-11-01** — unified forest/sage palette and navigation for both roles; consistent outline menu icons, quiet profile/stat cards and typography; bookings, messages, support, payments, invoices and documents presentation aligned without business logic changes.
