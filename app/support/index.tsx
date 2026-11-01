@@ -33,13 +33,13 @@ interface TopicItem {
   tone: AccentTone;
 }
 
-// ─── Tone palette — same as payments for visual consistency ──────────────────
+// ─── Navigation icon treatment — same as payments ────────────────────────────
 
 const TONE_STYLES: Record<AccentTone, { bg: string; fg: string }> = {
   neutral: { bg: Colors.accentLight, fg: Colors.secondary },
-  info: { bg: "#eaf1ff", fg: Colors.info },
-  warning: { bg: "#fdf1e3", fg: "#a85d12" },
-  success: { bg: Colors.successLight, fg: Colors.success },
+  info: { bg: Colors.accentLight, fg: Colors.secondary },
+  warning: { bg: Colors.accentLight, fg: Colors.secondary },
+  success: { bg: Colors.accentLight, fg: Colors.secondary },
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ function TopicRow({ item, onPress }: TopicRowProps) {
         {/* Inner View — iOS Pressable + flex layout safety */}
         <View style={styles.topicRow}>
           <View style={[styles.topicIconWrap, { backgroundColor: palette.bg }]}>
-            <Ionicons name={item.icon} size={20} color={palette.fg} />
+            <Ionicons name={item.icon} size={22} color={palette.fg} />
           </View>
           <View style={styles.topicContent}>
             <Text style={styles.topicLabel}>{item.label}</Text>
@@ -362,8 +362,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.full,
     backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: StyleSheet.hairlineWidth,
@@ -549,8 +549,8 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   topicIconWrap: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
-    marginLeft: 60,
+    marginLeft: 72,
   },
 
   // ── Footer ──────────────────────────────────────────────────────────────

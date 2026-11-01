@@ -224,12 +224,12 @@ export default function FaqTopicScreen() {
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {topicData.label}
         </Text>
-        <View style={{ width: 38 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
@@ -267,7 +267,7 @@ export default function FaqTopicScreen() {
             accessibilityLabel="Apri chat assistente"
             accessibilityRole="button"
           >
-            <Ionicons name="sparkles" size={16} color="#fff" />
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
             <Text style={styles.helpBtnText}>Apri chat con CleanHome</Text>
           </Pressable>
         </View>
@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.borderLight,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     backgroundColor: Colors.backgroundAlt,
     alignItems: "center",
@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   helpBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,

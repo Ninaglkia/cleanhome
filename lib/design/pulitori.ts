@@ -1,15 +1,17 @@
+import { BrandColor } from "./brand";
+
 /**
  * Pulitori design system — tokens from the claude.ai/design handoff
  * (design_handoff_pulitori/README.md). High-fidelity green system for the
  * CleanHome client marketplace. Screens designed at 393×852 (iPhone 16).
  *
  * Adopt these tokens screen-by-screen to converge the client app onto one
- * cohesive green identity that matches the logo + holographic splash.
+ * cohesive green identity that matches the Casa logo and launch screen.
  */
 
 export const PColor = {
   // Core greens
-  ink: "#14342B", // primary text, primary buttons, active tab, home indicator
+  ink: BrandColor.background, // shared brand ink, buttons and active navigation
   accent: "#1F7A5C", // icons, links, selection borders, selected chips, toggles ON
   mint: "#3DDC97", // text/icons ON dark buttons, badge counters, CTA on dark
   // Success / positive
@@ -23,9 +25,9 @@ export const PColor = {
   star: "#F5A623",
   error: "#E5484D", // cancel, exit, notification badges
   // Muted / body text
-  muted: "#7C8B84",
-  muted2: "#9AA9A2",
-  muted3: "#9AA297",
+  muted: "#64766C",
+  muted2: "#77867D",
+  muted3: "#718176",
   body: "#4F5A55",
   body2: "#6B7B74",
   body3: "#4F6B60",
@@ -75,23 +77,23 @@ export const PShadow = {
   card: {
     shadowColor: "#14342B",
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 1,
   },
   floating: {
     shadowColor: "#14342B",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 22,
-    elevation: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 4,
   },
   dropdown: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 0.4,
-    shadowRadius: 50,
-    elevation: 16,
+    shadowColor: BrandColor.background,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 6,
   },
 } as const;
 
@@ -104,8 +106,7 @@ export const PHeight = {
 } as const;
 
 /**
- * Typography scale. Font: Inter in the prototype; in the app use the existing
- * font stack (NotoSerif for display where used, system/Inter for body).
+ * Typography scale. Use the native system sans-serif family throughout the app.
  * Values: fontSize / fontWeight.
  */
 export const PType = {

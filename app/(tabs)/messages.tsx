@@ -15,23 +15,23 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth";
 import { fetchBookings } from "../../lib/api";
 import { Booking } from "../../lib/types";
-import { BookingStatusConfig } from "../../lib/theme";
+import { BookingStatusConfig, Colors } from "../../lib/theme";
 import { NotificationBell } from "../../components/NotificationBell";
 
-// ─── Design tokens (dal Stitch HTML live_chat_with_concierge) ─────────────────
+// ─── Shared brand tokens ─────────────────────────────────────────────────────
 const C = {
-  background: "#f6faf9",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  surfaceHigh: "#e5e9e8",
-  primary: "#022420",
-  primaryContainer: "#1a3a35",
-  secondary: "#006b55",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
-  muted: "#8aaca6",
+  background: Colors.background,
+  surface: Colors.surface,
+  surfaceLow: Colors.surfaceLow,
+  surfaceHigh: Colors.backgroundAlt,
+  primary: Colors.primary,
+  primaryContainer: Colors.primaryContainer,
+  secondary: Colors.secondary,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outline: Colors.textTertiary,
+  outlineVariant: Colors.border,
+  muted: Colors.muted,
 } as const;
 
 const ITEM_HEIGHT = 88;
@@ -272,9 +272,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.primaryContainer,
     letterSpacing: -0.4,
     marginBottom: 4,
@@ -296,9 +295,11 @@ const styles = StyleSheet.create({
     gap: 14,
     shadowColor: C.onSurface,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.borderLight,
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   rowPressed: {
     opacity: 0.88,
@@ -307,13 +308,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: C.primary,
+    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   avatarInitials: {
-    color: "#00c896",
+    color: Colors.secondary,
     fontSize: 15,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -378,9 +379,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyIconWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 28,
+    width: 72,
+    height: 72,
+    borderRadius: 18,
     backgroundColor: C.surfaceHigh,
     alignItems: "center",
     justifyContent: "center",
@@ -389,7 +390,6 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
     color: C.onSurface,
     textAlign: "center",
     marginBottom: 10,

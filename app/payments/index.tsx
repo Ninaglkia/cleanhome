@@ -34,17 +34,16 @@ interface RowItemProps {
 }
 
 // ─── Tone palette ─────────────────────────────────────────────────────────────
-// Subtle differentiation: most rows are mint, but contextual ones (disputes,
-// duplicates) get a warm warning tone so they don't feel monotonous.
+// These are navigation rows, so every icon uses the same quiet brand treatment.
 
 const TONE_STYLES: Record<
   AccentTone,
   { bg: string; fg: string }
 > = {
   neutral: { bg: Colors.accentLight, fg: Colors.secondary },
-  info: { bg: "#eaf1ff", fg: Colors.info },
-  warning: { bg: "#fdf1e3", fg: "#a85d12" },
-  success: { bg: Colors.successLight, fg: Colors.success },
+  info: { bg: Colors.accentLight, fg: Colors.secondary },
+  warning: { bg: Colors.accentLight, fg: Colors.secondary },
+  success: { bg: Colors.accentLight, fg: Colors.secondary },
 };
 
 // ─── Reusable Row ─────────────────────────────────────────────────────────────
@@ -86,7 +85,7 @@ function RowItem({
             Pressable style. */}
         <View style={styles.row}>
           <View style={[styles.rowIconWrap, { backgroundColor: palette.bg }]}>
-            <Ionicons name={icon} size={20} color={palette.fg} />
+            <Ionicons name={icon} size={22} color={palette.fg} />
           </View>
           <View style={styles.rowContent}>
             <Text style={styles.rowTitle}>{title}</Text>
@@ -203,7 +202,7 @@ export default function PaymentsScreen() {
           <View style={styles.securityLeft}>
             <View style={styles.shieldWrap}>
               <Ionicons
-                name="shield-checkmark"
+                name="shield-checkmark-outline"
                 size={22}
                 color={Colors.textOnDark}
               />
@@ -214,7 +213,7 @@ export default function PaymentsScreen() {
             </View>
           </View>
           <View style={styles.securityBadge}>
-            <Ionicons name="lock-closed" size={11} color={Colors.accent} />
+            <Ionicons name="lock-closed-outline" size={11} color={Colors.accent} />
             <Text style={styles.securityBadgeText}>SICURO</Text>
           </View>
         </View>
@@ -375,8 +374,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.full,
     backgroundColor: Colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
@@ -398,8 +397,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   headerSpacer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
 
   // ── Scroll content ───────────────────────────────────────────────────────
@@ -421,11 +420,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   pageTitle: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "800",
     color: Colors.primary,
     letterSpacing: -0.8,
-    lineHeight: 36,
+    lineHeight: 34,
   },
   pageSubtitle: {
     fontSize: 14,
@@ -477,7 +476,7 @@ const styles = StyleSheet.create({
   cardDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
-    marginLeft: 60, // aligns with text column (icon 40 + gap 12 + padding 16 - 8)
+    marginLeft: 72, // 16px inset + 44px icon tile + 12px gap
   },
 
   // ── Row ─────────────────────────────────────────────────────────────────
@@ -490,8 +489,8 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   rowIconWrap: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -551,9 +550,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   shieldWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
     backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",

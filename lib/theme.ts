@@ -1,43 +1,40 @@
-/**
- * CleanHome Design System — "Fresh Luxe"
- *
- * Aesthetic direction: Deep emerald green as the anchor color on crisp white
- * surfaces. Premium shadows, warm teal accents, confident typography hierarchy.
- * Every surface feels intentional — not template-generated.
- */
+import { BrandColor } from "./design/brand";
+import { PBorder, PColor } from "./design/pulitori";
+
+/** One forest-green identity for both roles, with quiet neutral surfaces. */
 
 export const Colors = {
   // --- Brand core ---
-  primary: "#022420",          // Deep forest green — authority, trust
-  primaryLight: "#0d3b34",     // Elevated surface variant
-  primaryMid: "#1a5248",       // Interactive states on dark
-  secondary: "#006b55",        // Mid-teal — CTAs, links
-  secondaryLight: "#00836a",   // Hover/pressed states
-  accent: "#00c896",           // Bright mint — highlights, badges
-  accentLight: "#e8fdf7",      // Accent wash — chip backgrounds
+  primary: BrandColor.background,
+  primaryLight: "#1F5E48",
+  primaryMid: PColor.accent,
+  secondary: PColor.accent,
+  secondaryLight: "#216C53",
+  accent: PColor.mint,
+  accentLight: PColor.mintPale,
 
   // --- Backgrounds ---
-  background: "#f7faf9",       // Almost white with a green tint — body
-  backgroundAlt: "#edf5f2",    // Cards on background — slightly deeper
-  surface: "#ffffff",          // Pure white — cards, sheets
-  surfaceElevated: "#f0f7f4",  // Slightly tinted surface for inner containers
+  background: PColor.canvas,
+  backgroundAlt: PColor.canvas2,
+  surface: PColor.white,
+  surfaceElevated: PColor.cardSelected,
 
   // --- Text ---
-  text: "#0f1f1d",             // Near-black with green tint — primary text
-  textSecondary: "#4a6660",    // Secondary / label text
-  textTertiary: "#8aaca6",     // Placeholder / disabled text
+  text: PColor.ink,
+  textSecondary: PColor.body,
+  textTertiary: PColor.muted,
   textOnDark: "#ffffff",       // White text on dark surfaces
-  textOnDarkSecondary: "#82f4d1", // Mint on dark — brand moments
-  textOnDarkTertiary: "#5e8a82", // Muted text on dark
+  textOnDarkSecondary: PColor.mint,
+  textOnDarkTertiary: "#A8C3B5",
 
   // --- Borders ---
-  border: "#d4e4e0",           // Standard border
-  borderLight: "#e8f2ef",      // Light divider
-  borderFocus: "#006b55",      // Input focus ring
+  border: PBorder.card,
+  borderLight: PBorder.faint,
+  borderFocus: PColor.accent,
 
   // --- Semantic ---
-  success: "#16a34a",
-  successLight: "#dcfce7",
+  success: PColor.success,
+  successLight: PColor.mintPale,
   warning: "#d97706",
   warningLight: "#fef3c7",
   error: "#dc2626",
@@ -45,15 +42,15 @@ export const Colors = {
   info: "#2563eb",
   infoLight: "#dbeafe",
 
-  // --- Cleaner role accent (warm brown/amber — distinguishes from client teal) ---
-  cleanerPrimary: "#8B5E3C",       // Warm brown — cleaner active tint
-  cleanerPrimaryLight: "#A0714F",  // Lighter variant for states
-  cleanerAccent: "#D4A574",        // Cleaner amber accent
-  cleanerLight: "#F5EBE0",         // Cleaner light wash
-  cleanerAccentLight: "#fdf3ec",   // Warm wash — cleaner chip backgrounds
+  // Legacy role aliases retain their API; both roles use the shared brand.
+  cleanerPrimary: BrandColor.background,
+  cleanerPrimaryLight: PColor.accent,
+  cleanerAccent: PColor.accent,
+  cleanerLight: PColor.mintPale,
+  cleanerAccentLight: PColor.cardSelected,
 
   // --- Surface system (stitch spec aliases) ---
-  surfaceLow: "#f0f4f3",           // Lower surface (input fills)
+  surfaceLow: PColor.canvas2,
 
   // --- Semantic (stitch spec) ---
   // warning/success/error already defined above; keep matching aliases:
@@ -62,12 +59,12 @@ export const Colors = {
   errorRed: "#ba1a1a",             // Error red per stitch spec
 
   // Legacy aliases (keep backward compat with tailwind.config.js classes)
-  primaryContainer: "#1a3a35",
-  secondaryContainer: "#82f4d1",
-  outlineVariant: "#c1c8c5",
-  onSurface: "#0f1f1d",
-  onSurfaceVariant: "#4a6660",
-  muted: "#8aaca6",
+  primaryContainer: "#1F5E48",
+  secondaryContainer: PColor.mintPale,
+  outlineVariant: "#DCE4DF",
+  onSurface: PColor.ink,
+  onSurfaceVariant: PColor.body,
+  muted: PColor.muted,
 } as const;
 
 /**
@@ -175,16 +172,16 @@ export const Shadows = {
   md: {
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 2,
   },
   lg: {
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
 } as const;
 

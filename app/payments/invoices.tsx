@@ -81,7 +81,7 @@ function InvoiceRow({ item }: InvoiceRowProps) {
     <View style={styles.invoiceRow}>
       {/* Left icon */}
       <View style={styles.invoiceIconWrap}>
-        <Ionicons name="document-text-outline" size={20} color={Colors.secondary} />
+        <Ionicons name="document-text-outline" size={22} color={Colors.secondary} />
       </View>
 
       {/* Center text */}
@@ -260,7 +260,7 @@ export default function InvoicesScreen() {
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.breadcrumb}>Pagamenti</Text>
@@ -332,8 +332,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     backgroundColor: Colors.backgroundAlt,
     alignItems: "center",
@@ -350,8 +350,7 @@ const styles = StyleSheet.create({
   headerBrand: {
     fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: "#181c1c",
+    color: Colors.text,
     letterSpacing: -0.3,
   },
   downloadBtn: {
@@ -387,20 +386,17 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 1.5,
-    fontFamily: "PlusJakartaSans-ExtraBold",
   },
   pageTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
     color: Colors.primary,
     letterSpacing: -0.8,
-    fontFamily: "NotoSerif-Bold",
   },
   pageSubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
     lineHeight: 22,
-    fontFamily: "PlusJakartaSans-Regular",
   },
 
   // Summary cards
@@ -434,7 +430,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.textOnDark,
     letterSpacing: -0.5,
-    fontFamily: "NotoSerif-Bold",
   },
   summaryCardIcon: {
     position: "absolute",
@@ -459,7 +454,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     color: Colors.primary,
-    fontFamily: "PlusJakartaSans-Bold",
   },
   invoiceCount: {
     fontSize: 12,
@@ -481,8 +475,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
   },
   invoiceIconWrap: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     backgroundColor: Colors.accentLight,
     alignItems: "center",
@@ -500,7 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.text,
-    fontFamily: "PlusJakartaSans-SemiBold",
   },
   invoiceRight: {
     alignItems: "flex-end",
@@ -511,7 +504,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.primary,
     letterSpacing: -0.3,
-    fontFamily: "PlusJakartaSans-ExtraBold",
   },
   statusDotRow: {
     flexDirection: "row",

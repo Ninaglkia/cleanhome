@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
+import { PColor, PBorder } from "../../lib/design/pulitori";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,35 +40,35 @@ export function ProfileStatCard({
 const statStyles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
     paddingHorizontal: 10,
     alignItems: "center",
-    shadowColor: "#022420",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   value: {
     fontSize: 22,
+    lineHeight: 28,
     fontWeight: "700",
-    color: "#022420",
+    color: PColor.ink,
     letterSpacing: -0.5,
     marginBottom: 4,
     textAlign: "center",
   },
   label: {
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: "600",
-    color: "#414846",
+    color: PColor.body,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 11,
-    color: "#717976",
+    lineHeight: 16,
+    color: PColor.body2,
     marginTop: 2,
     textAlign: "center",
   },

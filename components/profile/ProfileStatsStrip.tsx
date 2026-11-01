@@ -1,6 +1,7 @@
 import { View, StyleSheet } from "react-native";
 import { ProfileStatCard } from "./ProfileStatCard";
 import { useProfileStats } from "../../lib/hooks/useProfileStats";
+import { PColor } from "../../lib/design/pulitori";
 
 // ─── Currency formatter (Italian locale) ─────────────────────────────────────
 
@@ -23,16 +24,13 @@ export interface ProfileStatsStripProps {
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
-const CLEANER_BG = "#F0F9F6";
-// Client converged onto the green Pulitori identity (design audit 2026-06-23):
-// same mint-tinted surface as the cleaner side, no more warm beige.
-const CLIENT_BG = "#F0F9F6";
+const STAT_SURFACE = PColor.white;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ProfileStatsStrip({ userId, role }: ProfileStatsStripProps) {
   const stats = useProfileStats(userId, role);
-  const bg = role === "cleaner" ? CLEANER_BG : CLIENT_BG;
+  const bg = STAT_SURFACE;
   const placeholder = "—";
 
   if (role === "cleaner") {

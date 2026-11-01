@@ -36,6 +36,7 @@ import {
 } from "../../lib/api";
 import { Booking, BookingOffer } from "../../lib/types";
 import { NotificationBell } from "../../components/NotificationBell";
+import { Colors } from "../../lib/theme";
 import { MarkDoneModal } from "../../components/escrow/MarkDoneModal";
 import {
   startLocationBroadcast,
@@ -49,45 +50,34 @@ import {
 // ─── Static design tokens (non-role-specific) ────────────────────────────────
 
 const C = {
-  background: "#f6faf9",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outlineVariant: "#c1c8c5",
-  outline: "#717976",
-  amber50: "#fffbeb",
-  amber700: "#b45309",
-  green100: "#dcfce7",
-  green700: "#15803d",
-  error: "#ba1a1a",
+  background: Colors.background,
+  surface: Colors.surface,
+  surfaceLow: Colors.surfaceLow,
+  onSurface: Colors.text,
+  onSurfaceVariant: Colors.textSecondary,
+  outline: Colors.textTertiary,
+  amber50: Colors.warningLight,
+  amber700: Colors.warning,
+  green100: Colors.successLight,
+  green700: Colors.success,
+  error: Colors.error,
 } as const;
 
 // ─── Role-based theme tokens ──────────────────────────────────────────────────
 
-// CLEANER mode: dark forest green
+// Both role views share the same brand palette; content and actions stay role-specific.
 const CLEANER_THEME = {
-  primary: "#022420",
-  primaryContainer: "#1a3a35",
-  secondary: "#006b55",
-  secondaryContainer: "#82f4d1",
-  avatarFallbackText: "#abcec6",
-  serviceTagBg: "#82f4d14D",
-  confirmWorkBg: "#006b55",
-  backgroundTint: "#f6faf9",
+  primary: Colors.primary,
+  primaryContainer: Colors.primaryContainer,
+  secondary: Colors.secondary,
+  secondaryContainer: Colors.accentLight,
+  avatarFallbackText: Colors.textOnDarkSecondary,
+  serviceTagBg: Colors.accentLight,
+  confirmWorkBg: Colors.secondary,
+  backgroundTint: Colors.background,
 } as const;
 
-// CLIENT mode: warm terra / amber — consistent with profile.tsx ClientView
-const CLIENT_THEME = {
-  primary: "#8B5E3C",
-  primaryContainer: "#5C3D24",
-  secondary: "#C2410C",
-  secondaryContainer: "#F5EBE0",
-  avatarFallbackText: "#ffffff",
-  serviceTagBg: "#F5EBE04D",
-  confirmWorkBg: "#C2410C",
-  backgroundTint: "#fdf8f4",
-} as const;
+const CLIENT_THEME = CLEANER_THEME;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -145,7 +135,7 @@ function getServiceLabel(serviceType: string): string {
   return upper.length > 20 ? upper.slice(0, 18) + "…" : upper;
 }
 
-// ─── Animated CTA button — pulse glow on idle ────────────────────────────────
+// ─── CTA button — restrained tactile feedback ─────────────────────────────────
 
 interface AnimatedCTAProps {
   onPress: () => void;
@@ -157,68 +147,21 @@ interface AnimatedCTAProps {
 
 function AnimatedCTA({ onPress, label, icon, accessibilityLabel, primaryColor }: AnimatedCTAProps) {
   const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.35);
-  const isPressing = useRef(false);
-
-  // Pulse glow: shadow opacity cycles 0.35 → 0.7 → 0.35 every ~2s
-  useEffect(() => {
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.35, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-    return () => {
-      cancelAnimation(glowOpacity);
-    };
-  }, [glowOpacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  // Shadow wrapper — animates opacity independently
-  const shadowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: glowOpacity.value,
-  }));
-
   const handlePressIn = () => {
-    isPressing.current = true;
-    cancelAnimation(glowOpacity);
-    glowOpacity.value = 0.2;
     scale.value = withSpring(0.96, SPRING_SNAPPY);
   };
 
   const handlePressOut = () => {
-    isPressing.current = false;
     scale.value = withSpring(1, SPRING_GENTLE);
-    // Resume glow after press
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.35, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
   };
 
   return (
-    <Animated.View
-      style={[
-        animatedStyle,
-        shadowStyle,
-        {
-          shadowColor: primaryColor,
-          shadowOffset: { width: 0, height: 6 },
-          shadowRadius: 16,
-          elevation: 8,
-          borderRadius: 16,
-        },
-      ]}
-    >
+    <Animated.View style={animatedStyle}>
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -455,7 +398,7 @@ function EmptyState({ isClient, onCTA, filterKey, primaryColor }: EmptyStateProp
           <AnimatedCTA
             onPress={onCTA}
             label="Trova un professionista"
-            icon="sparkles-outline"
+            icon="search-outline"
             accessibilityLabel="Cerca professionisti per prenotare un servizio"
             primaryColor={primaryColor}
           />
@@ -1335,7 +1278,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontFamily: "NotoSerif_700Bold",
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.8,
@@ -1363,7 +1305,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: `${C.outlineVariant}22`,
+    borderColor: Colors.borderLight,
   },
   tabPill: {
     position: "absolute",
@@ -1372,9 +1314,9 @@ const styles = StyleSheet.create({
     left: 0,
     borderRadius: 10,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   tabItem: {
     flex: 1,
@@ -1402,7 +1344,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: `${C.outlineVariant}55`,
+    backgroundColor: Colors.backgroundAlt,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
@@ -1448,7 +1390,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     letterSpacing: -0.5,
-    fontFamily: "NotoSerif_700Bold",
   },
   emptySubtitle: {
     fontSize: 14,
@@ -1530,7 +1471,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 2,
     borderWidth: 1,
-    borderColor: `${C.outlineVariant}1A`,
+    borderColor: Colors.borderLight,
     gap: 14,
   },
   cardCompleted: {
@@ -1627,7 +1568,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: `${C.outlineVariant}1A`,
+    borderTopColor: Colors.borderLight,
   },
   priceText: {
     fontSize: 20,

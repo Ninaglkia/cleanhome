@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   FlatList,
   ActivityIndicator,
   StatusBar,
@@ -12,6 +11,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { Pressable } from "../../components/ui/AppPressable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -129,7 +129,7 @@ export default function SupportChatScreen() {
     if (item.role === "system") {
       return (
         <View style={styles.systemRow}>
-          <Ionicons name="information-circle" size={14} color={Colors.textSecondary} />
+          <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
           <Text style={styles.systemText}>{item.content}</Text>
         </View>
       );
@@ -139,7 +139,7 @@ export default function SupportChatScreen() {
       <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAssistant]}>
         {!isUser && (
           <View style={styles.avatarBot}>
-            <Ionicons name="sparkles" size={14} color="#fff" />
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.secondary} />
           </View>
         )}
         <View
@@ -174,8 +174,13 @@ export default function SupportChatScreen() {
       >
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={Colors.text} />
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Indietro"
+          >
+            <Ionicons name="chevron-back" size={22} color={Colors.text} />
           </Pressable>
           <View style={styles.headerCenter}>
             <View style={styles.headerTitleRow}>
@@ -184,7 +189,7 @@ export default function SupportChatScreen() {
             </View>
             <Text style={styles.headerSub}>AI disponibile 24/7</Text>
           </View>
-          <View style={{ width: 26 }} />
+          <View style={{ width: 44 }} />
         </View>
 
         <FlatList
@@ -199,7 +204,7 @@ export default function SupportChatScreen() {
         {sending && (
           <View style={styles.typingRow}>
             <View style={styles.avatarBot}>
-              <Ionicons name="sparkles" size={14} color="#fff" />
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.secondary} />
             </View>
             <View style={[styles.bubble, styles.bubbleAssistant]}>
               <ActivityIndicator size="small" color={Colors.textSecondary} />
@@ -242,6 +247,8 @@ export default function SupportChatScreen() {
             ]}
             onPress={() => send(text)}
             disabled={!text.trim() || sending}
+            accessibilityRole="button"
+            accessibilityLabel="Invia messaggio"
           >
             <Ionicons name="arrow-up" size={20} color="#fff" />
           </Pressable>
@@ -270,6 +277,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   headerCenter: { flex: 1 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
   headerTitle: { fontSize: 16, fontWeight: "600", color: Colors.text },
@@ -296,7 +311,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -336,7 +351,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.warning,
     lineHeight: 18,
-    fontStyle: "italic",
   },
   typingRow: {
     flexDirection: "row",
@@ -352,6 +366,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   quickReplyChip: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: Colors.surface,
@@ -373,7 +389,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     maxHeight: 120,
     backgroundColor: Colors.surfaceElevated,
     borderRadius: Radius.lg,
@@ -383,9 +399,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",

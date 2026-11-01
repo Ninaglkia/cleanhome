@@ -1,25 +1,19 @@
 import { withLayoutContext } from "expo-router";
 import { createNativeBottomTabNavigator } from "@bottom-tabs/react-navigation";
 import { useAuth } from "../../lib/auth";
+import { PColor } from "../../lib/design/pulitori";
 
 const { Navigator } = createNativeBottomTabNavigator();
 const Tabs = withLayoutContext(Navigator);
-
-const CLIENT_ACTIVE = "#006b55";
-const CLEANER_ACTIVE = "#6f4627";
 
 export default function TabsLayout() {
   const { profile } = useAuth();
   const isCleaner = profile?.active_role === "cleaner";
 
-  // Naming convention from CLAUDE.md is intentionally inverted: cleaner mode
-  // shows the "client" tint colors (verde) and vice versa. Don't "fix".
-  const activeTint = isCleaner ? CLIENT_ACTIVE : CLEANER_ACTIVE;
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: activeTint,
+        tabBarActiveTintColor: PColor.accent,
       }}
     >
       <Tabs.Screen

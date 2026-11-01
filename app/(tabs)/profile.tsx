@@ -28,6 +28,9 @@ import Animated, {
   withSequence,
   withTiming,
   withRepeat,
+  cancelAnimation,
+  interpolateColor,
+  useReducedMotion,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -53,7 +56,7 @@ import {
   IconCarta,
 } from "../../components/profile/MenuIcons";
 import { ProfileToggle } from "../../components/profile/ProfileToggle";
-import Svg, { Path } from "react-native-svg";
+import { PColor, PBorder } from "../../lib/design/pulitori";
 
 const { width: SCREEN_W, height: SH } = Dimensions.get("window");
 
@@ -198,17 +201,14 @@ function AvatarDisplay({
     backgroundColor: backgroundColor ?? C.primaryContainer,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-    shadowColor: "#022420",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.card,
   };
 
   if (uploading) {
     return (
       <View style={containerStyle}>
-        <ActivityIndicator color={initialsColor ?? "#abcec6"} />
+        <ActivityIndicator color={initialsColor ?? PColor.ink} />
       </View>
     );
   }
@@ -229,7 +229,7 @@ function AvatarDisplay({
         style={{
           fontSize: size * 0.33,
           fontWeight: "800",
-          color: initialsColor ?? "#abcec6",
+          color: initialsColor ?? PColor.ink,
           letterSpacing: 1,
         }}
       >
@@ -266,28 +266,28 @@ function PhotoPreviewModal({
   );
 }
 
-// ─── Design tokens (Stitch) ───────────────────────────────────────────────────
+// ─── Shared Pulitori palette ─────────────────────────────────────────────────
 
 const C = {
-  background: "#f8fbfa",
-  surface: "#ffffff",
-  surfaceLow: "#f0f4f3",
-  primary: "#022420",
-  primaryContainer: "#022420",
-  secondary: "#006b55",
-  secondaryContainer: "#82f4d1",
-  onSurface: "#181c1c",
-  onSurfaceVariant: "#414846",
-  outline: "#717976",
-  outlineVariant: "#c1c8c5",
-  error: "#ba1a1a",
-  errorContainer: "#ffdad6",
-  // Cleaner role palette
-  cleanerPrimary: "#8B5E3C",
-  cleanerDark: "#5C3D24",
-  cleanerAmber: "#D4A574",
-  cleanerLight: "#F5EBE0",
-  cleanerIconBg: "#F5EBE0",
+  background: PColor.canvas,
+  surface: PColor.white,
+  surfaceLow: PColor.canvas2,
+  primary: PColor.ink,
+  primaryContainer: PColor.mintPale,
+  secondary: PColor.accent,
+  secondaryContainer: PColor.mintPale,
+  onSurface: PColor.ink,
+  onSurfaceVariant: PColor.body,
+  outline: PColor.body2,
+  outlineVariant: PColor.muted2,
+  error: PColor.error,
+  errorContainer: PColor.canvas2,
+  // Preserve legacy aliases while both views use the same green identity.
+  cleanerPrimary: PColor.accent,
+  cleanerDark: PColor.ink,
+  cleanerAmber: PColor.mint,
+  cleanerLight: PColor.mintPale,
+  cleanerIconBg: PColor.mintPale,
 } as const;
 
 // ─── Menu row ─────────────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ function MenuRow({
         pressed && newMenuRowStyles.rowPressed,
       ]}
     >
-      {/* icon tile — già include il gradiente */}
+      {/* Shared outline icon tile. */}
       {iconNode}
 
       <View style={newMenuRowStyles.body}>
@@ -338,18 +338,9 @@ function MenuRow({
       </View>
 
       {loading ? (
-        <ActivityIndicator size="small" color="#C2CCC7" />
+        <ActivityIndicator size="small" color={PColor.muted} />
       ) : (
-        <Svg width={20} height={20} viewBox="0 0 24 24">
-          <Path
-            d="M9 6l6 6-6 6"
-            stroke={danger ? "#E7A9A3" : "#C2CCC7"}
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </Svg>
+        <Ionicons name="chevron-forward" size={18} color={PColor.muted2} accessible={false} />
       )}
     </Pressable>
   );
@@ -359,48 +350,48 @@ const newMenuRowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    paddingVertical: 14,
+    gap: 12,
+    minHeight: 76,
+    paddingVertical: 16,
   },
-  rowPressed: { opacity: 0.75 },
+  rowPressed: { opacity: 0.72 },
   body: { flex: 1 },
-  label: { fontSize: 16, fontWeight: "700", color: "#16221D" },
-  labelDanger: { color: "#E0382B" },
-  sublabel: { fontSize: 13, color: "#8A968F", fontWeight: "500", marginTop: 1 },
+  label: { fontSize: 16, lineHeight: 22, fontWeight: "600", color: PColor.ink },
+  labelDanger: { color: PColor.error },
+  sublabel: { fontSize: 13, lineHeight: 18, color: PColor.body2, fontWeight: "400", marginTop: 4 },
 });
 
 // ─── Section card styles ──────────────────────────────────────────────────────
 
 const menuSectionCardStyles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 22,
+    backgroundColor: PColor.white,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    marginBottom: 22,
-    shadowColor: "rgba(20,40,30,0.08)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingVertical: 0,
+    marginBottom: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   divider: {
-    height: 1,
-    backgroundColor: "#F0F3F1",
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PBorder.subtle,
+    marginLeft: 56,
   },
   dividerCaldo: {
-    height: 1,
-    backgroundColor: "#F3ECE1",
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PBorder.subtle,
+    marginLeft: 56,
   },
 });
 
 const newSectionHeader = StyleSheet.create({
   label: {
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
     letterSpacing: 1.2,
     marginHorizontal: 4,
-    marginBottom: 10,
+    marginBottom: 8,
     marginTop: 0,
   },
 });
@@ -464,10 +455,11 @@ function CleanerView({
   highlightStripe,
 }: CleanerViewProps) {
   const { isVerified: isIdentityVerified } = useIdentityVerification(cleanerId);
+  const reducedMotion = useReducedMotion();
   const stripeHighlightOpacity = useSharedValue(0);
 
   useEffect(() => {
-    if (highlightStripe) {
+    if (highlightStripe && !reducedMotion) {
       stripeHighlightOpacity.value = withRepeat(
         withSequence(
           withTiming(1, { duration: 300 }),
@@ -476,12 +468,15 @@ function CleanerView({
         6,
         false
       );
+    } else {
+      stripeHighlightOpacity.value = highlightStripe ? 1 : 0;
     }
-  }, [highlightStripe, stripeHighlightOpacity]);
+    return () => cancelAnimation(stripeHighlightOpacity);
+  }, [highlightStripe, reducedMotion, stripeHighlightOpacity]);
 
   const stripeHighlightStyle = useAnimatedStyle(() => ({
     borderWidth: 2,
-    borderColor: `rgba(79, 196, 163, ${stripeHighlightOpacity.value})`,
+    borderColor: interpolateColor(stripeHighlightOpacity.value, [0, 1], [PBorder.faint, PColor.accent]),
     borderRadius: 12,
   }));
   return (
@@ -507,22 +502,22 @@ function CleanerView({
             avatarUrl={avatarUrl}
             initials={initials}
             size={88}
-            backgroundColor="#006b55"
-            initialsColor="#ffffff"
+            backgroundColor={PColor.mintPale}
+            initialsColor={PColor.ink}
             borderRadius={999}
             uploading={avatarUploading}
           />
           <View style={clientStyles.editBadge}>
-            <Ionicons name="camera-outline" size={12} color="#022420" />
+            <Ionicons name="camera-outline" size={12} color={PColor.accent} />
           </View>
         </Pressable>
         <View style={clientStyles.heroNameRow}>
           <Text style={clientStyles.heroName}>{fullName}</Text>
           {isIdentityVerified && (
             <Ionicons
-              name="checkmark-circle"
+              name="checkmark-circle-outline"
               size={18}
-              color="#006b55"
+              color={PColor.accent}
               accessibilityLabel="Identità verificata da Stripe"
             />
           )}
@@ -534,8 +529,8 @@ function CleanerView({
       <ProfileStatsStrip userId={cleanerId} role="cleaner" />
 
       {/* ── Toggle compatto ── */}
-      <View style={[compactToggleStyles.row, { backgroundColor: "#EAF6F0" }]}>
-        <Text style={[compactToggleStyles.label, { color: "#0E7C5B" }]}>Modalità Professionista</Text>
+      <View style={compactToggleStyles.row}>
+        <Text style={compactToggleStyles.label}>Modalità Professionista</Text>
         <ProfileToggle mode="cleaner" onPress={onSwitchRole} />
       </View>
 
@@ -549,7 +544,7 @@ function CleanerView({
       {/* ── Menu rows con sezioni ── */}
       <View style={sectionStyles.container}>
         {/* GESTIONE */}
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, paddingHorizontal: 24 }]}>
           GESTIONE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -573,7 +568,7 @@ function CleanerView({
         </View>
 
         {/* VERIFICHE */}
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, paddingHorizontal: 24 }]}>
           VERIFICHE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -603,7 +598,7 @@ function CleanerView({
         </View>
 
         {/* LEGALE */}
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, paddingHorizontal: 24 }]}>
           LEGALE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -625,7 +620,7 @@ function CleanerView({
 
       {/* ── Zona Account ── */}
       <View style={dangerStyles.section}>
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", marginLeft: 4 }]}>ACCOUNT</Text>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, marginLeft: 4 }]}>ACCOUNT</Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 0 }]}>
           <MenuRow
             iconNode={<IconEsci />}
@@ -729,17 +724,17 @@ function ClientView({
             avatarUrl={avatarUrl}
             initials={initials}
             size={88}
-            backgroundColor="#006b55"
-            initialsColor="#ffffff"
+            backgroundColor={PColor.mintPale}
+            initialsColor={PColor.ink}
             borderRadius={999}
             uploading={avatarUploading}
           />
           <View style={styles.editBadge}>
-            <Ionicons name="camera-outline" size={12} color="#022420" />
+            <Ionicons name="camera-outline" size={12} color={PColor.accent} />
           </View>
         </Pressable>
         <Text style={styles.heroName}>{fullName}</Text>
-        <Text style={[styles.heroRole, { color: "#0E7C5B" }]}>
+        <Text style={styles.heroRole}>
           CLIENTE
         </Text>
       </View>
@@ -748,15 +743,15 @@ function ClientView({
       <ProfileStatsStrip userId={clientId} role="client" />
 
       {/* ── Toggle compatto ── */}
-      <View style={[compactToggleStyles.row, { backgroundColor: "#EAF6F0" }]}>
-        <Text style={[compactToggleStyles.label, { color: "#0E7C5B" }]}>Modalità Cliente</Text>
+      <View style={compactToggleStyles.row}>
+        <Text style={compactToggleStyles.label}>Modalità Cliente</Text>
         <ProfileToggle mode="client" onPress={onSwitchRole} />
       </View>
 
       {/* ── Menu CLIENTE con sezioni ── */}
       <View style={sectionStyles.container}>
         {/* GESTIONE */}
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, paddingHorizontal: 24 }]}>
           GESTIONE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -800,7 +795,7 @@ function ClientView({
         </View>
 
         {/* LEGALE */}
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", paddingHorizontal: 24 }]}>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, paddingHorizontal: 24 }]}>
           LEGALE
         </Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 20 }]}>
@@ -815,7 +810,7 @@ function ClientView({
 
       {/* ── Zona Account ── */}
       <View style={dangerStyles.section}>
-        <Text style={[newSectionHeader.label, { color: "#9AA6A0", marginLeft: 4 }]}>ACCOUNT</Text>
+        <Text style={[newSectionHeader.label, { color: PColor.body2, marginLeft: 4 }]}>ACCOUNT</Text>
         <View style={[menuSectionCardStyles.card, { marginHorizontal: 0 }]}>
           <MenuRow
             iconNode={<IconEsci />}
@@ -841,6 +836,7 @@ function ClientView({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
+  const reducedMotion = useReducedMotion();
   const { user, profile, signOut, setActiveRole, refreshProfile } = useAuth();
   const router = useRouter();
   const { focus } = useLocalSearchParams<{ focus?: string }>();
@@ -1174,15 +1170,15 @@ export default function ProfileScreen() {
             </View>
           </View>
           <NotificationBell
-            color={isCleaner ? C.secondary : C.primary}
+            color={PColor.accent}
           />
         </View>
 
         <Animated.View
           key={isCleaner ? "cleaner" : "client"}
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(150)}
-          layout={Layout.duration(300)}
+          entering={FadeIn.duration(reducedMotion ? 0 : 300)}
+          exiting={FadeOut.duration(reducedMotion ? 0 : 150)}
+          layout={Layout.duration(reducedMotion ? 0 : 300)}
         >
           {isCleaner ? (
             <CleanerView
@@ -1262,24 +1258,24 @@ export default function ProfileScreen() {
         <View
           style={{
             flex: 1,
-            backgroundColor: "#022420",
+            backgroundColor: C.primary,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
           <LottieView
             source={require("../../assets/lottie/cleaning.json")}
-            autoPlay
-            loop
+            autoPlay={!reducedMotion}
+            loop={!reducedMotion}
             speed={1}
             style={{ width: 280, height: 280 }}
           />
           <Animated.Text
-            entering={FadeIn.delay(400).duration(600)}
+            entering={FadeIn.delay(reducedMotion ? 0 : 400).duration(reducedMotion ? 0 : 600)}
             style={{
               fontSize: 28,
               fontWeight: "800",
-              color: "#ffffff",
+              color: PColor.white,
               marginTop: 16,
               letterSpacing: -0.5,
             }}
@@ -1287,7 +1283,7 @@ export default function ProfileScreen() {
             A presto! 👋
           </Animated.Text>
           <Animated.Text
-            entering={FadeIn.delay(800).duration(600)}
+            entering={FadeIn.delay(reducedMotion ? 0 : 800).duration(reducedMotion ? 0 : 600)}
             style={{
               fontSize: 15,
               color: "rgba(255,255,255,0.6)",
@@ -1319,7 +1315,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
   },
@@ -1334,7 +1330,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topBarName: {
-    fontFamily: "NotoSerif_700Bold",
     fontSize: 22,
     fontWeight: "700",
     color: C.primary,
@@ -1346,7 +1341,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: C.surfaceLow,
     borderWidth: 1,
-    borderColor: `${C.outlineVariant}26`,
+    borderColor: PBorder.subtle,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1358,28 +1353,24 @@ const styles = StyleSheet.create({
   topBarBrand: {
     fontSize: 20,
     fontWeight: "700",
-    fontStyle: "italic",
-    color: "#181c1c",
+    color: PColor.ink,
     letterSpacing: -0.3,
   },
   bellWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
 
   // ── Profile hero ──────────────────────────────────────────────────────────────
   heroSection: {
     alignItems: "center",
-    paddingTop: 19,
+    paddingTop: 24,
     paddingBottom: 6,
     paddingHorizontal: 24,
   },
@@ -1389,40 +1380,34 @@ const styles = StyleSheet.create({
   },
   // Square avatar: w-22 h-22 rounded-lg
   avatarSquare: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     width: 88,
     height: 88,
     borderRadius: 12,
-    backgroundColor: "#6f4627",
+    backgroundColor: PColor.mintPale,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
   },
   avatarInitials: {
     fontSize: 29,
     fontWeight: "800",
-    color: "#ffffff",
+    color: PColor.white,
     letterSpacing: 1,
   },
   // Edit badge: bottom-right, white circle with camera icon
   editBadge: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     position: "absolute",
     bottom: -4,
     right: -4,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: PColor.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#022420",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
   },
   // name: font-headline text-2xl bold
   heroNameRow: {
@@ -1432,8 +1417,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroName: {
-    fontFamily: "NotoSerif_700Bold",
-    fontSize: 23,
+    fontSize: 24,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.4,
@@ -1443,7 +1427,7 @@ const styles = StyleSheet.create({
   heroRole: {
     fontSize: 12,
     fontWeight: "600",
-    color: C.onSurfaceVariant,
+    color: PColor.body2,
     textTransform: "uppercase",
     letterSpacing: 1.2,
     marginBottom: 8,
@@ -1455,18 +1439,15 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   menuCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     backgroundColor: C.surface,
     borderRadius: 16,
     overflow: "hidden",
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
   menuDivider: {
     height: 1,
-    backgroundColor: `${C.outlineVariant}26`,
+    backgroundColor: PBorder.subtle,
     marginLeft: 72,
   },
   menuRow: {
@@ -1481,17 +1462,14 @@ const styles = StyleSheet.create({
   },
   // Card-style variant: ogni row è una card bianca indipendente
   menuRowCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: C.surface,
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 20,
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   menuRowCardPressed: {
     backgroundColor: C.surfaceLow,
@@ -1530,19 +1508,16 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: 15,
     fontWeight: "600",
-    color: C.error,
+    color: PColor.body,
   },
 
   // ── Listing card (cleaner) ────────────────────────────────────────────────────
   listingCardContainer: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     backgroundColor: C.surface,
     borderRadius: 24,
     overflow: "hidden",
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
   },
   listingBanner: {
     width: "100%",
@@ -1560,10 +1535,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.15)",
   },
   listingOverlayText: {
-    fontFamily: "NotoSerif_700Bold",
     fontSize: 34,
     fontWeight: "700",
-    color: "#ffffff",
+    color: PColor.white,
     lineHeight: 40,
     letterSpacing: -0.5,
   },
@@ -1624,9 +1598,9 @@ const styles = StyleSheet.create({
   versionText: {
     textAlign: "center",
     fontSize: 11,
-    color: `${C.outline}99`,
+    color: PColor.muted,
     letterSpacing: 0.3,
-    marginTop: 28,
+    marginTop: 8,
   },
 });
 
@@ -1637,7 +1611,7 @@ const clientStyles = StyleSheet.create({
   // ── Hero ────────────────────────────────────────────────────────────────────
   heroSection: {
     alignItems: "center",
-    paddingTop: 22,
+    paddingTop: 24,
     paddingBottom: 6,
     paddingHorizontal: 24,
   },
@@ -1647,40 +1621,34 @@ const clientStyles = StyleSheet.create({
   },
   // 88x88, rounded-lg (12px), bg surface-container-low
   avatarSquare: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     width: 88,
     height: 88,
     borderRadius: 12,
     backgroundColor: C.surfaceLow,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 4,
   },
   avatarInitials: {
     fontSize: 29,
     fontWeight: "800",
-    color: "#ffffff",
+    color: PColor.white,
     letterSpacing: 1,
   },
   // edit badge: bottom-right, white circle with camera icon
   editBadge: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
     position: "absolute",
     bottom: -4,
     right: -4,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: PColor.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#022420",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
   },
   // name row: flex row for name + verified badge
   heroNameRow: {
@@ -1691,8 +1659,7 @@ const clientStyles = StyleSheet.create({
   },
   // name: 25px bold, primary dark green
   heroName: {
-    fontFamily: "NotoSerif_700Bold",
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: "700",
     color: C.primary,
     letterSpacing: -0.5,
@@ -1702,9 +1669,9 @@ const clientStyles = StyleSheet.create({
   heroRole: {
     fontSize: 12,
     fontWeight: "600",
-    color: C.onSurfaceVariant,
+    color: PColor.body2,
     textTransform: "uppercase",
-    letterSpacing: 2,
+    letterSpacing: 1.2,
     marginBottom: 8,
   },
 
@@ -1724,13 +1691,13 @@ const clientStyles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     borderTopWidth: 1,
-    borderTopColor: `${C.outlineVariant}40`,
-    backgroundColor: `${C.error}08`,
+    borderTopColor: PBorder.subtle,
+    backgroundColor: PColor.canvas2,
   },
   signOutText: {
     fontSize: 15,
     fontWeight: "600",
-    color: C.error,
+    color: PColor.body,
   },
 });
 
@@ -1746,8 +1713,7 @@ const payoutStyles = StyleSheet.create({
 const dangerStyles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
-    marginTop: 28,
-    gap: 12,
+    marginTop: 0,
   },
   sectionLabel: {
     fontSize: 11,
@@ -1769,8 +1735,10 @@ const compactToggleStyles = StyleSheet.create({
     paddingHorizontal: 16,
     marginHorizontal: 20,
     marginTop: 16,
-    backgroundColor: C.surfaceLow,
-    borderRadius: 14,
+    backgroundColor: PColor.white,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PBorder.subtle,
   },
   label: {
     fontSize: 14,
@@ -1782,7 +1750,7 @@ const compactToggleStyles = StyleSheet.create({
 // ─── Section headers (menu hierarchy) ─────────────────────────────────────────
 const sectionStyles = StyleSheet.create({
   container: {
-    marginTop: 8,
+    marginTop: 24,
   },
   header: {
     paddingHorizontal: 24,
@@ -1792,6 +1760,6 @@ const sectionStyles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
     textTransform: "uppercase",
-    color: "#64748b",
+    color: PColor.body2,
   },
 });

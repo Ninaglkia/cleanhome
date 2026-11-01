@@ -22,7 +22,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
-  withSequence,
   withTiming,
   withSpring,
   withDelay,
@@ -205,48 +204,14 @@ function FaqModal({ visible, onClose }: { visible: boolean; onClose: () => void 
   );
 }
 
-// ─── Shield Glow Hero ────────────────────────────────────────────────────────
+// ─── Verification hero ───────────────────────────────────────────────────────
 
 function ShieldHero() {
-  const pulse = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.5);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.06, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1.0, { duration: 2200, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      false
-    );
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.4, { duration: 2200, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  const shieldStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
   return (
     <View style={styles.heroIconContainer}>
-      {/* Glow rings */}
-      <Animated.View style={[styles.glowRing, styles.glowRingOuter, glowStyle]} />
-      <Animated.View style={[styles.glowRing, styles.glowRingMid, glowStyle]} />
-      {/* Shield */}
-      <Animated.View style={[styles.shieldInner, shieldStyle]}>
-        <Ionicons name="shield-checkmark" size={48} color={Colors.secondary} />
-      </Animated.View>
+      <View style={styles.shieldInner}>
+        <Ionicons name="shield-checkmark-outline" size={36} color={Colors.secondary} />
+      </View>
     </View>
   );
 }
@@ -290,7 +255,7 @@ function PremiumCta({
   label,
   onPress,
   isLoading,
-  iconName = "shield-checkmark",
+  iconName = "shield-checkmark-outline",
   variant = "primary",
 }: PremiumCtaProps) {
   const scale = useSharedValue(1);
@@ -315,14 +280,13 @@ function PremiumCta({
   };
 
   const bgColor = variant === "warning" ? Colors.warning : Colors.secondary;
-  const shadowColor = variant === "warning" ? Colors.warning : Colors.secondary;
 
   return (
     <Animated.View style={[styles.ctaWrapper, animatedStyle]}>
       <View
         style={[
           styles.ctaInner,
-          { backgroundColor: bgColor, shadowColor },
+          { backgroundColor: bgColor },
           isLoading && styles.ctaDisabled,
         ]}
       >
@@ -437,7 +401,7 @@ function VerifiedCard({ verifiedAt }: { verifiedAt: string | null }) {
   return (
     <Animated.View style={[styles.verifiedCard, cardStyle]}>
       <Animated.View style={[styles.verifiedIconWrap, checkStyle]}>
-        <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
+        <Ionicons name="checkmark-circle-outline" size={56} color={Colors.success} />
       </Animated.View>
       <Text style={styles.verifiedTitle}>Identità verificata</Text>
       {verifiedAt ? (
@@ -560,7 +524,7 @@ function RequiresInputCard({ lastError, onRetry, isLoading }: RequiresInputCardP
       style={styles.requiresCard}
     >
       <View style={styles.requiresIconWrap}>
-        <Ionicons name="alert-circle" size={44} color={Colors.warning} />
+        <Ionicons name="alert-circle-outline" size={44} color={Colors.warning} />
       </View>
       <Text style={styles.requiresTitle}>Quasi ci siamo</Text>
       <Text style={styles.requiresSub}>
@@ -635,7 +599,7 @@ function WelcomeContent({
           label="Inizia verifica"
           onPress={onStart}
           isLoading={isLoading}
-          iconName="shield-checkmark"
+          iconName="shield-checkmark-outline"
           variant="primary"
         />
       </Animated.View>
@@ -769,7 +733,7 @@ export default function DocumentsScreen() {
           style={styles.errorBlock}
         >
           <View style={styles.errorIconWrap}>
-            <Ionicons name="alert-circle" size={40} color={Colors.error} />
+            <Ionicons name="alert-circle-outline" size={40} color={Colors.error} />
           </View>
           <Text style={styles.errorTitle}>Qualcosa è andato storto</Text>
           <Text style={styles.errorText}>{error.message}</Text>
@@ -826,10 +790,10 @@ export default function DocumentsScreen() {
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Verifica identità</Text>
-        <View style={{ width: 38 }} />
+        <View style={{ width: 44 }} />
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -841,7 +805,7 @@ export default function DocumentsScreen() {
             entering={FadeIn.delay(500).duration(400)}
             style={styles.footer}
           >
-            <Ionicons name="lock-closed" size={10} color={Colors.textTertiary} />
+            <Ionicons name="lock-closed-outline" size={10} color={Colors.textTertiary} />
             <Text style={styles.footerText}>Powered by Stripe · GDPR compliant</Text>
           </Animated.View>
         )}
@@ -867,8 +831,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.borderLight,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: Radius.md,
     backgroundColor: Colors.backgroundAlt,
     alignItems: "center",
@@ -946,58 +910,39 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   heroIconContainer: {
-    width: 120,
-    height: 120,
+    width: 88,
+    height: 88,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
   },
-  glowRing: {
-    position: "absolute",
-    borderRadius: 9999,
-    backgroundColor: Colors.accentLight,
-  },
-  glowRingOuter: {
-    width: 120,
-    height: 120,
-    opacity: 0.6,
-  },
-  glowRingMid: {
-    width: 88,
-    height: 88,
-    backgroundColor: Colors.accentLight,
-    opacity: 0.9,
-  },
   shieldInner: {
     width: 72,
     height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
-    ...Shadows.md,
   },
   heroTextGroup: {
     alignItems: "center",
     gap: 0,
   },
   heroTitleLine1: {
-    fontSize: 38,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "700",
     color: Colors.primary,
     textAlign: "center",
-    letterSpacing: -1.5,
-    lineHeight: 42,
-    fontFamily: "NotoSerif_700Bold",
+    letterSpacing: -0.6,
+    lineHeight: 34,
   },
   heroTitleLine2: {
-    fontSize: 38,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "700",
     color: Colors.secondary,
     textAlign: "center",
-    letterSpacing: -1.5,
-    lineHeight: 44,
-    fontFamily: "NotoSerif_700Bold",
+    letterSpacing: -0.6,
+    lineHeight: 34,
   },
   heroSub: {
     fontSize: 15,
@@ -1077,11 +1022,11 @@ const styles = StyleSheet.create({
   ctaWrapper: { alignSelf: "stretch" },
   ctaInner: {
     borderRadius: Radius.lg,
-    height: 60,
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    height: 52,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
@@ -1135,7 +1080,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: "center",
     letterSpacing: -0.5,
-    fontFamily: "NotoSerif_700Bold",
   },
   verifiedDateRow: {
     flexDirection: "row",
@@ -1213,7 +1157,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: "center",
     letterSpacing: -0.4,
-    fontFamily: "NotoSerif_700Bold",
   },
   processingRotMsg: {
     fontSize: 14,
@@ -1285,7 +1228,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: "center",
     letterSpacing: -0.4,
-    fontFamily: "NotoSerif_700Bold",
   },
   requiresSub: {
     fontSize: 14,
@@ -1350,7 +1292,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.primary,
     letterSpacing: -0.4,
-    fontFamily: "NotoSerif_700Bold",
     marginBottom: Spacing.xs,
   },
   faqAccordion: {
