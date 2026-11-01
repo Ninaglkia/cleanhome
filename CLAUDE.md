@@ -177,7 +177,8 @@ supabase/             functions/ (Edge), migrations/
 - [x] Debug logs safe — all 4 remaining `console.log` (2 in `lib/realtime-tracking.ts`, 1 in `app/listings/index.tsx`, 1 in `lib/friendlyPaymentError.ts`) are `__DEV__`-guarded
 
 **Still open — confirmed missing:**
-- [ ] **Loading state on "Paga" (prevent double tap)** — `app/booking/new.tsx:1604` only has `disabled={!canProceed()}`, which is a *validation* guard. No submitting state → double tap is possible. **Highest risk item: it can double-charge.**
+- [x] **Loading state on "Paga" (prevent double tap)** — DONE 2026-11-02: synchronous `lib/singleFlight.ts` lock + `paymentDone` keeps CTA disabled after success. Server-side Idempotency-Key still open (needs edge deploy).
+  - (old note) — `app/booking/new.tsx:1604` only has `disabled={!canProceed()}`, which is a *validation* guard. No submitting state → double tap is possible. **Highest risk item: it can double-charge.**
 - [ ] **Payment success screen + "Torna home"** — today it's `Alert.alert` → `router.replace("/(tabs)/bookings")` (`new.tsx:765-780`). Route `app/booking/[id]/waiting.tsx` exists and is used at `new.tsx:772`.
 - [ ] **8 hardcoded hex colors in checkout** — violates §4 "never hardcoded colors". Lines in `app/booking/new.tsx`: 942 `#d7fff1`, 1403 `#f59e0b`, 1521 `#fef3c7`, 1530 + 1535 `#b45309`, 1539 `#92400e`, 1577 `#dc2626`, 1578 `#9a6c00`. Move to `lib/theme.ts` / `PColor`.
 
@@ -219,6 +220,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — checkout "Paga" can no longer start two payments: synchronous single-flight lock (`lib/singleFlight.ts`, 3 tests) around `handleSubmit`, CTA stays disabled after a successful PaymentSheet. tsc 0, jest 38/38.
 - **2026-11-02** — city search now shows a tappable local municipality dropdown while typing; selection recenters the map, with keyboard/clear/submit handling and stale-result guards. Added attributed municipality data and search tests; all35 tests pass.
 - **2026-11-02** — fixed profile statistic label fitting and reduced the remaining role-toggle halo; color reveal and gesture behavior unchanged.
 - **2026-11-02** — completed remaining icon/typography/CTA presentation pass on notifications, property/listing forms, onboarding, phone verification and public cleaner profiles; native Casa icon built and installed on iPhone16Pro simulator, Home icon visually verified.

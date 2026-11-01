@@ -30,6 +30,7 @@ import {
 import type { ClientProperty, ListingSearchResult } from "../../lib/types";
 import { Button } from "../../components/ui/Button";
 import { friendlyPaymentError } from "../../lib/friendlyPaymentError";
+import { createSingleFlight } from "../../lib/singleFlight";
 import { Image as ExpoImage } from "expo-image";
 import { thumbUrl } from "../../lib/thumbUrl";
 
@@ -358,6 +359,10 @@ export default function NewBookingScreen() {
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  // Synchronous lock: blocks a second payment start even before `loading` re-renders.
+  const [payFlight] = useState(createSingleFlight);
+  // Once the PaymentSheet succeeded, the CTA stays disabled for this screen's life.
+  const [paymentDone, setPaymentDone] = useState(false);
   const [step, setStep] = useState(0);
 
   // Dispatch multi-cleaner state
@@ -755,6 +760,7 @@ export default function NewBookingScreen() {
       }
 
       // 3) Payment succeeded
+      setPaymentDone(true);
       const bookingId = payload.booking_id;
       const paymentIntentId = payload.paymentIntentId;
 
@@ -796,15 +802,15 @@ export default function NewBookingScreen() {
 
   const handleContinue = useCallback(() => {
     // Prevent double-tap during any async operation
-    if (loading) return;
+    if (loading || paymentDone || payFlight.isBusy()) return;
     // 4 steps in dispatch flow (no preselected cleaner), 3 otherwise.
     const stepsCount = !cleanerId ? 4 : 3;
     if (step < stepsCount - 1) {
       setStep((s) => s + 1);
     } else {
-      handleSubmit();
+      void payFlight.run(handleSubmit);
     }
-  }, [step, cleanerId, handleSubmit, loading]);
+  }, [step, cleanerId, handleSubmit, loading, paymentDone, payFlight]);
 
   // ── Step 0: Date & Time ───────────────────────────────────────────────────────
   const renderDateStep = () => (
@@ -1601,7 +1607,7 @@ export default function NewBookingScreen() {
             label={ctaLabel}
             onPress={handleContinue}
             loading={loading}
-            disabled={!canProceed()}
+            disabled={!canProceed() || paymentDone}
             size="lg"
             variant="primary"
             icon={step === totalDisplaySteps - 1 ? "card-outline" : "arrow-forward"}
