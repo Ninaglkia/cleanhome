@@ -31,9 +31,8 @@ import {
   estimateEtaMinutes,
   TrackingCoords,
 } from "../../../lib/realtime-tracking";
-import { subscribeToBooking } from "../../../lib/api";
+import { fetchBooking, fetchProfile, subscribeToBooking } from "../../../lib/api";
 import { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase } from "../../../lib/supabase";
 import { Colors } from "../../../lib/theme";
 
 interface BookingTrackingData {
@@ -79,33 +78,21 @@ export default function LiveBookingTracking() {
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     (async () => {
       try {
-        const { data, error: dbError } = await supabase
-          .from("bookings")
-          .select(
-            `
-            id, cleaner_id, address, status, search_lat, search_lng,
-            cleaner_profiles!bookings_cleaner_id_fkey (
-              id,
-              profiles:id ( full_name, avatar_url )
-            )
-          `
-          )
-          .eq("id", bookingId)
-          .maybeSingle();
-
+        const data = await fetchBooking(bookingId);
         if (cancelled) return;
-        if (dbError) throw dbError;
         if (!data) throw new Error("Prenotazione non trovata");
 
-        const profile = (data as any).cleaner_profiles?.profiles;
-        // Schema uses search_lat / search_lng — there is no latitude /
-        // longitude column on bookings. Falling back to Milan was wrong
-        // for every booking; pull the real coords here.
-        const lat = (data as any).search_lat as number | null;
-        const lng = (data as any).search_lng as number | null;
+        // Reuse the detail-screen reads without depending on a
+        // cleaner_profiles relationship in the Data API schema.
+        const profile = data.cleaner_id ? await fetchProfile(data.cleaner_id) : null;
+        if (cancelled) return;
+        const lat = data.search_lat;
+        const lng = data.search_lng;
         setBooking({
           id: data.id,
           cleaner_id: data.cleaner_id,
@@ -116,8 +103,8 @@ export default function LiveBookingTracking() {
           cleaner_avatar_url: profile?.avatar_url,
           status: data.status,
         });
-      } catch (err: any) {
-        if (!cancelled) setError(err.message ?? "Errore nel caricamento");
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Errore nel caricamento");
       } finally {
         if (!cancelled) setLoading(false);
       }
