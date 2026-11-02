@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
-  TouchableOpacity,
   ActivityIndicator,
+  Platform,
+  useWindowDimensions,
+  type LayoutChangeEvent,
 } from "react-native";
 import MapView, {
   Marker,
@@ -13,18 +15,13 @@ import MapView, {
   Region,
   PROVIDER_DEFAULT,
 } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  cancelAnimation,
-  Easing,
-} from "react-native-reanimated";
+import { useReducedMotion } from "react-native-reanimated";
+import { Pressable } from "../../../components/ui/AppPressable";
+import { CleanerMarkerIcon } from "../../../components/tracking/CleanerMarkerIcon";
+import { TrackingArrivalCard } from "../../../components/tracking/TrackingArrivalCard";
 import {
   subscribeToLocation,
   haversineKm,
@@ -33,7 +30,7 @@ import {
 } from "../../../lib/realtime-tracking";
 import { fetchBooking, fetchProfile, subscribeToBooking } from "../../../lib/api";
 import { RealtimeChannel } from "@supabase/supabase-js";
-import { Colors } from "../../../lib/theme";
+import { Colors, Shadows } from "../../../lib/theme";
 
 interface BookingTrackingData {
   id: string;
@@ -50,6 +47,9 @@ export default function LiveBookingTracking() {
   const { id: bookingId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
 
   const [booking, setBooking] = useState<BookingTrackingData | null>(null);
   const [cleanerPos, setCleanerPos] = useState<TrackingCoords | null>(null);
@@ -57,29 +57,20 @@ export default function LiveBookingTracking() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [terminalStatus, setTerminalStatus] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [following, setFollowing] = useState(true);
+  const [cardHeight, setCardHeight] = useState(280);
+  const [reloadKey, setReloadKey] = useState(0);
   const locationChannelRef = useRef<RealtimeChannel | null>(null);
-
-  const pulse = useSharedValue(1);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.4, { duration: 1000, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.in(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-    return () => {
-      cancelAnimation(pulse);
-    };
-  }, [pulse]);
+  const hasFramedMap = useRef(false);
 
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setMapReady(false);
+    hasFramedMap.current = false;
 
     (async () => {
       try {
@@ -113,10 +104,14 @@ export default function LiveBookingTracking() {
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [bookingId, reloadKey]);
 
   useEffect(() => {
     if (!bookingId) return;
+    setCleanerPos(null);
+    setRoutePoints([]);
+    setTerminalStatus(null);
+    setFollowing(true);
     const channel = subscribeToLocation(bookingId, (coords) => {
       setCleanerPos(coords);
       setRoutePoints((prev) => {
@@ -152,30 +147,15 @@ export default function LiveBookingTracking() {
     };
   }, [bookingId]);
 
-  useEffect(() => {
-    if (cleanerPos && mapRef.current) {
-      mapRef.current.animateCamera(
-        {
-          center: {
-            latitude: cleanerPos.latitude,
-            longitude: cleanerPos.longitude,
-          },
-          zoom: 15,
-        },
-        { duration: 700 }
-      );
-    }
-  }, [cleanerPos]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-    opacity: 2 - pulse.value,
-  }));
-
-  const clientHouse =
-    booking?.latitude && booking?.longitude
-      ? { latitude: booking.latitude, longitude: booking.longitude }
-      : null;
+  const clientHouse = useMemo(() => {
+    if (
+      booking?.latitude == null ||
+      booking.longitude == null ||
+      !Number.isFinite(booking.latitude) ||
+      !Number.isFinite(booking.longitude)
+    ) return null;
+    return { latitude: booking.latitude, longitude: booking.longitude };
+  }, [booking?.latitude, booking?.longitude]);
 
   const distanceKm = cleanerPos && clientHouse
     ? haversineKm(cleanerPos, clientHouse)
@@ -186,423 +166,255 @@ export default function LiveBookingTracking() {
     ? {
         latitude: clientHouse.latitude,
         longitude: clientHouse.longitude,
-        latitudeDelta: 0.03,
-        longitudeDelta: 0.03,
+        latitudeDelta: 0.018,
+        longitudeDelta: 0.018,
       }
     : null;
 
-  const cleanerInitial = (booking?.cleaner_name ?? "?")
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const frameRoute = useCallback((animated: boolean) => {
+    if (!mapReady || !mapRef.current || !clientHouse) return;
+    const edgePadding = {
+      top: insets.top + 112,
+      right: 52,
+      bottom: Math.min(cardHeight + insets.bottom + 44, windowHeight * 0.62),
+      left: 52,
+    };
+    if (cleanerPos && haversineKm(cleanerPos, clientHouse) > 0.025) {
+      mapRef.current.fitToCoordinates(
+        [clientHouse, { latitude: cleanerPos.latitude, longitude: cleanerPos.longitude }],
+        { edgePadding, animated: animated && !reducedMotion },
+      );
+    } else {
+      mapRef.current.animateToRegion({
+        ...clientHouse,
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      }, animated && !reducedMotion ? 300 : 0);
+    }
+  }, [mapReady, clientHouse, cleanerPos, insets.top, insets.bottom, cardHeight, windowHeight, reducedMotion]);
 
-  if (loading) {
+  useEffect(() => {
+    if (!following || !mapReady) return;
+    frameRoute(hasFramedMap.current);
+    hasFramedMap.current = true;
+  }, [following, mapReady, frameRoute]);
+
+  const measureCard = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setCardHeight((height) => Math.abs(height - nextHeight) > 1 ? nextHeight : height);
+  }, []);
+
+  const openDetails = () => router.replace(`/booking/${bookingId}` as never);
+  const cleanerName = booking?.cleaner_name?.trim() || "Il tuo professionista";
+
+  const endedStatus = terminalStatus ?? (
+    booking && ["work_done", "completed", "cancelled"].includes(booking.status)
+      ? booking.status
+      : null
+  );
+
+  if (loading || error || endedStatus || !clientHouse || !initialRegion) {
+    const cancelled = endedStatus === "cancelled";
+    const title = loading
+      ? "Prepariamo il tuo percorso"
+      : error
+        ? "Tracciamento non disponibile"
+        : endedStatus
+          ? cancelled ? "Prenotazione annullata" : "Servizio terminato"
+          : "Indirizzo non disponibile";
+    const message = loading
+      ? "Carichiamo l’appuntamento e la posizione della tua casa."
+      : error
+        ? "Non riusciamo a caricare il tuo appuntamento. Controlla la connessione e riprova."
+        : endedStatus
+          ? cancelled
+            ? "Questo appuntamento è stato annullato. Puoi rivederlo dalle tue prenotazioni."
+            : "Puoi vedere gli aggiornamenti del servizio nei dettagli della prenotazione."
+          : "Per questo appuntamento non è stata salvata una posizione sulla mappa.";
     return (
-      <View style={[styles.root, styles.center]}>
-        <SafeAreaView edges={["top"]} style={styles.topBar}>
-          <TouchableOpacity
+      <View className="flex-1 bg-ch-background">
+        <StatusBar barStyle="dark-content" />
+        <View className="flex-row items-center gap-3 px-4" style={{ paddingTop: insets.top + 12 }}>
+          <Pressable
             onPress={() => router.back()}
-            style={styles.backBtn}
-            activeOpacity={0.7}
-            accessibilityLabel="Torna indietro"
+            className="h-12 w-12 items-center justify-center rounded-full bg-ch-surface-lowest"
+            style={Shadows.sm}
             accessibilityRole="button"
+            accessibilityLabel="Torna indietro"
           >
-            <Ionicons name="chevron-back" size={22} color={Colors.text} />
-          </TouchableOpacity>
-          <View style={styles.topBarTitle}>
-            <Text style={styles.topBarTitleText}>Caricamento...</Text>
+            <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+          </Pressable>
+          <Text className="flex-1 text-base font-semibold text-ch-primary">Il tuo appuntamento</Text>
+        </View>
+        <View className="flex-1 items-center justify-center gap-5 px-8 pb-12">
+          <View className="h-28 w-28 items-center justify-center rounded-[32px] bg-ch-secondary-container">
+            {endedStatus ? (
+              <Ionicons
+                name={cancelled ? "close-outline" : "checkmark-outline"}
+                size={52}
+                color={cancelled ? Colors.error : Colors.secondary}
+              />
+            ) : (
+              <CleanerMarkerIcon size={72} color={Colors.primary} accentColor={Colors.secondary} />
+            )}
           </View>
-          <View style={{ width: 40 }} />
-        </SafeAreaView>
-        <ActivityIndicator size="large" color={Colors.secondary} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.root, styles.center]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.resetBtn} onPress={() => router.back()}>
-          <Text style={styles.resetBtnText}>Torna indietro</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (terminalStatus) {
-    const isCancelled = terminalStatus === "cancelled";
-    return (
-      <View style={[styles.root, styles.center]}>
-        <Ionicons
-          name={isCancelled ? "close-circle" : "checkmark-circle"}
-          size={64}
-          color={isCancelled ? "#b00020" : Colors.secondary}
-        />
-        <Text style={styles.terminalTitle}>
-          {isCancelled
-            ? "Prenotazione annullata"
-            : "Il professionista è arrivato"}
-        </Text>
-        <Text style={styles.terminalSub}>
-          {isCancelled
-            ? "Questa prenotazione è stata annullata."
-            : "Il servizio è in corso. Puoi seguirne lo stato e confermarlo dai dettagli della prenotazione."}
-        </Text>
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={() => router.replace("/(tabs)/bookings")}
-        >
-          <Text style={styles.resetBtnText}>Vai alle prenotazioni</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!clientHouse || !initialRegion) {
-    return (
-      <View style={[styles.root, styles.center]}>
-        <Text style={styles.errorText}>
-          Indirizzo non disponibile per questa prenotazione.
-        </Text>
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={() => router.replace("/(tabs)/bookings")}
-        >
-          <Text style={styles.resetBtnText}>Torna alla prenotazione</Text>
-        </TouchableOpacity>
+          <Text className="text-center text-2xl font-bold text-ch-primary">{title}</Text>
+          <Text className="text-center text-base leading-6 text-ch-on-surface-variant">{message}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.secondary} accessibilityLabel="Caricamento appuntamento" />
+          ) : (
+            <View className="w-full gap-3">
+              <Pressable
+                onPress={error ? () => setReloadKey((key) => key + 1) : openDetails}
+                className="min-h-12 items-center justify-center rounded-2xl bg-ch-primary px-5 py-3"
+                accessibilityRole="button"
+                accessibilityLabel={error ? "Riprova caricamento tracking" : "Apri dettagli prenotazione"}
+              >
+                <Text className="text-base font-semibold" style={{ color: Colors.textOnDark }}>
+                  {error ? "Riprova" : "Dettagli prenotazione"}
+                </Text>
+              </Pressable>
+              {error && (
+                <Pressable
+                  onPress={openDetails}
+                  className="min-h-12 items-center justify-center px-4 py-3"
+                  accessibilityRole="button"
+                >
+                  <Text className="text-sm font-semibold text-ch-primary">Torna alla prenotazione</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View className="flex-1 bg-ch-background">
       <StatusBar barStyle="dark-content" />
-
       <MapView
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
+        mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
         showsCompass={false}
         showsMyLocationButton={false}
+        showsPointsOfInterests={false}
         toolbarEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        onMapReady={() => setMapReady(true)}
+        onPanDrag={() => { if (following) setFollowing(false); }}
+        legalLabelInsets={{ top: 0, left: 8, right: 8, bottom: cardHeight + insets.bottom + 24 }}
       >
-        <Marker coordinate={clientHouse} anchor={{ x: 0.5, y: 1 }}>
-          <View style={styles.houseMarker}>
-            <View style={styles.houseBubble}>
-              <Ionicons name="home" size={20} color={Colors.textOnDark} />
+        <Marker
+          coordinate={clientHouse}
+          anchor={{ x: 0.5, y: 0.35 }}
+          title="La tua casa"
+          description={booking?.address}
+        >
+          <View className="h-20 w-24 items-center">
+            <View
+              className="h-14 w-14 items-center justify-center rounded-full border-2 border-ch-primary bg-ch-surface-lowest"
+              style={Shadows.sm}
+            >
+              <Ionicons name="home-outline" size={25} color={Colors.primary} />
             </View>
-            <View style={styles.houseTail} />
+            <View className="mt-1 rounded-full bg-ch-surface-lowest px-2 py-1">
+              <Text className="text-[10px] font-semibold text-ch-primary">La tua casa</Text>
+            </View>
           </View>
         </Marker>
-
         {cleanerPos && (
           <Marker
-            coordinate={{
-              latitude: cleanerPos.latitude,
-              longitude: cleanerPos.longitude,
-            }}
+            coordinate={{ latitude: cleanerPos.latitude, longitude: cleanerPos.longitude }}
             anchor={{ x: 0.5, y: 0.5 }}
-            rotation={cleanerPos.heading ?? 0}
+            title={cleanerName}
+            description="Posizione del professionista"
+            zIndex={2}
           >
-            <View style={styles.cleanerMarker}>
-              <Animated.View style={[styles.cleanerPulse, pulseStyle]} />
-              <View style={styles.cleanerDot}>
-                <Ionicons name="car" size={14} color={Colors.textOnDark} />
+            <View className="h-[88px] w-[88px] items-center justify-center">
+              <View className="absolute h-20 w-20 rounded-full bg-ch-secondary-container" />
+              <View
+                className="h-16 w-16 items-center justify-center rounded-full border-[3px] border-ch-surface-lowest bg-ch-primary"
+                style={Shadows.md}
+              >
+                <CleanerMarkerIcon size={44} />
               </View>
             </View>
           </Marker>
         )}
-
         {routePoints.length > 1 && (
           <Polyline
-            coordinates={routePoints.map((p) => ({
-              latitude: p.latitude,
-              longitude: p.longitude,
-            }))}
+            coordinates={routePoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))}
             strokeColor={Colors.secondary}
             strokeWidth={4}
+            lineCap="round"
+            lineJoin="round"
           />
         )}
       </MapView>
 
-      <SafeAreaView edges={["top"]} style={styles.topBar}>
-        <TouchableOpacity
+      <View
+        pointerEvents="box-none"
+        className="absolute left-0 right-0 top-0 flex-row items-center gap-3 px-4"
+        style={{ paddingTop: insets.top + 12 }}
+      >
+        <Pressable
           onPress={() => router.back()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
+          className="h-12 w-12 items-center justify-center rounded-full bg-ch-surface-lowest"
+          style={Shadows.sm}
           accessibilityLabel="Torna indietro"
           accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={22} color={Colors.text} />
-        </TouchableOpacity>
-        <View style={styles.topBarTitle}>
-          <Text style={styles.topBarTitleText}>
-            {booking?.cleaner_name
-              ? `${booking.cleaner_name} sta arrivando`
-              : "Professionista in arrivo"}
-          </Text>
+          <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+        </Pressable>
+        <View className="flex-1 rounded-[22px] bg-ch-surface-lowest px-4 py-3" style={Shadows.sm}>
+          <Text className="text-base font-bold text-ch-primary">Il tuo appuntamento</Text>
+          <View className="mt-1 flex-row items-center gap-2">
+            <View className={`h-1.5 w-1.5 rounded-full ${cleanerPos ? "bg-ch-secondary" : "bg-ch-outline-variant"}`} />
+            <Text className="flex-1 text-xs text-ch-on-surface-variant">
+              {cleanerPos ? "Segui il professionista sulla mappa" : "Attendiamo la prima posizione"}
+            </Text>
+          </View>
         </View>
-        <View style={{ width: 40 }} />
-      </SafeAreaView>
+      </View>
 
-      <SafeAreaView edges={["bottom"]} style={styles.bottomCardWrap}>
-        <View style={styles.bottomCard}>
-          {!cleanerPos ? (
-            <View style={styles.waitingWrap}>
-              <ActivityIndicator size="small" color={Colors.secondary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.waitingTitle}>
-                  In attesa della posizione...
-                </Text>
-                <Text style={styles.waitingSub}>
-                  Il professionista condividerà la posizione quando parte
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <>
-              <View style={styles.etaRow}>
-                <View>
-                  <Text style={styles.etaLabel}>ARRIVO STIMATO</Text>
-                  <Text style={styles.etaValue}>
-                    {etaMinutes !== null ? `${etaMinutes} min` : "—"}
-                  </Text>
-                </View>
-                <View style={styles.distanceBadge}>
-                  <Ionicons name="location" size={14} color={Colors.secondary} />
-                  <Text style={styles.distanceText}>
-                    {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
-                  </Text>
-                </View>
-              </View>
+      <Pressable
+        onPress={() => following ? frameRoute(true) : setFollowing(true)}
+        className="absolute right-5 h-12 w-12 items-center justify-center rounded-2xl bg-ch-surface-lowest"
+        style={[Shadows.sm, { bottom: cardHeight + Math.max(insets.bottom, 12) + 16 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Centra pulitore e casa sulla mappa"
+        accessibilityState={{ selected: following }}
+      >
+        <Ionicons name={following ? "locate" : "locate-outline"} size={23} color={Colors.primary} />
+      </Pressable>
 
-              <View style={styles.cleanerRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{cleanerInitial}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cleanerName}>
-                    {booking?.cleaner_name ?? "Professionista"}
-                  </Text>
-                  <Text style={styles.ratingText}>
-                    In viaggio verso la tua casa
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.chatBtn}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/chat/[bookingId]",
-                      params: { bookingId: bookingId as string },
-                    })
-                  }
-                >
-                  <Ionicons name="chatbubble" size={18} color={Colors.secondary} />
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+      <View
+        pointerEvents="box-none"
+        className="absolute bottom-0 left-0 right-0 px-4"
+        style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+      >
+        <View onLayout={measureCard}>
+          <TrackingArrivalCard
+            cleanerName={cleanerName}
+            cleanerAvatarUrl={booking?.cleaner_avatar_url}
+            address={booking?.address ?? ""}
+            etaMinutes={etaMinutes}
+            distanceKm={distanceKm}
+            hasLocation={!!cleanerPos}
+            lastUpdatedAt={cleanerPos?.timestamp}
+            onChat={() => router.push({
+              pathname: "/chat/[bookingId]",
+              params: { bookingId: bookingId as string },
+            })}
+            onDetails={openDetails}
+          />
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f6faf9" },
-  center: { alignItems: "center", justifyContent: "center", gap: 16 },
-  errorText: { color: Colors.primary, fontSize: 15, textAlign: "center", padding: 24 },
-  terminalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: Colors.primary,
-    textAlign: "center",
-    marginTop: 4,
-  },
-  terminalSub: {
-    fontSize: 14,
-    color: "rgba(2,36,32,0.6)",
-    textAlign: "center",
-    paddingHorizontal: 32,
-    lineHeight: 20,
-  },
-  topBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  topBarTitle: { flex: 1, alignItems: "center" },
-  topBarTitleText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.primary,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  houseMarker: { alignItems: "center" },
-  houseBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: Colors.surface,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  houseTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 10,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: Colors.secondary,
-    marginTop: -2,
-  },
-  cleanerMarker: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 60,
-    height: 60,
-  },
-  cleanerPulse: {
-    position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(0, 107, 85, 0.25)",
-  },
-  cleanerDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: Colors.surface,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  bottomCardWrap: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  bottomCard: {
-    backgroundColor: Colors.surface,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-    gap: 16,
-  },
-  waitingWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  waitingTitle: { fontSize: 15, fontWeight: "700", color: Colors.primary },
-  waitingSub: {
-    fontSize: 12,
-    color: "rgba(2,36,32,0.6)",
-    marginTop: 2,
-  },
-  etaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  etaLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.5,
-    color: "rgba(2,36,32,0.5)",
-    marginBottom: 4,
-  },
-  etaValue: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: Colors.primary,
-    letterSpacing: -0.5,
-  },
-  distanceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#e8f5f1",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
-  },
-  distanceText: { fontSize: 13, fontWeight: "700", color: Colors.secondary },
-  cleanerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: Colors.textOnDark, fontSize: 18, fontWeight: "700" },
-  cleanerName: { fontSize: 16, fontWeight: "700", color: Colors.primary },
-  ratingText: { fontSize: 12, color: "rgba(2,36,32,0.6)", marginTop: 2 },
-  chatBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#e8f5f1",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  resetBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  resetBtnText: { color: Colors.textOnDark, fontSize: 15, fontWeight: "700" },
-});

@@ -220,6 +220,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — arrival tracking uses a walking cleaner with a spray bottle, a quieter map and a compact arrival/contact card; camera framing keeps cleaner and home visible, with manual recentering and reduced-motion support. Existing GPS channels and booking/payment transitions unchanged.
 - **2026-11-02** — arrival tracking now reuses the booking/profile reads from the detail screen, fixing the unsupported cleaner_profiles join that prevented the map from loading.
 - **2026-11-02** — accepted bookings now expose an owner-only “Segui in tempo reale” action in booking details, reopening the existing arrival map without changing booking or payment state.
 - **2026-11-02** — checkout has zero hardcoded colors: 13 hex literals in `app/booking/new.tsx` moved to theme tokens (+2 amber text tokens).
