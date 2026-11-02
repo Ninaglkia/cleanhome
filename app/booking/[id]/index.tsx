@@ -250,6 +250,20 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
+        {isClient && booking.status === "accepted" && booking.cleaner_id && !booking.work_done_at && (
+          <Pressable
+            onPress={() => router.push(`/booking/${booking.id}/tracking` as never)}
+            accessibilityRole="button"
+            accessibilityLabel="Segui in tempo reale"
+            accessibilityHint="Apri la mappa dell'arrivo del pulitore"
+            hitSlop={4}
+            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name="navigate-outline" size={20} color={Colors.textOnDark} />
+            <Text style={styles.primaryBtnText}>Segui in tempo reale</Text>
+          </Pressable>
+        )}
+
         {/* Escrow timeline */}
         <View style={styles.timelineCard}>
           <Text style={styles.cardTitle}>Stato del pagamento</Text>

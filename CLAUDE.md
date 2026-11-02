@@ -220,6 +220,7 @@ supabase/             functions/ (Edge), migrations/
 **Repo state, verified 2026-08-04:** branch `main`, working tree clean (0 uncommitted files), last commit `7e0f3d3` (2026-07-03). 50 migrations, 25 Edge Functions, 3 test suites (`cleanerFilter`, `pricing`, `validation`).
 
 **Shipped log:**
+- **2026-11-02** — accepted bookings now expose an owner-only “Segui in tempo reale” action in booking details, reopening the existing arrival map without changing booking or payment state.
 - **2026-11-02** — checkout has zero hardcoded colors: 13 hex literals in `app/booking/new.tsx` moved to theme tokens (+2 amber text tokens).
 - **2026-11-02** — checkout "Paga" can no longer start two payments: synchronous single-flight lock (`lib/singleFlight.ts`, 3 tests) around `handleSubmit`, CTA stays disabled after a successful PaymentSheet. tsc 0, jest 38/38.
 - **2026-11-02** — city search now shows a tappable local municipality dropdown while typing; selection recenters the map, with keyboard/clear/submit handling and stale-result guards. Added attributed municipality data and search tests; all35 tests pass.
